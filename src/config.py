@@ -38,6 +38,9 @@ class BaseConfig:
     # Decision sharpening (< 1 amplifies final output, undoes RLHF compression)
     decision_temperature: float = 0.5
 
+    # Inference (0 = auto-detect from free VRAM)
+    batch_size: int = 0
+
     # Experiment
     n_scenarios: int = 500
     seed: int = 42
@@ -140,6 +143,8 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
                         help="Decision sharpening temperature (< 1 amplifies)")
     parser.add_argument("--n-scenarios", type=int, default=500,
                         help="Number of scenarios per country")
+    parser.add_argument("--batch-size", type=int, default=0,
+                        help="Inference batch size (0 = auto-detect from free VRAM)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for reproducibility")
     parser.add_argument("--countries", nargs="+", default=None,
@@ -211,6 +216,8 @@ def config_from_args(args: argparse.Namespace, config_cls: type) -> BaseConfig:
         kwargs["decision_temperature"] = args.decision_temperature
     if args.n_scenarios is not None:
         kwargs["n_scenarios"] = args.n_scenarios
+    if getattr(args, "batch_size", None) is not None:
+        kwargs["batch_size"] = args.batch_size
     if args.seed is not None:
         kwargs["seed"] = args.seed
     if args.countries is not None:

@@ -65,20 +65,88 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         print(f"  >>> p(LEFT)={p_l:.3f}  p(RIGHT)={p_r:.3f}  |  p(spare_preferred)={p_spare:.3f}  [token-logit]")
         print()
 
-    results = []
-    for i in tqdm(range(len(rows_data)), desc=f"Vanilla [{country}]"):
-        row, full_ids, pref_right = rows_data[i]
-        p_spare = logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
-                                         temperature=cfg.decision_temperature)
+    pad_id = tokenizer.pad_token_id
+    if pad_id is None:
+        pad_id = tokenizer.eos_token_id
 
-        results.append({
-            "phenomenon_category": row.get("phenomenon_category", "Unknown"),
-            "this_group_name": row.get("this_group_name", "Unknown"),
-            "n_left": int(row.get("n_left", 1)),
-            "n_right": int(row.get("n_right", 1)),
-            "preferred_on_right": int(pref_right),
-            "p_spare_preferred": p_spare,
-        })
+    def _pad_batch(seqs):
+        lens = [s.size(0) for s in seqs]
+        max_len = max(lens)
+        ids = torch.full((len(seqs), max_len), pad_id,
+                         dtype=seqs[0].dtype, device=device)
+        attn = torch.zeros((len(seqs), max_len), dtype=torch.long, device=device)
+        for j, s in enumerate(seqs):
+            ids[j, max_len - lens[j]:] = s
+            attn[j, max_len - lens[j]:] = 1
+        return ids, attn
+
+    def _auto_batch_size():
+        """Empirically pick the largest batch that fits in 80% of free VRAM."""
+        if not torch.cuda.is_available():
+            return 8
+        # Sort by length descending so probe uses worst-case (longest) prompts
+        sorted_seqs = sorted([t[1][0] for t in rows_data],
+                             key=lambda s: -s.size(0))
+        free_before, total = torch.cuda.mem_get_info(device)
+        budget = int(0.80 * free_before)
+        bs = 1
+        last_ok = 1
+        while bs <= min(256, len(sorted_seqs)):
+            try:
+                torch.cuda.empty_cache()
+                ids, attn = _pad_batch(sorted_seqs[:bs])
+                with torch.no_grad():
+                    _ = model(input_ids=ids, attention_mask=attn, use_cache=False)
+                free_after, _ = torch.cuda.mem_get_info(device)
+                used = free_before - free_after
+                if used > budget:
+                    break
+                last_ok = bs
+                # Stop early if we already use >40% — doubling would risk OOM
+                if used > 0.4 * free_before:
+                    break
+                bs *= 2
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                break
+        torch.cuda.empty_cache()
+        # Back off one step for safety margin on shorter batches that pad less
+        return max(1, last_ok)
+
+    requested = int(getattr(cfg, "batch_size", 32))
+    if requested <= 0:
+        batch_size = _auto_batch_size()
+        free_gb = torch.cuda.mem_get_info(device)[0] / 1e9 if torch.cuda.is_available() else 0
+        print(f"[AUTO-BATCH] Picked batch_size={batch_size} "
+              f"(free VRAM {free_gb:.1f} GB)")
+    else:
+        batch_size = requested
+
+    results = []
+    temperature = cfg.decision_temperature
+    for start in tqdm(range(0, len(rows_data), batch_size),
+                      desc=f"Vanilla [{country}]"):
+        chunk = rows_data[start:start + batch_size]
+        seqs = [t[1][0] for t in chunk]                 # 1D tensors
+        # Left-pad so the last token (where we read logits) is always position -1
+        input_ids, attn = _pad_batch(seqs)
+        with torch.no_grad():
+            out = model(input_ids=input_ids, attention_mask=attn, use_cache=False)
+            last = out.logits[:, -1, :]
+            pair = torch.stack([last[:, left_id], last[:, right_id]], dim=-1)
+            probs = F.softmax(pair / temperature, dim=-1).cpu().numpy()
+
+        for j, (row, _ids, pref_right) in enumerate(chunk):
+            p_l, p_r = float(probs[j, 0]), float(probs[j, 1])
+            p_spare = p_r if pref_right else p_l
+            results.append({
+                "phenomenon_category": row.get("phenomenon_category", "Unknown"),
+                "this_group_name": row.get("this_group_name", "Unknown"),
+                "n_left": int(row.get("n_left", 1)),
+                "n_right": int(row.get("n_right", 1)),
+                "preferred_on_right": int(pref_right),
+                "p_spare_preferred": p_spare,
+            })
 
     print(f"[Vanilla {country}] {len(results)} scenarios scored via token-logit")
 
