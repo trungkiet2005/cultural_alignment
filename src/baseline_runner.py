@@ -145,7 +145,10 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
                 "n_left": int(row.get("n_left", 1)),
                 "n_right": int(row.get("n_right", 1)),
                 "preferred_on_right": int(pref_right),
+                "p_left": p_l,
+                "p_right": p_r,
                 "p_spare_preferred": p_spare,
+                "Prompt": row.get("Prompt", row.get("prompt", "")),
             })
 
     print(f"[Vanilla {country}] {len(results)} scenarios scored via token-logit")

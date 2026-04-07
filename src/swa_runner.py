@@ -119,6 +119,7 @@ def run_country_experiment(
         diagnostics["decision_gaps"].append(pred["delta_consensus"])
         diagnostics["logit_temps_used"].append(pred["logit_temp_used"])
 
+        agent_rewards_arr = np.asarray(pred["agent_rewards"], dtype=float)
         results.append({
             "country": country_iso,
             "scenario_idx": idx,
@@ -128,7 +129,8 @@ def run_country_experiment(
             "preferred_on_right": int(preferred_on_right),
             "n_left": int(row.get("n_left", 1)),
             "n_right": int(row.get("n_right", 1)),
-            "lp_p_right": float(pred["p_right"]),
+            "p_left": float(pred.get("p_left", 1.0 - pred["p_right"])),
+            "p_right": float(pred["p_right"]),
             "p_spare_preferred": float(pred["p_spare_preferred"]),
             "mppi_variance": float(pred["variance"]),
             "mppi_triggered": bool(pred["mppi_triggered"]),
@@ -136,6 +138,10 @@ def run_country_experiment(
             "delta_z_norm": float(pred["delta_z_norm"]),
             "delta_consensus": float(pred["delta_consensus"]),
             "logit_temp_used": float(pred["logit_temp_used"]),
+            "agent_reward_mean": float(agent_rewards_arr.mean()) if agent_rewards_arr.size else 0.0,
+            "agent_reward_min":  float(agent_rewards_arr.min())  if agent_rewards_arr.size else 0.0,
+            "agent_reward_max":  float(agent_rewards_arr.max())  if agent_rewards_arr.size else 0.0,
+            "agent_reward_std":  float(agent_rewards_arr.std())  if agent_rewards_arr.size else 0.0,
             "latency_ms": latency * 1000,
         })
 

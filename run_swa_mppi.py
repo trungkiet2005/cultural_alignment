@@ -17,8 +17,11 @@ Usage:
 
 import os
 import gc
+import json
 import argparse
 import pickle
+from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -124,6 +127,21 @@ def main():
     os.makedirs(config.output_dir, exist_ok=True)
     print(f"[OUTPUT] Results -> {config.output_dir}")
 
+    # Dump config snapshot for reproducibility
+    cfg_dict = {k: v for k, v in asdict(config).items()}
+    cfg_dict["_run"] = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "script": "run_swa_mppi.py",
+        "torch_version": torch.__version__,
+        "cuda_available": torch.cuda.is_available(),
+    }
+    with open(os.path.join(config.output_dir, "config.json"), "w", encoding="utf-8") as f:
+        json.dump(cfg_dict, f, indent=2, default=str, ensure_ascii=False)
+    print(f"[SAVE] Config snapshot -> config.json")
+
+    # Collect personas across all countries (dumped after build below)
+    all_personas: dict = {}
+
     print(f"[CONFIG] SWA-MPPI v3")
     print(f"  model_name:             {config.model_name}")
     print(f"  n_scenarios:            {config.n_scenarios}")
@@ -198,6 +216,17 @@ def main():
         print(f"\n  [PERSONAS] {country} ({len(personas)} personas):")
         for pi, ptxt in enumerate(personas):
             print(f"    P{pi+1}: {ptxt[:150]}{'...' if len(ptxt) > 150 else ''}")
+        all_personas[country] = personas
+
+        # Dump first 5 raw scenario prompts (reproducibility)
+        sample_prompts_path = os.path.join(
+            config.output_dir, f"prompts_sample_{country}.txt"
+        )
+        with open(sample_prompts_path, "w", encoding="utf-8") as f:
+            f.write(f"# Sample prompts for {country} (lang={lang})\n\n")
+            for i, (_, srow) in enumerate(country_df.head(5).iterrows()):
+                f.write(f"--- Sample {i+1} [{srow.get('phenomenon_category','?')}] ---\n")
+                f.write(str(srow.get("Prompt", srow.get("prompt", ""))) + "\n\n")
 
         # Run SWA-MPPI
         print(f"\n  SWA-MPPI v3 for {country}...")
@@ -210,6 +239,30 @@ def main():
         # Save per-country CSV
         results_df.to_csv(
             os.path.join(config.output_dir, f"swa_results_{country}.csv"),
+            index=False,
+        )
+
+        # Save per-country MPPI diagnostics as flat CSV (Excel/R-friendly)
+        diag = summary["diagnostics"]
+        n_diag = len(diag["variances"])
+        diag_df = pd.DataFrame({
+            "scenario_idx":    list(range(n_diag)),
+            "variance":        diag["variances"],
+            "delta_z_norm":    diag["delta_z_norms"],
+            "decision_gap":    diag["decision_gaps"],
+            "logit_temp_used": diag["logit_temps_used"],
+            "latency_s":       diag["latencies"],
+        })
+        # agent_reward_matrix: list of per-agent reward arrays -> spread into columns
+        try:
+            arm = np.asarray(diag["agent_reward_matrix"], dtype=float)
+            if arm.ndim == 2:
+                for ai in range(arm.shape[1]):
+                    diag_df[f"agent{ai+1}_reward"] = arm[:, ai]
+        except Exception:
+            pass
+        diag_df.to_csv(
+            os.path.join(config.output_dir, f"swa_diagnostics_{country}.csv"),
             index=False,
         )
 
@@ -264,6 +317,11 @@ def main():
     # Pickle
     with open(os.path.join(config.output_dir, "all_summaries.pkl"), "wb") as f:
         pickle.dump(all_summaries, f)
+
+    # Personas snapshot (for prompt-level reproducibility)
+    with open(os.path.join(config.output_dir, "personas.json"), "w", encoding="utf-8") as f:
+        json.dump(all_personas, f, indent=2, ensure_ascii=False)
+    print(f"[SAVE] Personas -> personas.json ({len(all_personas)} countries)")
 
     print(f"\n[ALL COUNTRIES COMPLETE] {len(all_summaries)} countries evaluated.")
 

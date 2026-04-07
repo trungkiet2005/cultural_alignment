@@ -16,8 +16,11 @@ Usage:
 
 import os
 import gc
+import json
 import argparse
 import pickle
+from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -107,6 +110,18 @@ def main():
     os.makedirs(config.output_dir, exist_ok=True)
     print(f"[OUTPUT] Results -> {config.output_dir}")
 
+    # Dump config snapshot for reproducibility
+    cfg_dict = {k: v for k, v in asdict(config).items()}
+    cfg_dict["_run"] = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "script": "run_baseline.py",
+        "torch_version": torch.__version__,
+        "cuda_available": torch.cuda.is_available(),
+    }
+    with open(os.path.join(config.output_dir, "config.json"), "w", encoding="utf-8") as f:
+        json.dump(cfg_dict, f, indent=2, default=str, ensure_ascii=False)
+    print(f"[SAVE] Config snapshot -> config.json")
+
     print(f"[CONFIG] Vanilla LLM Baseline")
     print(f"  model_name:             {config.model_name}")
     print(f"  n_scenarios:            {config.n_scenarios}")
@@ -169,6 +184,16 @@ def main():
             country_base_df, min_per_category=50, seed=config.seed, lang=lang,
         )
         country_df["lang"] = lang
+
+        # Dump first 3 raw scenario prompts (reproducibility)
+        sample_prompts_path = os.path.join(
+            config.output_dir, f"prompts_sample_{country}.txt"
+        )
+        with open(sample_prompts_path, "w", encoding="utf-8") as f:
+            f.write(f"# Sample prompts for {country} (lang={lang})\n\n")
+            for i, (_, srow) in enumerate(country_df.head(5).iterrows()):
+                f.write(f"--- Sample {i+1} [{srow.get('phenomenon_category','?')}] ---\n")
+                f.write(str(srow.get("Prompt", srow.get("prompt", ""))) + "\n\n")
 
         # Run baseline
         print(f"\n  Vanilla LLM baseline for {country}...")
