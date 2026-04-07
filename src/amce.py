@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import pearsonr, spearmanr
-from sklearn.linear_model import LinearRegression
 
 from src.constants import LABEL_TO_CRITERION
 
@@ -25,18 +24,26 @@ def compute_amce_from_preferences(
     groups: Optional[Dict[str, List[str]]] = None,
 ) -> Dict[str, float]:
     """
-    Corrected AMCE computation (v3.1 fixes):
+    AMCE computation following the Moral Machine convention.
 
-    For binary categories (Species, Gender, Age, Fitness, SocialValue):
+    For all categories — binary (Species, Gender, Age, Fitness, SocialValue)
+    and continuous (Utilitarianism):
+
         AMCE = mean(p_spare_preferred) * 100
-        This is the empirical preference rate for the "preferred" group.
-        (Regression with X=ones gives the same result as the mean, but the
-         intercept-only formulation is cleaner and numerically more stable.)
 
-    For Utilitarianism (continuous count predictor):
-        Fit: p_spare_preferred ~ a + b * (n_pref - n_nonpref)
-        Evaluate at the MEAN n_diff observed in data (not at 1).
-        Evaluating at 1 severely underestimates when typical n_diff > 1.
+    This is the empirical preference rate for the "preferred" group, expressed
+    as a percentage in [0, 100]. p_spare_preferred is itself a probability
+    bounded in [0, 1], so the mean is automatically bounded.
+
+    Why not OLS regression on p_spare ~ a + b * n_diff for Utilitarianism?
+    Linear regression on a probability outcome is the Linear Probability Model
+    pitfall: predictions can fall outside [0, 1]. Even though OLS evaluated at
+    `mean(n_diff)` mathematically reduces to `mean(p_vals)` (because the OLS
+    line passes through the centroid), writing it as a regression invites that
+    critique without adding any information. We compute the mean directly.
+
+    For Utilitarianism we still filter out scenarios with `n_diff == 0`
+    (no utilitarian signal — equal numbers on both sides).
     """
     if categories is None:
         categories = ["Species", "Gender", "Age", "Fitness", "SocialValue", "Utilitarianism"]
@@ -64,33 +71,22 @@ def compute_amce_from_preferences(
         p_vals = cat_df[prob_col].values.astype(np.float64)
 
         if category == "Utilitarianism":
-            # Continuous predictor: n_preferred - n_non_preferred
+            # Filter out rows where n_pref == n_nonpref (no utilitarian signal).
             pref_on_right = cat_df["preferred_on_right"].values
             n_right = cat_df["n_right"].values
             n_left  = cat_df["n_left"].values
             n_pref    = np.where(pref_on_right == 1, n_right, n_left).astype(np.float64)
             n_nonpref = np.where(pref_on_right == 1, n_left,  n_right).astype(np.float64)
-            n_diff = np.abs(n_pref - n_nonpref)  # ensure positive; real data may have n_pref <= n_nonpref
-
-            # Filter out rows with n_diff == 0 (no utilitarian signal)
-            valid_mask = n_diff > 0
+            valid_mask = np.abs(n_pref - n_nonpref) > 0
             if valid_mask.sum() < 3:
                 continue
-            n_diff = n_diff[valid_mask]
             p_vals = p_vals[valid_mask]
 
-            # Fit regression: p ~ a + b * n_diff
-            reg = LinearRegression(fit_intercept=True)
-            reg.fit(n_diff.reshape(-1, 1), p_vals)
-            # Evaluate at MEAN n_diff, not at 1.
-            # Evaluating at 1 underestimates when typical scenarios have n_diff=2-3.
-            mean_n_diff = float(n_diff.mean())
-            amce_val = float(reg.predict([[mean_n_diff]])[0]) * 100.0
-        else:
-            # Binary: AMCE = empirical mean of p_spare_preferred
-            amce_val = float(p_vals.mean()) * 100.0
-
-        amce_scores[f"{category}_{pref}"] = float(np.clip(amce_val, 0.0, 100.0))
+        # AMCE = empirical mean preference rate, in [0, 100].
+        # p_vals ∈ [0, 1] by construction (sigmoid output), so the mean is
+        # also bounded in [0, 1] — no LPM concern, no extrapolation.
+        amce_val = float(p_vals.mean()) * 100.0
+        amce_scores[f"{category}_{pref}"] = amce_val
 
     return amce_scores
 
