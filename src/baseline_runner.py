@@ -15,7 +15,11 @@ from src.amce import compute_amce_from_preferences, load_human_amce, compute_ali
 
 def logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
                            temperature=1.0, return_raw=False):
-    """Extract P(spare_preferred) from LEFT/RIGHT logits with temperature sharpening."""
+    """Extract P(spare_preferred) from A/B option logits with temperature sharpening.
+
+    `left_id` is the token id for "A" (option A / left lane) and `right_id` for
+    "B" (option B / right lane). Names kept for backwards compatibility.
+    """
     with torch.no_grad():
         out = model(input_ids=full_ids, use_cache=False)
         logits = out.logits[0, -1, :]
@@ -34,8 +38,10 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     lang = COUNTRY_LANG.get(country, "en")
     chat_helper = ChatTemplateHelper(tokenizer)
     base_ids = chat_helper.build_prefix_ids("You are a helpful assistant.", device)
-    left_id = tokenizer.encode("LEFT", add_special_tokens=False)[0]
-    right_id = tokenizer.encode("RIGHT", add_special_tokens=False)[0]
+    # Decision tokens: neutral letters A / B (formerly LEFT / RIGHT) — see
+    # PROMPT_FRAME_I18N comment in src/i18n.py for the language-bias rationale.
+    left_id = tokenizer.encode("A", add_special_tokens=False)[0]
+    right_id = tokenizer.encode("B", add_special_tokens=False)[0]
     frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
 
     rows_data = []
@@ -54,7 +60,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     for si in range(min(3, len(rows_data))):
         row, full_ids, pref_right = rows_data[si]
         cat = row.get("phenomenon_category", "?")
-        pref_side = "RIGHT" if pref_right else "LEFT"
+        pref_side = "B" if pref_right else "A"
         p_spare, p_l, p_r = logit_fallback_p_spare(
             model, full_ids, left_id, right_id, pref_right,
             temperature=cfg.decision_temperature, return_raw=True)
@@ -62,7 +68,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
         print(f"  [FULL LLM INPUT]\n{full_text}")
         print(f"  [END LLM INPUT]")
-        print(f"  >>> p(LEFT)={p_l:.3f}  p(RIGHT)={p_r:.3f}  |  p(spare_preferred)={p_spare:.3f}  [token-logit]")
+        print(f"  >>> p(A)={p_l:.3f}  p(B)={p_r:.3f}  |  p(spare_preferred)={p_spare:.3f}  [token-logit]")
         print()
 
     pad_id = tokenizer.pad_token_id

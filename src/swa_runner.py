@@ -67,17 +67,17 @@ def run_country_experiment(
         sp = srow.get("Prompt", srow.get("prompt", ""))
         cat = srow.get("phenomenon_category", "?")
         pref_right = bool(srow.get("preferred_on_right", 1))
-        pref_side = "RIGHT" if pref_right else "LEFT"
+        pref_side = "B" if pref_right else "A"
         formatted_sample = frame.format(scenario=sp)
         # Run quick prediction to show what model outputs
         debug_pred = controller.predict(
             sp, preferred_on_right=pref_right,
             phenomenon_category=cat, lang=lang,
         )
-        model_choice = "RIGHT" if debug_pred["p_right"] > 0.5 else "LEFT"
+        model_choice = "B" if debug_pred["p_right"] > 0.5 else "A"
         print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
         print(f"  {formatted_sample[:500]}{'...' if len(formatted_sample) > 500 else ''}")
-        print(f"  >>> Model: p(RIGHT)={debug_pred['p_right']:.3f}  p(LEFT)={debug_pred['p_left']:.3f}"
+        print(f"  >>> Model: p(B)={debug_pred['p_right']:.3f}  p(A)={debug_pred['p_left']:.3f}"
               f"  -> {model_choice}  |  p(spare_preferred)={debug_pred['p_spare_preferred']:.3f}"
               f"  |  MPPI={'ON' if debug_pred['mppi_triggered'] else 'off'}")
         print()

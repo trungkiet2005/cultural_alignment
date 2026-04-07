@@ -1,7 +1,6 @@
 """ImplicitSWAController: SWA-MPPI engine for cultural value negotiation."""
 
 import time
-import re
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -63,9 +62,15 @@ class ImplicitSWAController:
         self.device = next(model.parameters()).device
         self.chat_helper = ChatTemplateHelper(tokenizer)
 
-        self.left_id = self._resolve_token_id("LEFT")
-        self.right_id = self._resolve_token_id("RIGHT")
-        print(f"[SWA] Token IDs — LEFT: {self.left_id}, RIGHT: {self.right_id}")
+        # Decision tokens: neutral letters A / B (formerly LEFT / RIGHT). The
+        # rename to A/B removes the language-bias confound — see PROMPT_FRAME_I18N
+        # comment in src/i18n.py. We keep the attribute names `left_id`/`right_id`
+        # so that downstream code (z indexing, p_left/p_right keys, swap logic)
+        # remains untouched: `left_id` now points at token "A" (option A / left
+        # lane) and `right_id` at token "B" (option B / right lane).
+        self.left_id = self._resolve_token_id("A")
+        self.right_id = self._resolve_token_id("B")
+        print(f"[SWA] Decision token IDs — A: {self.left_id}, B: {self.right_id}")
 
         self.pad_id = (
             tokenizer.pad_token_id if tokenizer.pad_token_id is not None
@@ -231,7 +236,7 @@ class ImplicitSWAController:
 
     @torch.no_grad()
     def _swap_positional_labels(self, user_query: str, lang: str) -> Tuple[str, bool]:
-        """Swap LEFT/RIGHT and Group A/B labels; return (swapped_query, changed_flag)."""
+        """Swap Option A/Option B (and Group A/B) labels; return (swapped_query, changed_flag)."""
         sf = SCENARIO_FRAME_I18N.get(lang, SCENARIO_FRAME_I18N["en"])
         left_label = sf["left_lane"]
         right_label = sf["right_lane"]
@@ -257,11 +262,13 @@ class ImplicitSWAController:
                 changed = True
             q = q2
 
-        # Fallback: swap generic LEFT/RIGHT tokens if i18n labels were not found.
+        # Fallback: swap "Option A"/"Option B" literally if i18n lane labels
+        # were not present (e.g. caller passed a raw English prompt while lang
+        # is set to a different locale).
         if not changed:
-            q2 = re.sub(r"\bLEFT\b", _PH, q, flags=re.IGNORECASE)
-            q2 = re.sub(r"\bRIGHT\b", "LEFT", q2, flags=re.IGNORECASE)
-            q2 = q2.replace(_PH, "RIGHT")
+            q2 = q.replace("Option A", _PH)
+            q2 = q2.replace("Option B", "Option A")
+            q2 = q2.replace(_PH, "Option B")
             if q2 != q:
                 changed = True
                 q = q2
@@ -338,15 +345,15 @@ class ImplicitSWAController:
         """
         Run SWA-MPPI prediction with positional debiasing.
 
-        Runs TWO passes — original and LEFT/RIGHT-swapped — to cancel out
-        the model's intrinsic token bias toward LEFT or RIGHT.
+        Runs TWO passes — original and A/B-swapped — to cancel out
+        the model's intrinsic token bias toward option A or option B.
         """
         # Pass 1: original ordering
         r1 = self._predict_single_pass(
             user_query, preferred_on_right, phenomenon_category, lang
         )
 
-        # Pass 2: swap LEFT↔RIGHT in scenario text (robustly, with fallback).
+        # Pass 2: swap Option A↔Option B in scenario text (robustly, with fallback).
         swapped_query, swap_changed = self._swap_positional_labels(user_query, lang)
         if not swap_changed:
             # If no swap happened, skip debias averaging to avoid false correction.
