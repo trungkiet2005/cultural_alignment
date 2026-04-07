@@ -232,6 +232,10 @@ def main():
         torch.cuda.empty_cache()
         gc.collect()
 
+    if not all_summaries or not all_vanilla_results:
+        print("\n[ERROR] No valid country results were produced. Exiting without saving/plotting.")
+        return
+
     # Save combined results
     full_vanilla = pd.concat(all_vanilla_results, ignore_index=True)
     full_vanilla.to_csv(

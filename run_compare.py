@@ -26,6 +26,7 @@ from src.config import resolve_output_dir
 from src.viz.style import setup_matplotlib, BASELINE_COLOR, SWA_COLOR, HUMAN_COLOR
 from src.viz.radar import plot_radar_single
 from src.viz.comparison import plot_baseline_comparison, plot_comparison_table
+from src.viz.bar_charts import plot_amce_comparison_bar
 
 
 # Metrics expected inside summary["alignment"]
@@ -190,37 +191,67 @@ def plot_amce_error_bars(amce_df: pd.DataFrame, out_dir: Path):
 
 
 def plot_radar_overlays(bl, sw, countries, out_dir: Path):
-    """Per-country radar with both Baseline and SWA overlaid against Human."""
+    """Per-country radar styled like main.py, with Baseline+SWA+Human."""
     radar_dir = out_dir / "radar_overlay"
     radar_dir.mkdir(exist_ok=True)
-    # We use plot_radar_single twice -> not great. Build a custom 3-line radar.
+    criteria_labels = {
+        "Species_Humans": "Sparing\nHumans",
+        "Age_Young": "Sparing\nYoung",
+        "Fitness_Fit": "Sparing\nFit",
+        "Gender_Female": "Sparing\nFemales",
+        "SocialValue_High": "Sparing\nHigher Status",
+        "Utilitarianism_More": "Sparing\nMore",
+    }
+
     for c in countries:
         human = bl[c]["human_amce"]
         b_amce = bl[c]["model_amce"]
         s_amce = sw[c]["model_amce"]
-        cats = AMCE_KEYS
-        angles = np.linspace(0, 2 * np.pi, len(cats), endpoint=False).tolist()
-        angles += angles[:1]
+        # Match main.py ordering behavior (alphabetical common keys).
+        common_keys = sorted(set(AMCE_KEYS) & set(human.keys()) & set(b_amce.keys()) & set(s_amce.keys()))
+        if len(common_keys) < 3:
+            print(f"[WARN] Not enough common criteria for radar plot ({c})")
+            continue
 
-        def closed(d):
-            v = [d.get(k, np.nan) for k in cats]
-            return v + v[:1]
+        labels = [criteria_labels.get(k, k.replace("_", "\n")) for k in common_keys]
+        n = len(common_keys)
+        angles = [i / float(n) * 2 * np.pi for i in range(n)] + [0]
 
-        fig, ax = plt.subplots(figsize=(5, 5),
-                               subplot_kw=dict(projection="polar"))
-        ax.plot(angles, closed(human), color=HUMAN_COLOR,
-                lw=2, label="Human")
-        ax.fill(angles, closed(human), color=HUMAN_COLOR, alpha=0.1)
-        ax.plot(angles, closed(b_amce), color=BASELINE_COLOR,
-                lw=2, label="Baseline")
-        ax.plot(angles, closed(s_amce), color=SWA_COLOR,
-                lw=2, label="SWA-MPPI")
+        human_vals = [human[k] for k in common_keys]
+        baseline_vals = [b_amce[k] for k in common_keys]
+        swa_vals = [s_amce[k] for k in common_keys]
+
+        human_plot = human_vals + [human_vals[0]]
+        baseline_plot = baseline_vals + [baseline_vals[0]]
+        swa_plot = swa_vals + [swa_vals[0]]
+
+        align = sw[c].get("alignment", {})
+        jsd_str = f"JSD={align.get('jsd', 0):.3f}" if "jsd" in align else ""
+        r_str = f"r={align.get('pearson_r', 0):.3f}" if "pearson_r" in align else ""
+
+        fig, ax = plt.subplots(1, 1, figsize=(7, 7), subplot_kw={"polar": True})
+        ax.set_theta_offset(np.pi / 2)
+        ax.set_theta_direction(-1)
         ax.set_xticks(angles[:-1])
-        ax.set_xticklabels([k.replace("_", "\n") for k in cats], fontsize=7)
-        ax.set_title(f"{c}: Baseline vs SWA vs Human", pad=14)
-        ax.legend(loc="upper right", bbox_to_anchor=(1.35, 1.1), fontsize=8)
+        ax.set_xticklabels(labels, size=9, color="#333333")
+        ax.set_rlabel_position(30)
+        ax.set_yticks([20, 40, 60, 80])
+        ax.set_yticklabels(["20%", "40%", "60%", "80%"], color="#666666", size=8)
+        ax.set_ylim(0, 100)
+
+        # Keep plotting style from main.py; add baseline as extra dashed line.
+        ax.plot(angles, swa_plot, "o-", linewidth=2.2, color=SWA_COLOR, label="SWA-MPPI v3", markersize=5)
+        ax.fill(angles, swa_plot, alpha=0.15, color=SWA_COLOR)
+        ax.plot(angles, baseline_plot, "d--", linewidth=2.0, color=BASELINE_COLOR, label="Vanilla LLM", markersize=4.5)
+        ax.plot(angles, human_plot, "s--", linewidth=2.0, color=HUMAN_COLOR, label=f"Human ({c})", markersize=5)
+        ax.fill(angles, human_plot, alpha=0.08, color=HUMAN_COLOR)
+        ax.plot(np.linspace(0, 2 * np.pi, 100), [50] * 100, ":", color="#999999", linewidth=0.8, alpha=0.6)
+
+        ax.set_title(f"{c}\n{jsd_str}  {r_str}" if jsd_str else c, size=12, fontweight="bold", pad=20)
+        ax.legend(loc="upper right", bbox_to_anchor=(1.3, 1.15), fontsize=9, framealpha=0.9, edgecolor="#cccccc")
         fig.tight_layout()
-        fig.savefig(radar_dir / f"radar_overlay_{c}.png", dpi=150)
+        fig.savefig(radar_dir / f"radar_overlay_{c}.png", dpi=150, bbox_inches="tight")
+        fig.savefig(radar_dir / f"radar_overlay_{c}.pdf", dpi=150, bbox_inches="tight")
         plt.show(); plt.close(fig)
 
 
@@ -296,12 +327,26 @@ def main():
     plot_amce_error_bars(amce_df, args.output_dir)
     plot_radar_overlays(bl, sw, countries, args.output_dir)
 
-    # main.py-style comparison figures (fig8 + publication-quality table)
-    swa_summaries_ordered = [sw[c] for c in countries]
+    # main.py-style comparison figures (Fig 8/9/10):
+    # keep summary schema compatible with main.py plotting functions.
+    swa_summaries_ordered = []
+    for c in countries:
+        s = dict(sw[c])
+        s["baseline_alignment"] = bl[c]["alignment"]
+        s["baseline_amce"] = bl[c]["model_amce"]
+        swa_summaries_ordered.append(s)
+
     vanilla_metrics = {c: bl[c]["alignment"] for c in countries}
     out_dir_str = str(args.output_dir)
     print("\n[PLOT] Fig 8: Baseline vs SWA-MPPI bar comparison...")
     plot_baseline_comparison(swa_summaries_ordered, vanilla_metrics, out_dir_str)
+    print("\n[PLOT] Fig 9: AMCE per-criterion bar chart...")
+    plot_amce_comparison_bar(
+        swa_summaries_ordered,
+        out_dir_str,
+        model_label="SWA-MPPI v3",
+        model_color=SWA_COLOR,
+    )
     print("\n[PLOT] Comparison table (publication-quality + LaTeX)...")
     plot_comparison_table(swa_summaries_ordered, vanilla_metrics, out_dir_str)
 

@@ -1,6 +1,7 @@
 """ImplicitSWAController: SWA-MPPI engine for cultural value negotiation."""
 
 import time
+import re
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -229,6 +230,45 @@ class ImplicitSWAController:
         return delta_star
 
     @torch.no_grad()
+    def _swap_positional_labels(self, user_query: str, lang: str) -> Tuple[str, bool]:
+        """Swap LEFT/RIGHT and Group A/B labels; return (swapped_query, changed_flag)."""
+        sf = SCENARIO_FRAME_I18N.get(lang, SCENARIO_FRAME_I18N["en"])
+        left_label = sf["left_lane"]
+        right_label = sf["right_lane"]
+        ga = sf.get("group_a", "Group A")
+        gb = sf.get("group_b", "Group B")
+
+        changed = False
+        _PH = "\x00SWAP_PLACEHOLDER\x00"
+
+        q = user_query
+        q2 = q.replace(left_label, _PH)
+        q2 = q2.replace(right_label, left_label)
+        q2 = q2.replace(_PH, right_label)
+        if q2 != q:
+            changed = True
+        q = q2
+
+        if ga != gb:
+            q2 = q.replace(ga, _PH)
+            q2 = q2.replace(gb, ga)
+            q2 = q2.replace(_PH, gb)
+            if q2 != q:
+                changed = True
+            q = q2
+
+        # Fallback: swap generic LEFT/RIGHT tokens if i18n labels were not found.
+        if not changed:
+            q2 = re.sub(r"\bLEFT\b", _PH, q, flags=re.IGNORECASE)
+            q2 = re.sub(r"\bRIGHT\b", "LEFT", q2, flags=re.IGNORECASE)
+            q2 = q2.replace(_PH, "RIGHT")
+            if q2 != q:
+                changed = True
+                q = q2
+
+        return q, changed
+
+    @torch.no_grad()
     def _predict_single_pass(
         self,
         user_query: str,
@@ -306,22 +346,16 @@ class ImplicitSWAController:
             user_query, preferred_on_right, phenomenon_category, lang
         )
 
-        # Pass 2: swap LEFT↔RIGHT in the scenario text
-        sf = SCENARIO_FRAME_I18N.get(lang, SCENARIO_FRAME_I18N["en"])
-        left_label = sf["left_lane"]    # e.g., "Làn TRÁI" / "LEFT lane"
-        right_label = sf["right_lane"]  # e.g., "Làn PHẢI" / "RIGHT lane"
-
-        _PH = "\x00SWAP_PLACEHOLDER\x00"
-        swapped_query = user_query.replace(left_label, _PH)
-        swapped_query = swapped_query.replace(right_label, left_label)
-        swapped_query = swapped_query.replace(_PH, right_label)
-
-        # Also swap group labels (Nhóm A ↔ Nhóm B)
-        ga, gb = sf.get("group_a", "Group A"), sf.get("group_b", "Group B")
-        if ga != gb:
-            swapped_query = swapped_query.replace(ga, _PH)
-            swapped_query = swapped_query.replace(gb, ga)
-            swapped_query = swapped_query.replace(_PH, gb)
+        # Pass 2: swap LEFT↔RIGHT in scenario text (robustly, with fallback).
+        swapped_query, swap_changed = self._swap_positional_labels(user_query, lang)
+        if not swap_changed:
+            # If no swap happened, skip debias averaging to avoid false correction.
+            result = r1.copy()
+            result["positional_bias_warning"] = "swap_not_applied"
+            result["p_spare_preferred_pass1"] = r1["p_spare_preferred"]
+            result["p_spare_preferred_pass2"] = r1["p_spare_preferred"]
+            result["positional_bias"] = 0.0
+            return result
 
         r2 = self._predict_single_pass(
             swapped_query, not preferred_on_right, phenomenon_category, lang

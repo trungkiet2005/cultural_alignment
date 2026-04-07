@@ -187,9 +187,11 @@ def balance_scenario_dataset(
         if n_need == 0:
             continue
 
+        # Deterministic per-category seed (stable across Python processes).
+        cat_seed = int(hashlib.sha256(cat.encode("utf-8")).hexdigest(), 16) % 1000
         synth = generate_multitp_scenarios(
             n_scenarios=max(n_need * 3, 100),
-            seed=seed + hash(cat) % 1000,
+            seed=seed + cat_seed,
             lang=lang,
         )
         synth_cat = synth[synth["phenomenon_category"] == cat]
