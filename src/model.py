@@ -63,16 +63,36 @@ class ChatTemplateHelper:
 
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        # Some chat templates (e.g. Gemma) don't accept a "system" role.
+        # Detect once and fold the system prompt into the first user turn.
+        self.supports_system = self._probe_system_role()
+
+    def _probe_system_role(self) -> bool:
+        try:
+            self.tokenizer.apply_chat_template(
+                [{"role": "system", "content": "x"},
+                 {"role": "user", "content": "y"}],
+                tokenize=False, add_generation_prompt=False,
+            )
+            return True
+        except Exception:
+            return False
+
+    def _messages(self, system_prompt: str, user_content: str):
+        if self.supports_system:
+            return [
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_content},
+            ]
+        merged = f"{system_prompt}\n\n{user_content}" if user_content else system_prompt
+        return [{"role": "user", "content": merged}]
 
     def build_prefix_ids(self, system_prompt: str, device) -> torch.Tensor:
         """
         Tokenise [system + empty user turn] so we can later concatenate
         the actual user query.  Returns shape (1, seq_len).
         """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": ""},           # placeholder
-        ]
+        messages = self._messages(system_prompt, "")
         full = self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=False,
         )
@@ -81,10 +101,7 @@ class ChatTemplateHelper:
         # Different templates render "" differently, so we tokenise the full
         # thing and also a version with a sentinel to locate the split point.
         sentinel = "___SPLIT___"
-        messages_s = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user",   "content": sentinel},
-        ]
+        messages_s = self._messages(system_prompt, sentinel)
         full_s = self.tokenizer.apply_chat_template(
             messages_s, tokenize=False, add_generation_prompt=False,
         )
@@ -106,10 +123,7 @@ class ChatTemplateHelper:
         plus the assistant header (generation prompt).
         """
         sentinel = "___SPLIT___"
-        messages_before = [
-            {"role": "system", "content": "S"},
-            {"role": "user",   "content": sentinel},
-        ]
+        messages_before = self._messages("S", sentinel)
         full_before = self.tokenizer.apply_chat_template(
             messages_before, tokenize=False, add_generation_prompt=True,
         )
