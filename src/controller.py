@@ -1,0 +1,347 @@
+"""ImplicitSWAController: SWA-MPPI engine for cultural value negotiation."""
+
+import time
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn.functional as F
+
+from src.i18n import PROMPT_FRAME_I18N, SCENARIO_FRAME_I18N
+from src.model import ChatTemplateHelper
+
+
+# ============================================================================
+# CORE SWA-MPPI ENGINE (v3 — All Fixes Integrated)
+# ============================================================================
+class ImplicitSWAController:
+    """
+    Socially-Weighted Alignment (SWA) via Model Predictive Path Integral (MPPI)
+    on the DECISION-FOCUSED logit space.
+
+    Features:
+      - Per-category logit temperature applied per predict() call
+      - tau_conflict calibrated externally and set via calibrate_tau()
+    """
+
+    def __init__(
+        self,
+        model,
+        tokenizer,
+        personas: List[str],
+        lambda_coop: float = 0.7,
+        alpha_kl: float = 0.05,
+        K_samples: int = 128,
+        noise_std: float = 0.3,
+        temperature: float = 0.5,
+        tau_conflict: float = 0.001,
+        logit_temperature: float = 3.0,
+        category_logit_temperatures: Optional[Dict[str, float]] = None,
+        pt_alpha: float = 0.88,
+        pt_beta: float = 0.88,
+        pt_kappa: float = 2.25,
+        decision_temperature: float = 1.0,
+    ):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.personas = personas
+        self.N = len(personas)
+        self.lambda_coop = lambda_coop
+        self.alpha_kl = alpha_kl
+        self.pt_alpha = pt_alpha
+        self.pt_beta = pt_beta
+        self.pt_kappa = pt_kappa
+        self.K = K_samples
+        self.noise_std = noise_std
+        self.beta = temperature
+        self.tau_conflict = tau_conflict
+        self.logit_temperature = logit_temperature
+        self.category_logit_temperatures = category_logit_temperatures or {}
+        self.decision_temperature = decision_temperature
+        self.device = next(model.parameters()).device
+        self.chat_helper = ChatTemplateHelper(tokenizer)
+
+        self.left_id = self._resolve_token_id("LEFT")
+        self.right_id = self._resolve_token_id("RIGHT")
+        print(f"[SWA] Token IDs — LEFT: {self.left_id}, RIGHT: {self.right_id}")
+
+        self.pad_id = (
+            tokenizer.pad_token_id if tokenizer.pad_token_id is not None
+            else tokenizer.eos_token_id
+        )
+
+        self._build_persona_prefixes()
+
+    def _resolve_token_id(self, word: str) -> int:
+        ids = self.tokenizer.encode(word, add_special_tokens=False)
+        if not ids:
+            raise ValueError(
+                f"Tokenizer could not encode '{word}' — check that the model "
+                f"vocabulary contains this token."
+            )
+        return ids[0]
+
+    @torch.no_grad()
+    def _build_persona_prefixes(self):
+        print(f"[SWA] Building persona prefixes for {self.N} agents + 1 base...")
+        t0 = time.time()
+
+        self.persona_prefix_ids = []
+        for persona_text in self.personas:
+            ids = self.chat_helper.build_prefix_ids(persona_text, self.device)
+            self.persona_prefix_ids.append(ids)
+
+        self.base_prefix_ids = self.chat_helper.build_prefix_ids(
+            "You are a helpful assistant.", self.device
+        )
+
+        elapsed = time.time() - t0
+        print(f"[SWA] Prefix tokenisation: {elapsed:.2f}s")
+
+    # ------------------------------------------------------------------
+    # Adaptive tau calibration
+    # ------------------------------------------------------------------
+    @torch.no_grad()
+    def calibrate_tau(
+        self,
+        calibration_df: pd.DataFrame,
+        target_trigger_rate: float = 0.35,
+        n_calib: int = 50,
+        lang: str = "en",
+    ) -> float:
+        """
+        Set tau_conflict so that MPPI fires on ~target_trigger_rate of scenarios.
+        Uses the (1 - target_trigger_rate) percentile of the empirical variance dist.
+        """
+        variances = []
+        subset = calibration_df.head(n_calib)
+        frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
+
+        for _, row in subset.iterrows():
+            prompt = row.get("Prompt", row.get("prompt", ""))
+            if not prompt:
+                continue
+            user_content = frame.format(scenario=prompt)
+            formatted = self.chat_helper.format_query_with_suffix(user_content)
+            query_ids = self.tokenizer(
+                formatted, return_tensors="pt", add_special_tokens=False
+            ).input_ids.to(self.device)
+
+            z_base, z_agents = self._evaluate_all_agents(query_ids)
+            _, variance, _ = self._compute_decision_rewards(z_base, z_agents)
+            variances.append(variance)
+
+        if not variances:
+            return self.tau_conflict
+
+        percentile = (1.0 - target_trigger_rate) * 100.0
+        tau_calibrated = float(np.percentile(variances, percentile))
+        self.tau_conflict = tau_calibrated
+        print(
+            f"[F6] Calibrated tau = {tau_calibrated:.6f} "
+            f"(target trigger rate: {target_trigger_rate:.0%}, "
+            f"percentile: {percentile:.0f}th of {len(variances)} samples)"
+        )
+        return tau_calibrated
+
+    # ------------------------------------------------------------------
+    # Core forward: batched evaluation of base + N persona agents
+    # ------------------------------------------------------------------
+    @torch.no_grad()
+    def _evaluate_all_agents(
+        self, query_ids: torch.Tensor, logit_temp: Optional[float] = None
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        if logit_temp is None:
+            logit_temp = self.logit_temperature
+
+        all_prefixes = [self.base_prefix_ids] + self.persona_prefix_ids
+        seqs = [torch.cat([p, query_ids], dim=1) for p in all_prefixes]
+        max_len = max(s.shape[1] for s in seqs)
+
+        batch_ids, batch_mask = [], []
+        for s in seqs:
+            pad_len = max_len - s.shape[1]
+            batch_ids.append(F.pad(s, (pad_len, 0), value=self.pad_id))
+            batch_mask.append(F.pad(
+                torch.ones(1, s.shape[1], dtype=torch.long, device=self.device),
+                (pad_len, 0), value=0,
+            ))
+
+        batch_ids = torch.cat(batch_ids, dim=0)
+        batch_mask = torch.cat(batch_mask, dim=0)
+
+        out = self.model(input_ids=batch_ids, attention_mask=batch_mask, use_cache=False)
+        logits = out.logits[:, -1, :]
+
+        z_decision = logits[:, [self.left_id, self.right_id]] / logit_temp
+        z_base = z_decision[0:1]
+        z_agents = z_decision[1:]
+        return z_base, z_agents
+
+    @torch.no_grad()
+    def _compute_decision_rewards(
+        self, z_base: torch.Tensor, z_agents: torch.Tensor
+    ) -> Tuple[torch.Tensor, float, torch.Tensor]:
+        delta_base = z_base[:, 1] - z_base[:, 0]
+        delta_agents = z_agents[:, 1] - z_agents[:, 0]
+        r_agents = delta_agents - delta_base.squeeze()
+        delta_consensus = delta_agents.mean()
+        variance = torch.var(delta_agents).item()
+        return r_agents, variance, delta_consensus
+
+    def _prospect_value(self, x: torch.Tensor) -> torch.Tensor:
+        """Prospect Theory value function (Kahneman & Tversky, 1979).
+
+        v(x) =  x^α           if x ≥ 0   (diminishing sensitivity to gains)
+        v(x) = -κ · |x|^β     if x < 0   (loss aversion + diminishing sensitivity)
+        """
+        return torch.where(
+            x >= 0,
+            x.abs().pow(self.pt_alpha),
+            -self.pt_kappa * x.abs().pow(self.pt_beta),
+        )
+
+    @torch.no_grad()
+    def _mppi_solve_decision(
+        self,
+        delta_consensus: torch.Tensor,
+        r_agents: torch.Tensor,
+        z_base: torch.Tensor,
+    ) -> torch.Tensor:
+        epsilon = torch.randn(self.K, device=self.device) * self.noise_std
+        delta_pert = delta_consensus + epsilon
+        kl_penalty = 0.5 * (epsilon ** 2) / (self.noise_std ** 2 + 1e-8)
+
+        U_total = torch.zeros(self.K, device=self.device)
+        for i in range(self.N):
+            r_i = r_agents[i].item()
+            r_others = (r_agents.sum() - r_agents[i]) / max(1, self.N - 1)
+            u_private = self._prospect_value(r_i * delta_pert)
+            u_social = self._prospect_value(r_others.item() * delta_pert)
+            u_i = (1 - self.lambda_coop) * u_private + self.lambda_coop * u_social
+            U_total += u_i
+        U_total /= self.N
+        U_total -= self.alpha_kl * kl_penalty
+
+        weights = F.softmax(U_total / self.beta, dim=0)
+        delta_star = torch.sum(weights * epsilon)
+        return delta_star
+
+    @torch.no_grad()
+    def _predict_single_pass(
+        self,
+        user_query: str,
+        preferred_on_right: bool,
+        phenomenon_category: str,
+        lang: str,
+    ) -> Dict:
+        """Single forward pass (no debiasing). Returns raw prediction dict."""
+        logit_temp = self.category_logit_temperatures.get(
+            phenomenon_category, self.logit_temperature
+        )
+
+        frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
+        user_content = frame.format(scenario=user_query)
+        formatted = self.chat_helper.format_query_with_suffix(user_content)
+        query_ids = self.tokenizer(formatted, return_tensors="pt",
+                                   add_special_tokens=False).input_ids.to(self.device)
+
+        z_base, z_agents = self._evaluate_all_agents(query_ids, logit_temp=logit_temp)
+        r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
+
+        mppi_triggered = variance >= self.tau_conflict
+
+        if mppi_triggered:
+            delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base)
+            delta_opt = delta_consensus + delta_star
+        else:
+            delta_opt = delta_consensus
+            delta_star = torch.tensor(0.0, device=self.device)
+
+        consensus_sign = (delta_consensus > 0).item()
+        opt_sign = (delta_opt > 0).item() if hasattr(delta_opt, 'item') else (delta_opt > 0)
+        mppi_flipped = mppi_triggered and (consensus_sign != opt_sign)
+
+        p_right = torch.sigmoid(delta_opt / self.decision_temperature).item()
+
+        if preferred_on_right:
+            p_spare_preferred = p_right
+        else:
+            p_spare_preferred = 1.0 - p_right
+
+        return {
+            "p_right": p_right,
+            "p_left": 1.0 - p_right,
+            "p_spare_preferred": p_spare_preferred,
+            "variance": variance,
+            "mppi_triggered": mppi_triggered,
+            "mppi_flipped": mppi_flipped,
+            "delta_z_norm": abs(delta_star.item()),
+            "delta_consensus": delta_consensus.item(),
+            "delta_opt": delta_opt.item() if hasattr(delta_opt, 'item') else float(delta_opt),
+            "logit_temp_used": logit_temp,
+            "agent_decision_gaps": (z_agents[:, 1] - z_agents[:, 0]).tolist(),
+            "agent_rewards": r_agents.tolist(),
+            "z_base_left": z_base[0, 0].item(),
+            "z_base_right": z_base[0, 1].item(),
+        }
+
+    @torch.no_grad()
+    def predict(
+        self,
+        user_query: str,
+        preferred_on_right: bool = True,
+        phenomenon_category: str = "default",
+        lang: str = "en",
+    ) -> Dict:
+        """
+        Run SWA-MPPI prediction with positional debiasing.
+
+        Runs TWO passes — original and LEFT/RIGHT-swapped — to cancel out
+        the model's intrinsic token bias toward LEFT or RIGHT.
+        """
+        # Pass 1: original ordering
+        r1 = self._predict_single_pass(
+            user_query, preferred_on_right, phenomenon_category, lang
+        )
+
+        # Pass 2: swap LEFT↔RIGHT in the scenario text
+        sf = SCENARIO_FRAME_I18N.get(lang, SCENARIO_FRAME_I18N["en"])
+        left_label = sf["left_lane"]    # e.g., "Làn TRÁI" / "LEFT lane"
+        right_label = sf["right_lane"]  # e.g., "Làn PHẢI" / "RIGHT lane"
+
+        _PH = "\x00SWAP_PLACEHOLDER\x00"
+        swapped_query = user_query.replace(left_label, _PH)
+        swapped_query = swapped_query.replace(right_label, left_label)
+        swapped_query = swapped_query.replace(_PH, right_label)
+
+        # Also swap group labels (Nhóm A ↔ Nhóm B)
+        ga, gb = sf.get("group_a", "Group A"), sf.get("group_b", "Group B")
+        if ga != gb:
+            swapped_query = swapped_query.replace(ga, _PH)
+            swapped_query = swapped_query.replace(gb, ga)
+            swapped_query = swapped_query.replace(_PH, gb)
+
+        r2 = self._predict_single_pass(
+            swapped_query, not preferred_on_right, phenomenon_category, lang
+        )
+
+        # Average the debiased p_spare_preferred
+        p_pref_avg = (r1["p_spare_preferred"] + r2["p_spare_preferred"]) / 2.0
+
+        # Use pass-1 diagnostics but override the debiased result
+        result = r1.copy()
+        result["p_spare_preferred"] = p_pref_avg
+        result["p_spare_preferred_pass1"] = r1["p_spare_preferred"]
+        result["p_spare_preferred_pass2"] = r2["p_spare_preferred"]
+        result["positional_bias"] = abs(r1["p_spare_preferred"] - r2["p_spare_preferred"])
+        # Recompute p_right/p_left from debiased p_spare_preferred
+        if preferred_on_right:
+            result["p_right"] = p_pref_avg
+            result["p_left"] = 1.0 - p_pref_avg
+        else:
+            result["p_right"] = 1.0 - p_pref_avg
+            result["p_left"] = p_pref_avg
+
+        return result
