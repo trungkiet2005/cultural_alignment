@@ -7,6 +7,7 @@ from src.viz.tables import plot_results_table
 from src.viz.clustering import plot_cultural_clustering
 from src.viz.heatmap import plot_alignment_heatmap
 from src.viz.trigger import plot_trigger_analysis, plot_decision_gap_analysis
+from src.viz.comparison import plot_baseline_comparison, plot_comparison_table
 
 __all__ = [
     # Style
@@ -25,4 +26,7 @@ __all__ = [
     "plot_alignment_heatmap",
     "plot_trigger_analysis",
     "plot_decision_gap_analysis",
+    # Comparison plots (baseline vs SWA, 1:1 with main.py)
+    "plot_baseline_comparison",
+    "plot_comparison_table",
 ]

@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 from src.config import resolve_output_dir
 from src.viz.style import setup_matplotlib, BASELINE_COLOR, SWA_COLOR, HUMAN_COLOR
 from src.viz.radar import plot_radar_single
+from src.viz.comparison import plot_baseline_comparison, plot_comparison_table
 
 
 # Metrics expected inside summary["alignment"]
@@ -294,6 +295,16 @@ def main():
     plot_delta_heatmap(metric_df, args.output_dir)
     plot_amce_error_bars(amce_df, args.output_dir)
     plot_radar_overlays(bl, sw, countries, args.output_dir)
+
+    # main.py-style comparison figures (fig8 + publication-quality table)
+    swa_summaries_ordered = [sw[c] for c in countries]
+    vanilla_metrics = {c: bl[c]["alignment"] for c in countries}
+    out_dir_str = str(args.output_dir)
+    print("\n[PLOT] Fig 8: Baseline vs SWA-MPPI bar comparison...")
+    plot_baseline_comparison(swa_summaries_ordered, vanilla_metrics, out_dir_str)
+    print("\n[PLOT] Comparison table (publication-quality + LaTeX)...")
+    plot_comparison_table(swa_summaries_ordered, vanilla_metrics, out_dir_str)
+
     print(f"[SAVE] Figures -> {args.output_dir}")
 
     print_console_summary(agg)
