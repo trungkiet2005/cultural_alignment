@@ -134,7 +134,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
             out = model(input_ids=input_ids, attention_mask=attn, use_cache=False)
             last = out.logits[:, -1, :]
             pair = torch.stack([last[:, left_id], last[:, right_id]], dim=-1)
-            probs = F.softmax(pair / temperature, dim=-1).cpu().numpy()
+            probs = F.softmax(pair / temperature, dim=-1).float().cpu().numpy()
 
         for j, (row, _ids, pref_right) in enumerate(chunk):
             p_l, p_r = float(probs[j, 0]), float(probs[j, 1])
