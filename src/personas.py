@@ -368,9 +368,11 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
     """
     Return 4 personas per country.
 
-    Priority: WVS data (3 age-cohort personas + 1 utilitarian) -> BASE_PERSONAS fallback.
-    WVS personas are always in English (model-agnostic); native-language framing
-    is handled separately by native-language prompt framing.
+    Priority: WVS Wave 7 data (3 age-cohort personas + 1 utilitarian) →
+    BASE_PERSONAS manual fallback. All personas are emitted in English; the
+    native-language framing of the moral dilemma itself is applied later via
+    PROMPT_FRAME_I18N inside `controller.predict()`. Persona text is therefore
+    model-agnostic across languages by design.
     """
     country_name = COUNTRY_FULL_NAMES.get(country_iso, country_iso)
 

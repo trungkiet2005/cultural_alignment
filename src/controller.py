@@ -58,15 +58,11 @@ class ImplicitSWAController:
         self.device = next(model.parameters()).device
         self.chat_helper = ChatTemplateHelper(tokenizer)
 
-        # Decision tokens: neutral letters A / B (formerly LEFT / RIGHT). The
-        # rename to A/B removes the language-bias confound — see PROMPT_FRAME_I18N
-        # comment in src/i18n.py. We keep the attribute names `left_id`/`right_id`
-        # so that downstream code (z indexing, p_left/p_right keys, swap logic)
-        # remains untouched: `left_id` now points at token "A" (option A / left
-        # lane) and `right_id` at token "B" (option B / right lane).
-        self.left_id = self._resolve_token_id("A")
-        self.right_id = self._resolve_token_id("B")
-        print(f"[SWA] Decision token IDs — A: {self.left_id}, B: {self.right_id}")
+        # Per-language cache of (a_token_id, b_token_id) for the answer position.
+        # MUST be resolved per-language because the answer token differs based on
+        # the trailing characters of the prompt template (e.g. ' A' with leading
+        # space vs ':A' merged vs 'A' bare). See _resolve_decision_tokens_for_lang.
+        self._answer_token_cache: Dict[str, Tuple[int, int]] = {}
 
         self.pad_id = (
             tokenizer.pad_token_id if tokenizer.pad_token_id is not None
@@ -75,14 +71,58 @@ class ImplicitSWAController:
 
         self._build_persona_prefixes()
 
-    def _resolve_token_id(self, word: str) -> int:
-        ids = self.tokenizer.encode(word, add_special_tokens=False)
-        if not ids:
-            raise ValueError(
-                f"Tokenizer could not encode '{word}' — check that the model "
-                f"vocabulary contains this token."
+    def _resolve_decision_tokens_for_lang(self, lang: str) -> Tuple[int, int]:
+        """Find the token ids that the model would emit for "A"/"B" answers
+        in this specific language's prompt.
+
+        This MUST be resolved using the actual chat-templated, formatted prompt
+        because BPE tokenizers (Llama 3, Qwen 2.5, GPT-OSS, Mistral-NeMo) merge
+        the answer letter with the preceding character. For example, in Qwen2.5
+        with the English template ending in "Choice: " (trailing space), the
+        emitted answer token is " A" (id 362), NOT bare "A" (id 32). Reading
+        the logit at id 32 gives a token that has nothing to do with the model's
+        decision — essentially noise.
+
+        SentencePiece tokenizers (Llama 2, Mistral 7B v0.1) happen to be robust
+        to the naive `encode("A")[0]` because their metaspace prefix produces
+        the same `▁A` token regardless of context, but BPE tokenizers are not.
+        We always use the per-language formatted-prompt resolution for safety.
+        """
+        if lang in self._answer_token_cache:
+            return self._answer_token_cache[lang]
+
+        frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
+        # Dummy scenario — the answer suffix is what matters, not the content.
+        user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
+        formatted = self.chat_helper.format_query_with_suffix(user_content)
+
+        base_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
+        a_full = self.tokenizer.encode(formatted + "A", add_special_tokens=False)
+        b_full = self.tokenizer.encode(formatted + "B", add_special_tokens=False)
+
+        def _first_diff(base: list, full: list) -> int:
+            n = min(len(base), len(full))
+            for i in range(n):
+                if base[i] != full[i]:
+                    return i
+            return n
+
+        a_pos = _first_diff(base_ids, a_full)
+        b_pos = _first_diff(base_ids, b_full)
+        if a_pos >= len(a_full) or b_pos >= len(b_full):
+            raise RuntimeError(
+                f"[SWA] Failed to resolve A/B answer tokens for lang={lang}: "
+                f"prompt+'A'/'B' produced no new token. base_len={len(base_ids)}, "
+                f"a_len={len(a_full)}, b_len={len(b_full)}"
             )
-        return ids[0]
+        a_id = a_full[a_pos]
+        b_id = b_full[b_pos]
+        self._answer_token_cache[lang] = (a_id, b_id)
+        a_str = self.tokenizer.decode([a_id])
+        b_str = self.tokenizer.decode([b_id])
+        print(f"[SWA] Decision tokens for lang={lang}: "
+              f"A={a_id}({a_str!r})  B={b_id}({b_str!r})")
+        return a_id, b_id
 
     @torch.no_grad()
     def _build_persona_prefixes(self):
@@ -106,10 +146,15 @@ class ImplicitSWAController:
     # ------------------------------------------------------------------
     @torch.no_grad()
     def _evaluate_all_agents(
-        self, query_ids: torch.Tensor, logit_temp: Optional[float] = None
+        self,
+        query_ids: torch.Tensor,
+        lang: str,
+        logit_temp: Optional[float] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if logit_temp is None:
             logit_temp = self.logit_temperature
+
+        a_id, b_id = self._resolve_decision_tokens_for_lang(lang)
 
         all_prefixes = [self.base_prefix_ids] + self.persona_prefix_ids
         seqs = [torch.cat([p, query_ids], dim=1) for p in all_prefixes]
@@ -130,7 +175,8 @@ class ImplicitSWAController:
         out = self.model(input_ids=batch_ids, attention_mask=batch_mask, use_cache=False)
         logits = out.logits[:, -1, :]
 
-        z_decision = logits[:, [self.left_id, self.right_id]] / logit_temp
+        # Index 0 -> "A" token, index 1 -> "B" token (per-language correct ids).
+        z_decision = logits[:, [a_id, b_id]] / logit_temp
         z_base = z_decision[0:1]
         z_agents = z_decision[1:]
         return z_base, z_agents
@@ -244,7 +290,7 @@ class ImplicitSWAController:
         query_ids = self.tokenizer(formatted, return_tensors="pt",
                                    add_special_tokens=False).input_ids.to(self.device)
 
-        z_base, z_agents = self._evaluate_all_agents(query_ids, logit_temp=logit_temp)
+        z_base, z_agents = self._evaluate_all_agents(query_ids, lang, logit_temp=logit_temp)
         r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
 
         # MPPI runs unconditionally (adaptive conflict gating removed).
@@ -274,8 +320,8 @@ class ImplicitSWAController:
             "logit_temp_used": logit_temp,
             "agent_decision_gaps": (z_agents[:, 1] - z_agents[:, 0]).tolist(),
             "agent_rewards": r_agents.tolist(),
-            "z_base_left": z_base[0, 0].item(),
-            "z_base_right": z_base[0, 1].item(),
+            "z_base_a": z_base[0, 0].item(),
+            "z_base_b": z_base[0, 1].item(),
         }
 
     @torch.no_grad()

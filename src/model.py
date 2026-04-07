@@ -15,11 +15,27 @@ except Exception:
 
 
 def setup_seeds(seed: int = 42) -> None:
+    """Seed all RNG sources used by the experiment.
+
+    Sets `random`, `numpy`, torch CPU/CUDA, and forces cuDNN into deterministic
+    mode. Without the cudnn flags, GPU convolutions/attention can pick different
+    algorithms across runs, breaking reproducibility even with the same seed.
+    """
+    import os as _os
     _rng.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+    # Required for `use_deterministic_algorithms(True)` to allow cuBLAS ops.
+    _os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    try:
+        torch.use_deterministic_algorithms(True, warn_only=True)
+    except Exception:
+        # Older torch or kernels without deterministic implementations.
+        pass
 
 
 # ── model loading ───────────────────────────────────────────────────────────

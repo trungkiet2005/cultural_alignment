@@ -45,13 +45,18 @@ class BaseConfig:
     n_scenarios: int = 500
     seed: int = 42
     target_countries: List[str] = field(default_factory=lambda: [
-        # Original 15
-        "USA", "DEU", "CHN", "JPN", "BRA", "SAU", "VNM", "FRA", "IND", "KOR",
+        # Core (WVS Wave 7 grounded — all 25 have empirical persona profiles)
+        "USA", "DEU", "CHN", "JPN", "BRA", "VNM", "IND", "KOR",
         "GBR", "RUS", "MEX", "NGA", "AUS",
-        # Tier 1 (+6)
-        "IDN", "TUR", "POL", "ARG", "EGY", "ZAF",
-        # Tier 2 (+4)
-        "SWE", "PAK", "COL", "UKR",
+        "IDN", "TUR", "ARG", "EGY",
+        "PAK", "COL", "UKR",
+        # WVS-grounded replacements for SAU/FRA/POL/ZAF/SWE (not in WVS W7):
+        # CAN — Anglo Western (replaces FRA's Western liberal voice)
+        # CHL — Andean LatinAmerica (deepens LatAm cluster, distinct profile)
+        # TWN — Confucian sinosphere (politically/socially distinct from CHN)
+        # MAR — Maghreb Islamic (replaces SAU; distinct from Mashriq Arab EGY)
+        # IRN — Shia Persian Islamic (replaces SAU; Sunni/Shia distinction)
+        "CAN", "CHL", "TWN", "MAR", "IRN",
     ])
 
     # Paths

@@ -152,11 +152,20 @@ def compute_alignment_metrics(
     mae = float(np.mean(np.abs(m_vals - h_vals)))
     rmse = float(np.sqrt(np.mean((m_vals - h_vals) ** 2)))
 
-    dot = np.dot(m_vals, h_vals)
-    norm_m = np.linalg.norm(m_vals)
-    norm_h = np.linalg.norm(h_vals)
-    cosine_sim = float(dot / (norm_m * norm_h + 1e-12))
+    # Centered cosine similarity (≡ Pearson r mathematically, but reported
+    # explicitly because raw cosine sim on AMCE vectors in [0, 100] with
+    # baseline ~50 is pathologically inflated: random vectors yield ~0.98,
+    # and even perfectly anti-correlated vectors yield ~0.94. Centering by
+    # the per-vector mean makes it a meaningful shape-similarity metric.
+    m_c = m_vals - m_vals.mean()
+    h_c = h_vals - h_vals.mean()
+    denom = np.linalg.norm(m_c) * np.linalg.norm(h_c)
+    cosine_sim = float(np.dot(m_c, h_c) / denom) if denom > 1e-12 else float("nan")
 
+    # Jensen-Shannon distance: AMCE vectors are shifted to be non-negative then
+    # L1-normalised so they form a discrete distribution over the 6 criteria.
+    # This is a SHAPE comparison (which criteria dominate), not a probability
+    # distance in the classical sense — report as a diagnostic, not a metric.
     shift = max(0.0, -min(m_vals.min(), h_vals.min())) + 1e-10
     m_dist = (m_vals + shift); m_dist = m_dist / m_dist.sum()
     h_dist = (h_vals + shift); h_dist = h_dist / h_dist.sum()
@@ -165,7 +174,7 @@ def compute_alignment_metrics(
     return {
         "n_criteria": len(common_keys),
         "jsd": jsd,
-        "cosine_sim": cosine_sim,
+        "cosine_sim": cosine_sim,  # mean-centered (≡ Pearson r)
         "pearson_r": pearson_r,
         "pearson_p": pearson_p,
         "spearman_rho": spearman_rho,

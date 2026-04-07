@@ -4,7 +4,6 @@ import os
 import ast
 import hashlib
 import random as _rng
-from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -13,7 +12,6 @@ from src.constants import (
     MULTITP_VALID_CATEGORIES, UTILITARIANISM_QUALITY_ROLES,
     MAX_SCENARIOS_PER_CATEGORY,
 )
-from src.scenarios import generate_multitp_scenarios
 
 
 def find_multitp_csv(data_base_path, lang, translator, suffix):

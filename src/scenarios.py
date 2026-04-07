@@ -37,7 +37,13 @@ def verbalize_group_lang(char_list: List[str], lang: str = "en") -> str:
     parts = []
     for char_type, cnt in counts.items():
         if char_type not in chars_i18n:
-            # Fall back to English
+            # Fall back to English. Warn so silent degradation is visible in
+            # logs — important for cross-lingual fairness audits.
+            print(
+                f"[WARN] Character {char_type!r} not found in CHARACTERS_I18N[{lang!r}]; "
+                f"falling back to English. This pollutes the native-language "
+                f"prompt with English tokens."
+            )
             singular, plural = CHARACTERS.get(char_type, (char_type, char_type + "s"))
         else:
             singular, plural = chars_i18n[char_type]
@@ -51,27 +57,37 @@ def verbalize_group_lang(char_list: List[str], lang: str = "en") -> str:
                 parts.append(f"1 {singular}")
         else:
             parts.append(f"{cnt} {plural}")
-    # Language-specific conjunctions
+    # Language-specific conjunctions (list_separator, final_conjunction)
     _CONJUNCTIONS = {
         "zh": ("、", "和"), "ja": ("、", "と"), "ko": ("、", "그리고 "),
         "de": (", ", " und "), "fr": (", ", " et "), "pt": (", ", " e "),
         "ar": ("، ", " و"), "vi": (", ", " và "), "hi": (", ", " और "),
         "ru": (", ", " и "), "es": (", ", " y "),
+        # Added for full coverage of the 25-country target list
+        "id": (", ", " dan "),    # Indonesian
+        "tr": (", ", " ve "),     # Turkish
+        "uk": (", ", " та "),     # Ukrainian
+        "ur": ("، ", " اور "),    # Urdu
+        "pl": (", ", " i "),      # Polish (kept for legacy POL)
+        "sv": (", ", " och "),    # Swedish (kept for legacy SWE)
     }
     if len(parts) == 1:
         return parts[0]
     elif len(parts) == 2:
-        if lang == "zh":
-            sep = "和"
-        elif lang == "ja":
-            sep = "と"
-        elif lang == "ko":
+        # Use the language's final conjunction (same as the >2-element case)
+        # rather than hardcoded English "and" — this was a fairness bug:
+        # de/fr/es/vi/etc all received English "and" for 2-element groups.
+        if lang == "ko":
             # Korean: 과 after consonant-ending, 와 after vowel-ending
             last_char = parts[0][-1] if parts[0] else ''
-            sep = "과 " if (last_char and ord(last_char) >= 0xAC00 and (ord(last_char) - 0xAC00) % 28 != 0) else "와 "
-        else:
-            sep = " and "
-        return f"{parts[0]}{sep}{parts[1]}"
+            sep = "과 " if (last_char and ord(last_char) >= 0xAC00
+                             and (ord(last_char) - 0xAC00) % 28 != 0) else "와 "
+            return f"{parts[0]}{sep}{parts[1]}"
+        if lang in _CONJUNCTIONS:
+            _, final_conj = _CONJUNCTIONS[lang]
+            return f"{parts[0]}{final_conj}{parts[1]}"
+        # English (or unknown lang) fallback
+        return f"{parts[0]} and {parts[1]}"
     else:
         list_sep, final_conj = _CONJUNCTIONS.get(lang, (", ", ", and "))
         return list_sep.join(parts[:-1]) + final_conj + parts[-1]

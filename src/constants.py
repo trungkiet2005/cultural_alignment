@@ -69,29 +69,40 @@ SCENARIO_STARTS: List[str] = [
 # COUNTRY MAPPINGS
 # ============================================================================
 COUNTRY_FULL_NAMES: Dict[str, str] = {
-    # Original 15
+    # Core (kept from original list)
     "USA": "the United States", "DEU": "Germany", "CHN": "China",
-    "JPN": "Japan", "BRA": "Brazil", "SAU": "Saudi Arabia",
-    "VNM": "Vietnam", "FRA": "France", "IND": "India",
+    "JPN": "Japan", "BRA": "Brazil",
+    "VNM": "Vietnam", "IND": "India",
     "KOR": "South Korea", "GBR": "Great Britain", "RUS": "Russia",
     "MEX": "Mexico", "NGA": "Nigeria", "AUS": "Australia",
-    # Tier 1 expansion (NeurIPS): +6
-    "IDN": "Indonesia", "TUR": "Turkey", "POL": "Poland",
-    "ARG": "Argentina", "EGY": "Egypt", "ZAF": "South Africa",
-    # Tier 2 expansion (NeurIPS): +4
-    "SWE": "Sweden", "PAK": "Pakistan", "COL": "Colombia", "UKR": "Ukraine",
+    "IDN": "Indonesia", "TUR": "Turkey",
+    "ARG": "Argentina", "EGY": "Egypt",
+    "PAK": "Pakistan", "COL": "Colombia", "UKR": "Ukraine",
+    # WVS Wave 7 replacements for SAU/FRA/POL/ZAF/SWE (absent in WVS W7)
+    "CAN": "Canada", "CHL": "Chile", "TWN": "Taiwan",
+    "MAR": "Morocco", "IRN": "Iran",
+    # Legacy entries (kept for back-compat with manual personas in personas.py;
+    # not in target_countries because they lack WVS Wave 7 coverage)
+    "SAU": "Saudi Arabia", "FRA": "France", "POL": "Poland",
+    "ZAF": "South Africa", "SWE": "Sweden",
 }
 
 COUNTRY_LANG: Dict[str, str] = {
     "USA": "en", "GBR": "en", "AUS": "en", "NGA": "en",
-    "DEU": "de", "CHN": "zh", "JPN": "ja", "FRA": "fr",
-    "BRA": "pt", "SAU": "ar", "VNM": "vi",
+    "DEU": "de", "CHN": "zh", "JPN": "ja",
+    "BRA": "pt", "VNM": "vi",
     "IND": "hi", "KOR": "ko", "RUS": "ru", "MEX": "es",
-    # New: Tier 1
-    "IDN": "id", "TUR": "tr", "POL": "pl",
-    "ARG": "es", "EGY": "ar", "ZAF": "en",
-    # New: Tier 2
-    "SWE": "sv", "PAK": "ur", "COL": "es", "UKR": "uk",
+    "IDN": "id", "TUR": "tr",
+    "ARG": "es", "EGY": "ar",
+    "PAK": "ur", "COL": "es", "UKR": "uk",
+    # WVS Wave 7 replacements
+    "CAN": "en",     # English (Canada is bilingual; majority of WVS-CAN respondents English)
+    "CHL": "es",     # Spanish
+    "TWN": "zh",     # Chinese (Traditional, but i18n zh frame uses simplified — minor caveat)
+    "MAR": "ar",     # Arabic (Moroccan dialect; MSA i18n is acceptable)
+    "IRN": "en",     # Persian/Farsi not yet in i18n — falls back to English (caveat)
+    # Legacy entries (for back-compat with manual personas)
+    "SAU": "ar", "FRA": "fr", "POL": "pl", "ZAF": "en", "SWE": "sv",
 }
 
 # ============================================================================

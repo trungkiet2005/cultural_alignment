@@ -13,17 +13,58 @@ from src.model import ChatTemplateHelper
 from src.amce import compute_amce_from_preferences, load_human_amce, compute_alignment_metrics
 
 
-def logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
+def resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang):
+    """Resolve the (A_token_id, B_token_id) the model would emit at the answer
+    position for `lang`'s prompt template.
+
+    See `controller._resolve_decision_tokens_for_lang` for the rationale —
+    BPE tokenizers (Llama 3, Qwen 2.5, GPT-OSS) merge the answer letter with
+    the preceding character, so the naive `tokenizer.encode("A")[0]` returns
+    the wrong token id for any language whose prompt does not end with a CJK
+    fullwidth character. We MUST resolve this per-language using the actual
+    chat-templated formatted prompt.
+    """
+    frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
+    user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
+    formatted = chat_helper.format_query_with_suffix(user_content)
+
+    base_ids = tokenizer.encode(formatted, add_special_tokens=False)
+    a_full = tokenizer.encode(formatted + "A", add_special_tokens=False)
+    b_full = tokenizer.encode(formatted + "B", add_special_tokens=False)
+
+    def _first_diff(base, full):
+        n = min(len(base), len(full))
+        for i in range(n):
+            if base[i] != full[i]:
+                return i
+        return n
+
+    a_pos = _first_diff(base_ids, a_full)
+    b_pos = _first_diff(base_ids, b_full)
+    if a_pos >= len(a_full) or b_pos >= len(b_full):
+        raise RuntimeError(
+            f"Failed to resolve A/B answer tokens for lang={lang}: "
+            f"prompt+'A'/'B' produced no new token."
+        )
+    a_id, b_id = a_full[a_pos], b_full[b_pos]
+    a_str = tokenizer.decode([a_id])
+    b_str = tokenizer.decode([b_id])
+    print(f"[Baseline] Decision tokens for lang={lang}: "
+          f"A={a_id}({a_str!r})  B={b_id}({b_str!r})")
+    return a_id, b_id
+
+
+def logit_fallback_p_spare(model, full_ids, a_id, b_id, pref_right,
                            temperature=1.0, return_raw=False):
     """Extract P(spare_preferred) from A/B option logits with temperature sharpening.
 
-    `left_id` is the token id for "A" (option A / left lane) and `right_id` for
-    "B" (option B / right lane). Names kept for backwards compatibility.
+    `a_id` / `b_id` are language-specific answer-token ids resolved via
+    `resolve_decision_tokens_for_lang`.
     """
     with torch.no_grad():
         out = model(input_ids=full_ids, use_cache=False)
         logits = out.logits[0, -1, :]
-        pair = torch.stack([logits[left_id], logits[right_id]])
+        pair = torch.stack([logits[a_id], logits[b_id]])
         probs = F.softmax(pair / temperature, dim=-1)
         p_l = probs[0].item()
         p_r = probs[1].item()
@@ -38,10 +79,9 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     lang = COUNTRY_LANG.get(country, "en")
     chat_helper = ChatTemplateHelper(tokenizer)
     base_ids = chat_helper.build_prefix_ids("You are a helpful assistant.", device)
-    # Decision tokens: neutral letters A / B (formerly LEFT / RIGHT) — see
-    # PROMPT_FRAME_I18N comment in src/i18n.py for the language-bias rationale.
-    left_id = tokenizer.encode("A", add_special_tokens=False)[0]
-    right_id = tokenizer.encode("B", add_special_tokens=False)[0]
+    # Per-language A/B answer tokens (CRITICAL: do NOT use naive
+    # `tokenizer.encode("A")[0]` — see resolve_decision_tokens_for_lang).
+    a_id, b_id = resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang)
     frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
 
     rows_data = []
@@ -62,7 +102,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         cat = row.get("phenomenon_category", "?")
         pref_side = "B" if pref_right else "A"
         p_spare, p_l, p_r = logit_fallback_p_spare(
-            model, full_ids, left_id, right_id, pref_right,
+            model, full_ids, a_id, b_id, pref_right,
             temperature=cfg.decision_temperature, return_raw=True)
         full_text = tokenizer.decode(full_ids[0], skip_special_tokens=False)
         print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
@@ -139,7 +179,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         with torch.no_grad():
             out = model(input_ids=input_ids, attention_mask=attn, use_cache=False)
             last = out.logits[:, -1, :]
-            pair = torch.stack([last[:, left_id], last[:, right_id]], dim=-1)
+            pair = torch.stack([last[:, a_id], last[:, b_id]], dim=-1)
             probs = F.softmax(pair / temperature, dim=-1).float().cpu().numpy()
 
         for j, (row, _ids, pref_right) in enumerate(chunk):
