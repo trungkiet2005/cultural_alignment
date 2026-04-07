@@ -91,7 +91,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         budget = int(0.80 * free_before)
         bs = 1
         last_ok = 1
-        while bs <= min(256, len(sorted_seqs)):
+        while bs <= min(1024, len(sorted_seqs)):
             try:
                 torch.cuda.empty_cache()
                 ids, attn = _pad_batch(sorted_seqs[:bs])
@@ -103,7 +103,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
                     break
                 last_ok = bs
                 # Stop early if we already use >40% — doubling would risk OOM
-                if used > 0.4 * free_before:
+                if used > 0.65 * free_before:
                     break
                 bs *= 2
             except torch.cuda.OutOfMemoryError:
