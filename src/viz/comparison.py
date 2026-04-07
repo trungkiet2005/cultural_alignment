@@ -24,7 +24,7 @@ def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
     plt.tight_layout()
     path = os.path.join(output_dir, "fig8_baseline_comparison.pdf")
     plt.savefig(path, bbox_inches='tight'); plt.savefig(path.replace('.pdf', '.png'))
-    plt.close()
+    plt.show(); plt.close()
     print(f"[FIG 8] Saved -> {path}")
 
 
@@ -156,7 +156,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
     path = os.path.join(output_dir, "fig_comparison_table.pdf")
     plt.savefig(path, bbox_inches='tight')
     plt.savefig(path.replace('.pdf', '.png'))
-    plt.close()
+    plt.show(); plt.close()
     print(f"[COMPARISON TABLE] Saved -> {path}")
 
     # LaTeX

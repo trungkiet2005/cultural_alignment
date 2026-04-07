@@ -136,7 +136,7 @@ def plot_metric_bars(metric_df: pd.DataFrame, out_dir: Path):
         ax.grid(axis="y", alpha=0.3)
         fig.tight_layout()
         fig.savefig(out_dir / f"compare_{m}.png", dpi=150)
-        plt.close(fig)
+        plt.show(); plt.close(fig)
 
 
 def plot_delta_heatmap(metric_df: pd.DataFrame, out_dir: Path):
@@ -221,7 +221,7 @@ def plot_radar_overlays(bl, sw, countries, out_dir: Path):
         ax.legend(loc="upper right", bbox_to_anchor=(1.35, 1.1), fontsize=8)
         fig.tight_layout()
         fig.savefig(radar_dir / f"radar_overlay_{c}.png", dpi=150)
-        plt.close(fig)
+        plt.show(); plt.close(fig)
 
 
 def print_console_summary(agg: pd.DataFrame):
