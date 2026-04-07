@@ -3,8 +3,6 @@
 import time
 from typing import Dict, List, Optional, Tuple
 
-import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
 
@@ -22,7 +20,7 @@ class ImplicitSWAController:
 
     Features:
       - Per-category logit temperature applied per predict() call
-      - tau_conflict calibrated externally and set via calibrate_tau()
+      - MPPI runs unconditionally on every scenario (no adaptive gating)
     """
 
     def __init__(
@@ -35,7 +33,6 @@ class ImplicitSWAController:
         K_samples: int = 128,
         noise_std: float = 0.3,
         temperature: float = 0.5,
-        tau_conflict: float = 0.001,
         logit_temperature: float = 3.0,
         category_logit_temperatures: Optional[Dict[str, float]] = None,
         pt_alpha: float = 0.88,
@@ -55,7 +52,6 @@ class ImplicitSWAController:
         self.K = K_samples
         self.noise_std = noise_std
         self.beta = temperature
-        self.tau_conflict = tau_conflict
         self.logit_temperature = logit_temperature
         self.category_logit_temperatures = category_logit_temperatures or {}
         self.decision_temperature = decision_temperature
@@ -104,52 +100,6 @@ class ImplicitSWAController:
 
         elapsed = time.time() - t0
         print(f"[SWA] Prefix tokenisation: {elapsed:.2f}s")
-
-    # ------------------------------------------------------------------
-    # Adaptive tau calibration
-    # ------------------------------------------------------------------
-    @torch.no_grad()
-    def calibrate_tau(
-        self,
-        calibration_df: pd.DataFrame,
-        target_trigger_rate: float = 0.35,
-        n_calib: int = 50,
-        lang: str = "en",
-    ) -> float:
-        """
-        Set tau_conflict so that MPPI fires on ~target_trigger_rate of scenarios.
-        Uses the (1 - target_trigger_rate) percentile of the empirical variance dist.
-        """
-        variances = []
-        subset = calibration_df.head(n_calib)
-        frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
-
-        for _, row in subset.iterrows():
-            prompt = row.get("Prompt", row.get("prompt", ""))
-            if not prompt:
-                continue
-            user_content = frame.format(scenario=prompt)
-            formatted = self.chat_helper.format_query_with_suffix(user_content)
-            query_ids = self.tokenizer(
-                formatted, return_tensors="pt", add_special_tokens=False
-            ).input_ids.to(self.device)
-
-            z_base, z_agents = self._evaluate_all_agents(query_ids)
-            _, variance, _ = self._compute_decision_rewards(z_base, z_agents)
-            variances.append(variance)
-
-        if not variances:
-            return self.tau_conflict
-
-        percentile = (1.0 - target_trigger_rate) * 100.0
-        tau_calibrated = float(np.percentile(variances, percentile))
-        self.tau_conflict = tau_calibrated
-        print(
-            f"[F6] Calibrated tau = {tau_calibrated:.6f} "
-            f"(target trigger rate: {target_trigger_rate:.0%}, "
-            f"percentile: {percentile:.0f}th of {len(variances)} samples)"
-        )
-        return tau_calibrated
 
     # ------------------------------------------------------------------
     # Core forward: batched evaluation of base + N persona agents
@@ -297,18 +247,13 @@ class ImplicitSWAController:
         z_base, z_agents = self._evaluate_all_agents(query_ids, logit_temp=logit_temp)
         r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
 
-        mppi_triggered = variance >= self.tau_conflict
-
-        if mppi_triggered:
-            delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base)
-            delta_opt = delta_consensus + delta_star
-        else:
-            delta_opt = delta_consensus
-            delta_star = torch.tensor(0.0, device=self.device)
+        # MPPI runs unconditionally (adaptive conflict gating removed).
+        delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base)
+        delta_opt = delta_consensus + delta_star
 
         consensus_sign = (delta_consensus > 0).item()
         opt_sign = (delta_opt > 0).item() if hasattr(delta_opt, 'item') else (delta_opt > 0)
-        mppi_flipped = mppi_triggered and (consensus_sign != opt_sign)
+        mppi_flipped = consensus_sign != opt_sign
 
         p_right = torch.sigmoid(delta_opt / self.decision_temperature).item()
 
@@ -322,7 +267,6 @@ class ImplicitSWAController:
             "p_left": 1.0 - p_right,
             "p_spare_preferred": p_spare_preferred,
             "variance": variance,
-            "mppi_triggered": mppi_triggered,
             "mppi_flipped": mppi_flipped,
             "delta_z_norm": abs(delta_star.item()),
             "delta_consensus": delta_consensus.item(),

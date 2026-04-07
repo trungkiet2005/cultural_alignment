@@ -31,7 +31,7 @@ import pandas as pd
 from src.config import SWAConfig, add_common_args, add_swa_args, config_from_args, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.model import setup_seeds, load_model
-from src.data import load_multitp_dataset, balance_scenario_dataset
+from src.data import load_multitp_dataset
 from src.scenarios import generate_multitp_scenarios
 from src.personas import build_country_personas, SUPPORTED_COUNTRIES
 from src.swa_runner import run_country_experiment
@@ -41,7 +41,7 @@ from src.viz import (
     plot_amce_comparison_bar, plot_results_table,
     plot_cultural_clustering,
     plot_alignment_heatmap,
-    plot_trigger_analysis, plot_decision_gap_analysis,
+    plot_decision_gap_analysis,
     SWA_COLOR,
 )
 
@@ -54,7 +54,6 @@ def print_final_statistics(all_summaries, config):
     all_pearson = [s["alignment"].get("pearson_r", np.nan) for s in all_summaries]
     all_spearman = [s["alignment"].get("spearman_rho", np.nan) for s in all_summaries]
     all_mae = [s["alignment"].get("mae", np.nan) for s in all_summaries]
-    all_trigger = [s["trigger_rate"] for s in all_summaries]
     all_flip = [s["flip_rate"] for s in all_summaries]
     all_latency = [s["mean_latency_ms"] for s in all_summaries]
 
@@ -66,8 +65,7 @@ def print_final_statistics(all_summaries, config):
     print(f"  Pearson Correlation:      {np.nanmean(all_pearson):.4f} \u00b1 {np.nanstd(all_pearson):.4f}")
     print(f"  Spearman Correlation:     {np.nanmean(all_spearman):.4f} \u00b1 {np.nanstd(all_spearman):.4f}")
     print(f"  Mean Absolute Error:      {np.nanmean(all_mae):.2f} \u00b1 {np.nanstd(all_mae):.2f} pp")
-    print(f"  MPPI Trigger Rate:        {np.mean(all_trigger):.1%} \u00b1 {np.std(all_trigger):.1%}")
-    print(f"  MPPI Flip Rate:           {np.mean(all_flip):.1%} \u00b1 {np.std(all_flip):.1%} (of triggered)")
+    print(f"  MPPI Flip Rate:           {np.mean(all_flip):.1%} \u00b1 {np.std(all_flip):.1%} (of all scenarios)")
     print(f"  Mean Latency:             {np.mean(all_latency):.1f} \u00b1 {np.std(all_latency):.1f} ms")
 
     print(f"\n{'='*70}")
@@ -94,15 +92,12 @@ def print_final_statistics(all_summaries, config):
             print(f"  {cat:25s}: {mean_d:+6.2f} pp  {direction}")
 
     total_scenarios = sum(s["n_scenarios"] for s in all_summaries)
-    total_mppi = sum(s["trigger_rate"] * s["n_scenarios"] for s in all_summaries)
     total_flips = sum(s["flip_count"] for s in all_summaries)
     print(f"\n{'='*70}")
-    print(f"  COMPUTATIONAL EFFICIENCY")
+    print(f"  MPPI IMPACT")
     print(f"{'='*70}")
     print(f"  Total scenarios:  {total_scenarios:,}")
-    print(f"  MPPI triggered:   {int(total_mppi):,} ({total_mppi/total_scenarios:.1%})")
-    print(f"  MPPI flipped:     {total_flips:,} ({total_flips/max(1,int(total_mppi)):.1%} of triggered)")
-    print(f"  Compute savings:  {(1 - total_mppi/total_scenarios):.1%} (from adaptive \u03c4)")
+    print(f"  MPPI flipped:     {total_flips:,} ({total_flips/max(1,total_scenarios):.1%} of all scenarios)")
     print(f"\n{'='*70}")
     print(f"  Experiment complete. All results in: {config.output_dir}/")
     print(f"{'='*70}")
@@ -146,7 +141,6 @@ def main():
     print(f"  model_name:             {config.model_name}")
     print(f"  n_scenarios:            {config.n_scenarios}")
     print(f"  noise_std:              {config.noise_std}")
-    print(f"  tau_target_trigger_rate:{config.tau_target_trigger_rate} (adaptive)")
     print(f"  decision_temperature:   {config.decision_temperature}")
     print(f"  category_temperatures:  {config.category_logit_temperatures}")
 
@@ -206,9 +200,7 @@ def main():
             country_base_df = generate_multitp_scenarios(
                 config.n_scenarios, lang=lang,
             )
-        country_df = balance_scenario_dataset(
-            country_base_df, min_per_category=50, seed=config.seed, lang=lang,
-        )
+        country_df = country_base_df.copy()
         country_df["lang"] = lang
 
         # Build personas
@@ -340,9 +332,6 @@ def main():
 
     print("\n[PLOT] Fig 2: Alignment heatmap...")
     plot_alignment_heatmap(all_summaries, config.output_dir)
-
-    print("\n[PLOT] Fig 3: Trigger analysis...")
-    plot_trigger_analysis(all_summaries, config, config.output_dir)
 
     print("\n[PLOT] Fig 5: Decision gap analysis...")
     plot_decision_gap_analysis(all_summaries, config, config.output_dir)

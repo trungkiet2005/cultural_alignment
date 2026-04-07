@@ -42,21 +42,12 @@ def run_country_experiment(
         K_samples=cfg.K_samples,
         noise_std=cfg.noise_std,
         temperature=cfg.temperature,
-        tau_conflict=cfg.tau_conflict,
         logit_temperature=cfg.logit_temperature,
         category_logit_temperatures=cfg.category_logit_temperatures,
         pt_alpha=cfg.pt_alpha,
         pt_beta=cfg.pt_beta,
         pt_kappa=cfg.pt_kappa,
         decision_temperature=cfg.decision_temperature,
-    )
-
-    # Calibrate tau per-country
-    controller.calibrate_tau(
-        calibration_df=scenario_df,
-        target_trigger_rate=cfg.tau_target_trigger_rate,
-        n_calib=cfg.tau_calibration_n,
-        lang=lang,
     )
 
     # Debug: print 3 sample prompts with model prediction (logit extraction)
@@ -78,13 +69,12 @@ def run_country_experiment(
         print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
         print(f"  {formatted_sample[:500]}{'...' if len(formatted_sample) > 500 else ''}")
         print(f"  >>> Model: p(B)={debug_pred['p_right']:.3f}  p(A)={debug_pred['p_left']:.3f}"
-              f"  -> {model_choice}  |  p(spare_preferred)={debug_pred['p_spare_preferred']:.3f}"
-              f"  |  MPPI={'ON' if debug_pred['mppi_triggered'] else 'off'}")
+              f"  -> {model_choice}  |  p(spare_preferred)={debug_pred['p_spare_preferred']:.3f}")
         print()
 
     results = []
     diagnostics = {
-        "variances": [], "trigger_count": 0, "flip_count": 0, "total_count": 0,
+        "variances": [], "flip_count": 0, "total_count": 0,
         "delta_z_norms": [], "agent_reward_matrix": [],
         "latencies": [], "decision_gaps": [],
         "logit_temps_used": [],
@@ -110,7 +100,6 @@ def run_country_experiment(
         latency = time.time() - t0
 
         diagnostics["variances"].append(pred["variance"])
-        diagnostics["trigger_count"] += int(pred["mppi_triggered"])
         diagnostics["flip_count"] += int(pred["mppi_flipped"])
         diagnostics["total_count"] += 1
         diagnostics["delta_z_norms"].append(pred["delta_z_norm"])
@@ -133,7 +122,6 @@ def run_country_experiment(
             "p_right": float(pred["p_right"]),
             "p_spare_preferred": float(pred["p_spare_preferred"]),
             "mppi_variance": float(pred["variance"]),
-            "mppi_triggered": bool(pred["mppi_triggered"]),
             "mppi_flipped": bool(pred["mppi_flipped"]),
             "delta_z_norm": float(pred["delta_z_norm"]),
             "delta_consensus": float(pred["delta_consensus"]),
@@ -156,8 +144,7 @@ def run_country_experiment(
     summary = {
         "country": country_iso,
         "n_scenarios": diagnostics["total_count"],
-        "trigger_rate": diagnostics["trigger_count"] / max(1, diagnostics["total_count"]),
-        "flip_rate": diagnostics["flip_count"] / max(1, diagnostics["trigger_count"]),
+        "flip_rate": diagnostics["flip_count"] / max(1, diagnostics["total_count"]),
         "flip_count": diagnostics["flip_count"],
         "mean_variance": np.mean(diagnostics["variances"]),
         "mean_delta_z_norm": np.mean(diagnostics["delta_z_norms"]),
@@ -168,13 +155,10 @@ def run_country_experiment(
         "human_amce": human_amce,
         "alignment": alignment,
         "diagnostics": diagnostics,
-        "tau_used": controller.tau_conflict,
     }
 
     print(f"\n[RESULT] {country_iso}:")
-    print(f"  Calibrated tau:    {controller.tau_conflict:.6f}")
-    print(f"  Trigger rate:      {summary['trigger_rate']:.1%}")
-    print(f"  Flip rate:         {summary['flip_count']}/{diagnostics['trigger_count']} triggered ({summary['flip_rate']:.1%} of triggered)")
+    print(f"  Flip rate:         {summary['flip_count']}/{diagnostics['total_count']} ({summary['flip_rate']:.1%} of all scenarios)")
     print(f"  Mean variance:     {summary['mean_variance']:.6f}")
     print(f"  Mean decision gap: {summary['mean_decision_gap']:.4f}")
     print(f"  Mean latency:      {summary['mean_latency_ms']:.1f} ms")

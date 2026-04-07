@@ -20,7 +20,7 @@ def plot_results_table(all_summaries, output_dir, mode="baseline"):
         Directory to write output files.
     mode : str
         ``"baseline"`` for 7-column vanilla LLM table,
-        ``"swa"`` for 10-column SWA-MPPI table (adds Trigger %, tau_used, Latency).
+        ``"swa"`` for SWA-MPPI table (adds Flip %, Latency).
     """
     if mode == "swa":
         _plot_swa_results_table(all_summaries, output_dir)
@@ -68,9 +68,9 @@ def _plot_baseline_results_table(all_summaries, output_dir):
 
 
 def _plot_swa_results_table(all_summaries, output_dir):
-    """10-column SWA-MPPI results table."""
+    """SWA-MPPI results table."""
     columns = ["Country", "JSD", "Cosine", "Pearson r", "Spearman \u03c1",
-                "MAE", "RMSE", "Trigger %", "\u03c4_used", "Latency (ms)"]
+                "MAE", "RMSE", "Flip %", "Latency (ms)"]
     rows = []
     for s in all_summaries:
         a = s["alignment"]
@@ -82,13 +82,12 @@ def _plot_swa_results_table(all_summaries, output_dir):
             f"{a.get('spearman_rho', np.nan):.4f}",
             f"{a.get('mae', np.nan):.2f}",
             f"{a.get('rmse', np.nan):.2f}",
-            f"{s['trigger_rate']:.1%}",
-            f"{s.get('tau_used', 0):.5f}",
+            f"{s.get('flip_rate', 0):.1%}",
             f"{s['mean_latency_ms']:.1f}",
         ])
 
     # Mean row
-    numeric_cols = [1, 2, 3, 4, 5, 6, 9]
+    numeric_cols = [1, 2, 3, 4, 5, 6, 8]
     mean_row = ["Mean"] + ["\u2014"] * (len(columns) - 1)
     for ci in numeric_cols:
         vals = []

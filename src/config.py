@@ -115,7 +115,6 @@ class SWAConfig(BaseConfig):
     K_samples: int = 128
     noise_std: float = 0.3
     temperature: float = 0.5
-    tau_conflict: float = 0.001       # Auto-calibrated per country
     logit_temperature: float = 3.0    # Global default; overridden per-category
 
     category_logit_temperatures: Dict[str, float] = field(default_factory=lambda: {
@@ -126,10 +125,6 @@ class SWAConfig(BaseConfig):
         "SocialValue":    1.5,
         "Utilitarianism": 1.5,
     })
-
-    # Adaptive tau target trigger rate
-    tau_target_trigger_rate: float = 0.35
-    tau_calibration_n: int = 50
 
 
 # ============================================================================
@@ -196,10 +191,6 @@ def add_swa_args(parser: argparse.ArgumentParser) -> None:
                         help="MPPI softmax temperature")
     parser.add_argument("--logit-temperature", type=float, default=3.0,
                         help="Global logit temperature (overridden per-category)")
-    parser.add_argument("--tau-target-trigger-rate", type=float, default=0.35,
-                        help="Target trigger rate for adaptive tau calibration")
-    parser.add_argument("--tau-calibration-n", type=int, default=50,
-                        help="Number of scenarios for tau calibration")
 
 
 def config_from_args(args: argparse.Namespace, config_cls: type) -> BaseConfig:
@@ -243,7 +234,6 @@ def config_from_args(args: argparse.Namespace, config_cls: type) -> BaseConfig:
         for attr in (
             "lambda_coop", "alpha_kl", "pt_alpha", "pt_beta", "pt_kappa",
             "K_samples", "noise_std", "logit_temperature",
-            "tau_target_trigger_rate", "tau_calibration_n",
         ):
             val = getattr(args, attr, None)
             if val is not None:

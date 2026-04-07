@@ -30,7 +30,7 @@ import pandas as pd
 from src.config import BaselineConfig, add_common_args, config_from_args, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.model import setup_seeds, load_model
-from src.data import load_multitp_dataset, balance_scenario_dataset
+from src.data import load_multitp_dataset
 from src.scenarios import generate_multitp_scenarios
 from src.baseline_runner import run_baseline_vanilla
 from src.viz import (
@@ -180,9 +180,7 @@ def main():
             country_base_df = generate_multitp_scenarios(
                 config.n_scenarios, lang=lang,
             )
-        country_df = balance_scenario_dataset(
-            country_base_df, min_per_category=50, seed=config.seed, lang=lang,
-        )
+        country_df = country_base_df.copy()
         country_df["lang"] = lang
 
         # Dump first 3 raw scenario prompts (reproducibility)
