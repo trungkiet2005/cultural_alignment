@@ -69,11 +69,17 @@ SCENARIO_STARTS: List[str] = [
 # COUNTRY MAPPINGS
 # ============================================================================
 COUNTRY_FULL_NAMES: Dict[str, str] = {
+    # Original 15
     "USA": "the United States", "DEU": "Germany", "CHN": "China",
     "JPN": "Japan", "BRA": "Brazil", "SAU": "Saudi Arabia",
     "VNM": "Vietnam", "FRA": "France", "IND": "India",
     "KOR": "South Korea", "GBR": "Great Britain", "RUS": "Russia",
     "MEX": "Mexico", "NGA": "Nigeria", "AUS": "Australia",
+    # Tier 1 expansion (NeurIPS): +6
+    "IDN": "Indonesia", "TUR": "Turkey", "POL": "Poland",
+    "ARG": "Argentina", "EGY": "Egypt", "ZAF": "South Africa",
+    # Tier 2 expansion (NeurIPS): +4
+    "SWE": "Sweden", "PAK": "Pakistan", "COL": "Colombia", "UKR": "Ukraine",
 }
 
 COUNTRY_LANG: Dict[str, str] = {
@@ -81,6 +87,11 @@ COUNTRY_LANG: Dict[str, str] = {
     "DEU": "de", "CHN": "zh", "JPN": "ja", "FRA": "fr",
     "BRA": "pt", "SAU": "ar", "VNM": "vi",
     "IND": "hi", "KOR": "ko", "RUS": "ru", "MEX": "es",
+    # New: Tier 1
+    "IDN": "id", "TUR": "tr", "POL": "pl",
+    "ARG": "es", "EGY": "ar", "ZAF": "en",
+    # New: Tier 2
+    "SWE": "sv", "PAK": "ur", "COL": "es", "UKR": "uk",
 }
 
 # ============================================================================

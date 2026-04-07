@@ -45,8 +45,13 @@ class BaseConfig:
     n_scenarios: int = 500
     seed: int = 42
     target_countries: List[str] = field(default_factory=lambda: [
+        # Original 15
         "USA", "DEU", "CHN", "JPN", "BRA", "SAU", "VNM", "FRA", "IND", "KOR",
         "GBR", "RUS", "MEX", "NGA", "AUS",
+        # Tier 1 (+6)
+        "IDN", "TUR", "POL", "ARG", "EGY", "ZAF",
+        # Tier 2 (+4)
+        "SWE", "PAK", "COL", "UKR",
     ])
 
     # Paths
