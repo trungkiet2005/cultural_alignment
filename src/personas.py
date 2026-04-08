@@ -45,6 +45,7 @@ from src.persona_i18n import (
     PERSONA_TEMPLATES_I18N,
     PERSONA_SCAFFOLD_I18N,
     COUNTRY_NATIVE_NAME,
+    UTILITARIAN_PERSONA_I18N,
     validate_i18n_completeness,
 )
 
@@ -599,11 +600,16 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
                         country_iso, ag, p, country_name,
                         lang=lang,
                     ))
-            # 4th persona: utilitarian anchor (save more lives). Domain-specific
-            # for trolley-style dilemmas, intentionally not derived from WVS;
-            # localized like the WVS personas (see utilitarian_anchor in persona_i18n).
+            # 4th persona: utilitarian anchor — a fixed philosophical voice
+            # ("save more lives, count outcomes only") that contrasts with
+            # the WVS-derived cultural agents. Length is matched to P1-P3
+            # so all four agents contribute roughly the same context to the
+            # MPPI prefix budget. Localized via UTILITARIAN_PERSONA_I18N.
+            utilitarian_template = UTILITARIAN_PERSONA_I18N.get(
+                lang, UTILITARIAN_PERSONA_I18N["en"]
+            )
             personas.append(
-                scaffold["utilitarian_anchor"].format(country_name=native_country)
+                utilitarian_template.format(country_name=native_country)
             )
             # Ensure exactly 4 (defensive: if some age band had no data).
             while len(personas) < 4:

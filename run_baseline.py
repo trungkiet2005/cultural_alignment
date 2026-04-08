@@ -15,6 +15,12 @@ Usage:
 """
 
 import os
+# Disable torch.compile/dynamo BEFORE importing torch/unsloth.
+# Unsloth 2026.4.x + Transformers 5.2 + Gemma2 crashes in slow_attention_softcapping
+# during batched inference with left-padding (causal_mask broadcast bug).
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
+os.environ["TORCH_COMPILE_DISABLE"] = "1"
+os.environ["UNSLOTH_DISABLE_AUTO_COMPILE"] = "1"
 import gc
 import json
 import argparse
@@ -25,6 +31,12 @@ from pathlib import Path
 
 import numpy as np
 import torch
+# Belt-and-suspenders: hard-disable dynamo in case env vars were too late.
+try:
+    torch._dynamo.config.disable = True
+    torch._dynamo.config.suppress_errors = True
+except Exception:
+    pass
 import pandas as pd
 
 from src.config import BaselineConfig, add_common_args, config_from_args, resolve_output_dir
