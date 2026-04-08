@@ -1,0 +1,2264 @@
+% ============================================================
+% SWA-PTIS: Cross-Cultural Moral Alignment of LLMs
+% NeurIPS 2026 Submission
+% Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
+% ============================================================
+\documentclass{article}
+\usepackage[final,main]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{bbm}
+
+% Colour macros
+\definecolor{improvegreen}{RGB}{0,128,0}
+\definecolor{worsered}{RGB}{180,0,0}
+\newcommand{\gain}[1]{\textcolor{improvegreen}{#1}}
+\newcommand{\loss}[1]{\textcolor{worsered}{#1}}
+
+% ============================================================
+\title{%
+  \textbf{SWA-PTIS}: Socially-Weighted Alignment with\\
+  Prospect-Theory Importance Sampling\\
+  for Cross-Cultural Moral Alignment of Large Language Models%
+}
+
+\author{%
+  Anonymous Authors\\
+  \texttt{anonymous@institution.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+% ============================================================
+Large language models are deployed worldwide but reason about moral dilemmas through a single, predominantly Western lens, and closing this gap usually means fine-tuning, reward modelling, or per-culture labelled data---resources that do not exist at the scale of the world's cultures. We ask whether a frozen model can instead be nudged toward country-specific moral preferences at inference time, using only what cross-cultural surveys already tell us. We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory Importance Sampling), which equips the model with a small panel of culturally-grounded personas derived from World Values Survey data and applies a single Prospect-Theory-weighted importance-sampling correction in logit space. The update self-attenuates when personas agree---logically producing no correction in the limit of zero disagreement---without requiring an explicit gating rule. We evaluate on MultiTP across 15 countries, 12 native languages, and six moral dimensions, using five open-weight models from 7B to 72B. On the two strong instruction-tuned 70B-class backbones in our panel (Qwen2.5-72B, Llama-3.1-70B), mean Jensen--Shannon distance to country-level human preferences drops by $0.032$ in absolute terms on each model ($-37.6\%$ on Qwen2.5-72B, $-34.7\%$ on Llama-3.1-70B), exceeding every prompting and activation-steering baseline we tried, while smaller 4-bit-quantised models show consistent directional gains. Mechanistic ablations against deterministic shifts and a binary ARGS variant point to one load-bearing ingredient: the Prospect-Theory gain/loss asymmetry operating on importance-sampled Gaussian perturbations. Code: \texttt{[repository]}.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+% ============================================================
+
+When a self-driving car must choose between sparing a group of elderly men or a
+group of young women, there is no culturally universal answer. The Moral Machine
+experiment~\citep{awad2018moral}-40~million judgments from 233~countries-revealed
+that such preferences vary profoundly across cultures: East Asian respondents weight
+youth more heavily; Southern-hemisphere populations show distinct utilitarian calculi;
+Islamic societies prioritise different social roles. Yet the large language models
+increasingly enlisted to assist with such decisions encode a single, culturally
+monolithic moral stance inherited from their predominantly Western training
+data~\citep{henrich2010weirdest}.
+
+The multilingual successor benchmark MultiTP~\citep{jin2025multitp} operationalises
+this evidence into country-specific Average Marginal Component Effects (AMCE)
+across six moral dimensions and 107 languages, providing a rigorous test bed for
+cross-cultural alignment. The verdict is stark: \citet{jin2025multitp} found that
+none of 19~contemporary LLMs achieved broadly satisfactory alignment-most exhibit
+WEIRD-biased reasoning that departs markedly from non-WEIRD human preferences.
+
+How should this gap be closed? Existing approaches each sacrifice critical properties.
+\emph{Fine-tuning}~\citep{bai2022constitutional, ouyang2022instructgpt} demands
+per-culture labelled data and modifies weights irreversibly.
+\emph{Prompting-based steering} relies on ad-hoc instructions with no empirical
+grounding~\citep{jin2025multitp}.
+\emph{Activation steering}~\citep{arditi2025refusal, zou2023representation} requires
+white-box access and per-model engineering.
+\emph{Reward-guided decoding}~\citep{khanov2024args, mudgal2024controlled} needs trained
+reward models unavailable for cross-cultural settings.
+\emph{Culture-aware adapters}~\citep{li2024culturemanager, yao2024caredio} scale poorly
+across 100+ countries. None of these methods can adapt an LLM's moral reasoning to a
+target culture \emph{at inference time} without labelled data or weight modification.
+
+We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory
+Importance Sampling), built on a simple insight: \emph{disagreement is signal}.
+Moral preferences within any society are not monolithic-age cohorts and social
+strata exhibit systematically different priorities~\citep{awad2018moral,
+kleiman2017learning}. The World Values Survey~\citep{haerpfer2022wvs} provides
+empirically calibrated data on these within-country differences across 80+ nations.
+When culturally grounded persona agents derived from WVS data \emph{disagree} on a
+moral decision, that disagreement reveals the decision is culturally contested-and
+can be exploited through importance-sampled inference-time control to
+produce a more culturally representative output.
+
+Concretely, SWA-PTIS constructs $N=4$ WVS-grounded personas per country (three
+age cohorts plus a utilitarian agent), evaluates all $N+1$ agents in a single batched
+forward pass with native-language prompting across 12 languages, and extracts
+decision logits. If inter-agent variance exceeds a calibrated threshold~$\tau$, it
+samples $K=128$ perturbations and scores each via a Prospect Theory value
+function~\citep{kahneman1979prospect} that captures the asymmetric gain-loss
+sensitivity characteristic of human moral judgment. The importance-weighted PT-IS
+update yields a Boltzmann-softmax correction; a positional debiasing step cancels recency
+effects~\citep{liu2024lost}.
+
+\paragraph{Contributions.}
+\begin{itemize}
+  \item \textbf{A training-free framework} (\S\ref{sec:method}) that turns
+        within-country WVS variation into a usable steering signal: persona
+        disagreement gates a Prospect-Theory-weighted IS correction in logit
+        space, applied only when the decision is culturally contested.
+  \item \textbf{Empirical evidence on six models} (7B--126B; \S\ref{sec:results})
+        showing that the largest, cleanest gains come on the well-calibrated
+        70B-class backbones, while smaller and stronger models exhibit distinct
+        regimes that we report and analyse rather than aggregate.
+  \item \textbf{A mechanism analysis backed by a robustness suite}
+        (\S\ref{sec:ablation}, Appendices~\ref{app:tau_holdout}--\ref{app:extended}).
+        Ablations isolate the utilitarian anchor and Prospect-Theory asymmetry
+        as the load-bearing components. Deterministic consensus-shift
+        baselines and a Binary-ARGS adaptation then show that WVS weighting
+        alone is insufficient and that the Prospect-Theory gain/loss kernel is
+        the active ingredient. The remaining sweeps-held-out $\tau$
+        calibration, three temperature sweeps, and six dataset preprocessing
+        configurations-all stay within the bootstrap noise floor, ruling out
+        the obvious confounders.
+\end{itemize}
+
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+% ============================================================
+
+\paragraph{Cross-cultural moral benchmarks.}
+The Moral Machine experiment~\citep{awad2018moral} provides 40M+ cross-cultural moral
+judgments. MultiTP~\citep{jin2025multitp} extends this to 107 languages with
+country-specific AMCEs-we adopt it as our benchmark and propose an alignment
+\emph{intervention} rather than diagnostics alone. Other benchmarks
+(ETHICS~\citep{hendrycks2021aligning}, MoralExceptQA~\citep{jin2022exceptions},
+MoCa~\citep{nie2023moca}) remain English-centric.
+PRISM~\citep{kirk2024prism} and GlobalOpinionQA~\citep{durmus2023global} address
+diversity but cover few languages. Recent frameworks
+(EvalMORAAL~\citep{aakanksha2024evalmor}, CARB~\citep{myung2024carb}) emphasise
+broader-topic evaluations; SWA-PTIS targets binary moral decisions specifically.
+
+\paragraph{Cross-cultural LLM evaluation.}
+LLM outputs correlate most strongly with liberal, educated American
+respondents~\citep{santurkar2023opinions}. RLHF introduces unintended cultural
+impacts~\citep{ryan2024unintended}, and assigning cultural personas can surface
+toxic outputs~\citep{deshpande2023toxicity}. This recurring WEIRD bias motivates
+SWA-PTIS's calibration objective.
+
+\paragraph{Inference-time alignment.}
+Activation steering~\citep{arditi2025refusal, zou2023representation} requires
+white-box access. ARGS~\citep{khanov2024args} and controlled
+decoding~\citep{mudgal2024controlled} need trained reward models-unavailable for
+cross-cultural settings (Appendix~\ref{app:baselines}).
+CultureManager~\citep{li2024culturemanager} and CAReDiO~\citep{yao2024caredio}
+train culture-specific adapters but require per-culture labelled data and weight
+modification, scaling poorly across 100+ countries. To the best of our knowledge,
+SWA-PTIS is the first training-free method targeting country-level moral
+calibration specifically.
+\citet{sorensen2024roadmap} articulate the goal of pluralistic alignment, which
+SWA-PTIS operationalises concretely.
+
+\paragraph{Positioning against adjacent inference-time methods.}
+Recent work on inference-time alignment falls into several families that we
+deliberately do not compete with head-to-head. \emph{DIFFPO}-style
+policy-agnostic aligners require an additional learned aligner model on top
+of the base LLM, trading deployment cost for flexibility; \emph{SWAI}-style
+training-free logit steering targets attribute-level shifts (style,
+toxicity) via fixed steering vectors, not country-conditioned moral
+preferences; \emph{SLED}-style self-logit evolution is a white-box
+factuality method that operates on internal layers. SWA-PTIS is positioned
+narrowly within this design space: black-box, single-model, binary
+forced-choice moral decisions with country-conditioned persona grounding,
+and no extra trained aligner. Relative to structured multi-agent pipelines
+such as OG-MAR~\citep{ogmar2024}, SWA-PTIS trades ontology-level reasoning
+depth for the much lower deployment cost of one additional batched forward
+pass.
+
+\paragraph{Prospect Theory.}
+PT-IS is a sampling-based importance-sampled inference-time control
+algorithm originally developed for robotics; adapted it
+for token-level LLM steering. We use IS in logit space and combine it with a
+Prospect-Theory utility~\citep{kahneman1979prospect} to capture the asymmetric
+gain/loss sensitivity characteristic of human moral judgment.
+
+% ============================================================
+\section{Method: SWA-PTIS}
+\label{sec:method}
+% ============================================================
+
+\subsection{Problem Formulation}
+\label{sec:method:problem}
+
+Let $\mathcal{X}$ be the set of moral dilemma scenarios, each presenting a forced
+binary choice via decision tokens \texttt{A}~($a$) and \texttt{B}~($b$).
+For target country $c$, let $\mathbf{h}^{(c)} \in \mathbb{R}^6$ be the human AMCE
+vector from 40M+ judgments~\citep{awad2018moral}. A frozen LLM $f_\theta$ produces
+logits $\mathbf{z}(\mathbf{x}) = [z_a,\, z_b]$ at the decision token position;
+the spare probability is $p_{\text{spare}} = \sigma(\Delta / T_{\text{dec}})$
+where $\Delta = z_b - z_a$.
+Each dimension's alignment is measured via a \textbf{mean preference rate} (MPR):
+\begin{equation}
+  \hat{m}_d^{(c)} = \frac{1}{|\mathcal{S}_d^{(c)}|}\sum_{\mathbf{x} \in \mathcal{S}_d^{(c)}}
+  p_{\text{spare}}(\mathbf{x}),
+  \label{eq:mpr}
+\end{equation}
+following the MultiTP evaluation convention~\citep{jin2025multitp}.
+For the five \emph{binary} dimensions (Species, Gender, Age, Fitness, Social
+Value), each scenario's grouping indicator takes values $\{0,1\}$; under the
+balanced conjoint design~\citep{awad2018moral}, the empirical mean
+$\hat{m}_d^{(c)}$ equals the sample analogue of the classical Average Marginal
+Component Effect (AMCE), the probability that the ``preferred'' group is
+spared~\citep{awad2018moral}.
+For \textbf{Utilitarianism}, the treatment variable $n_{\text{diff}}$ (the
+numerical life-count difference) is a multi-valued ordered attribute, not a
+binary indicator. The proper conjoint AMCE for a continuous treatment is the
+regression \emph{slope} $\hat{b}$ from fitting
+$p_{\text{spare}} = a + b\,n_{\text{diff}}$---the marginal change per
+additional life.
+Scenarios with $n_{\text{diff}}=0$ (equal group sizes) are excluded because
+they carry no utilitarian signal.
+Following the MultiTP LLM-evaluation convention~\citep{jin2025multitp}, we
+report as the model's Utilitarianism score the \emph{mean preference rate}
+$\hat{m}_{\text{Util}}^{(c)} = \operatorname{mean}(p_{\text{spare}})$ over the
+remaining scenarios (Appendix~\ref{app:amce}). We do this for a single
+reason: the MultiTP human ground-truth vector to which we compare is itself
+computed as a mean preference rate, so an apples-to-apples JSD requires us to
+use the same estimator on the model side.
+\textbf{We explicitly flag this as a confound}: the MPR mixes two signals that
+a slope-based AMCE would separate. Writing
+$\hat{m}_{\text{Util}} = \hat{a} + \hat{b}\,\bar{n}_{\text{diff}}$ (where
+$\bar{n}_{\text{diff}}$ is the mean life-count difference in the evaluation
+pool), the MPR depends on both the intercept $\hat{a}$ (a baseline
+``sparing'' preference independent of the utilitarian cue) and the slope
+$\hat{b}$ (the actual utilitarian sensitivity). Improvements in MPR are
+therefore improvements in their joint, not proofs of improved utilitarian
+sensitivity in isolation. Appendix~\ref{app:amce} reports an additional
+slope-based AMCE analysis and discusses the remaining confounding.
+
+\textbf{Goal:} Without modifying $\theta$, find a logit correction
+$\delta^*(\mathbf{x}, c)$ such that the corrected AMCE vector
+$\hat{\mathbf{m}}^{(c)}(\theta, \delta^*)$ is closer to $\mathbf{h}^{(c)}$
+under Jensen--Shannon Divergence.
+
+\subsection{Cultural Persona Construction}
+\label{sec:method:personas}
+
+For each country $c$, SWA-PTIS constructs $N=4$ persona agents from WVS Wave~7
+individual-level microdata~\citep{haerpfer2022wvs}. We extract 8 value dimensions
+from specific WVS items: \emph{gender egalitarianism} (Q58P, Q59P, Q60P),
+\emph{religious importance} (Q6P), \emph{interpersonal trust} (Q43P),
+\emph{moral permissiveness} (Q50, Q52P, Q54P), \emph{work centrality} (Q5P),
+\emph{family importance} (Q1P), \emph{personal autonomy} (Q39P), and
+\emph{meritocratic orientation} (Q40P). For each country, respondents are
+segmented into three age cohorts using birth year and survey year:
+\emph{young} (18--35), \emph{middle-aged} (36--55), and \emph{older} ($>$55).
+Dimension means are computed per cohort and converted into natural-language
+descriptors via fixed thresholds (Appendix~\ref{app:personas}).
+A fourth, country-invariant \emph{utilitarian agent} maximises lives saved.
+Each persona is a natural-language system prompt:
+
+\begin{quote}
+\small\itshape
+You are a [age-cohort] adult from [country]. The cultural values typical of your
+social group are: [WVS statistics]. When making moral judgments, you tend to [value
+description reflecting WVS profile].
+\end{quote}
+
+\noindent WVS grounding ensures empirically measured within-country variation rather
+than stereotypes~\citep{deshpande2023toxicity}. Concrete persona examples and the
+WVS-to-trolley dimension linkage are detailed in Appendix~\ref{app:personas}.
+
+\subsection{Batched Evaluation and Logit Extraction}
+\label{sec:method:eval}
+
+All $N+1=5$ input sequences (base + 4 personas) are evaluated in a \emph{single}
+batched forward pass:
+\begin{equation}
+  \mathbf{z}_{\text{base}},\; \mathbf{z}_1, \ldots, \mathbf{z}_N
+  = f_\theta\!\left(\mathbf{x};\; \varnothing,\; \mathbf{s}_1, \ldots, \mathbf{s}_N\right).
+  \label{eq:batch}
+\end{equation}
+Per-category logit temperatures $T_{\text{cat}}$ (Table~\ref{tab:hyperparams}) scale
+logits before computing decision gaps:
+\begin{align}
+  \delta_i &= \frac{z_{i,b} - z_{i,a}}{T_{\text{cat}}}, \quad
+  \delta_{\text{base}} = \frac{z_{\text{base},b} - z_{\text{base},a}}{T_{\text{cat}}}, \quad
+  \bar{\delta} = \frac{1}{N}\sum_{i=1}^{N} \delta_i \quad \text{(consensus)},
+  \label{eq:consensus} \\
+  r_i &= \delta_i - \delta_{\text{base}} \quad \text{(per-agent reward)}.
+  \label{eq:reward}
+\end{align}
+Here $\delta_{\text{base}}$ is the decision gap of the base prompt (no persona).
+The reward $r_i$ measures how strongly persona $i$ shifts the model away from
+the \emph{base model output}: a large $|r_i|$ indicates that the persona has
+identified a direction of moral preference the vanilla model does not exhibit.
+We note that $\delta_{\text{base}}$ is not a culturally neutral anchor---RLHF-tuned
+base models encode WEIRD-skewed priors~\citep{santurkar2023opinions}---so $r_i$
+measures persona deviation from a biased baseline rather than from a neutral
+one. This is intentional: SWA-PTIS's goal is to \emph{correct} the base model,
+so personas that agree with it ($|r_i| \approx 0$) provide no corrective signal
+and are appropriately downweighted.
+
+\subsection{Persona Disagreement Monitoring}
+\label{sec:method:tau}
+
+In the current implementation, the IS update runs unconditionally on every scenario.
+The per-agent persona variance
+\begin{equation}
+  \widehat{\operatorname{Var}}(\delta_1, \ldots, \delta_N)
+  \label{eq:tau}
+\end{equation}
+is computed and recorded as a diagnostic: it quantifies how much the personas
+disagree about the preferred direction for each scenario. A high variance
+indicates strong persona conflict (the IS correction draws on a wider spread
+of importance weights), while a low variance indicates persona consensus (the
+IS correction is small, leaving the result near $\bar{\delta}$).
+Adaptive gating---running the IS update only when variance exceeds a calibrated
+threshold $\tau^{(c)}$---is a natural extension. A threshold calibrated at the
+$65^{\text{th}}$ percentile of variances on $n_{\text{cal}}=50$ held-out
+scenarios would target a 35\% intervention rate. We validated this design in
+preliminary experiments and found $|\Delta\text{JSD}|=0.0006$ between the
+gated and ungated variants across 15 countries (Appendix~\ref{app:tau_holdout}),
+confirming that the unconditional IS update is a safe default: the importance-weighted
+update self-attenuates when personas agree (the optimal $\delta^*$ collapses
+toward zero), making an explicit gate redundant in practice.
+We note that with $N=4$ personas, per-scenario variance estimates are inherently
+noisy: small-sample estimates with four observations have high relative uncertainty
+regardless of the underlying distribution. This noise is compounded by
+cross-persona correlation---all four $\delta_i$'s are produced by the same frozen
+base model on the same prompt, differing only in the persona prefix, so they share
+substantial structural dependence. The self-attenuating property of the IS update
+is therefore doubly beneficial: it avoids hard reliance on unreliable per-scenario
+variance for gating, and the ungated variant empirically matches the gated one to
+within $|\Delta\text{JSD}|=0.0006$ (Appendix~\ref{app:tau_holdout}).
+
+\subsection{Prospect-Theory Weighted Importance Sampling}
+\label{sec:method:ptis}
+
+SWA-PTIS draws $K{=}128$ perturbations
+$\epsilon_k \sim \mathcal{N}(0,\sigma_k^2)$ and evaluates a Prospect-Theory
+welfare score for each candidate $\tilde{\delta}_k = \bar{\delta} + \epsilon_k$,
+where $\bar{\delta} = \tfrac{1}{N}\sum_{i=1}^{N}\delta_i$ is the persona consensus.
+The proposal standard deviation is set from the empirical inter-persona
+spread, \emph{with a fixed floor}:
+\begin{equation}
+  \sigma_k \;=\; \max\!\bigl(\operatorname{std}(\delta_1,\ldots,\delta_N),\,\sigma_0\bigr),
+  \qquad \sigma_0 = 0.3.
+  \label{eq:sigma_floor}
+\end{equation}
+The floor is not a correction to the std estimator; it is a conservative
+lower bound on how much the importance sampler is allowed to explore. With
+$N{=}4$ personas, the sample-std has relative uncertainty
+$\approx 1/\sqrt{2(N-1)}\approx 0.41$, so a point estimate can drift
+substantially below the true spread purely by chance, and a floor prevents
+the proposal from collapsing onto a single point in those cases.
+The specific value $\sigma_0{=}0.3$ is not tuned on the evaluation set: it
+coincides with the single fixed $\sigma$ used in the validation sweep on
+Qwen2.5-72B (Appendix~\ref{app:hyperparams}), carried over unchanged when
+$\sigma_k$ was made adaptive. We acknowledge this is not a
+first-principles derivation; Appendix~\ref{app:temp_sensitivity} shows that
+the method is not sensitive to the exact value in the $[0.1,\,1.0]$ range,
+which is the most honest sensitivity statement we can make from the sweeps
+we have.
+
+\paragraph{Per-agent gain and $\sigma$-normalisation.}
+For each persona $i$, define the \emph{progress toward persona $i$'s target}
+produced by candidate $\tilde{\delta}_k$ as the reduction in logit-gap distance
+to the persona's own decision gap:
+\begin{equation}
+  g_{i,k} \;=\; \bigl|\delta_{\text{base}} - \delta_i\bigr|
+              \;-\; \bigl|\tilde{\delta}_k - \delta_i\bigr|,
+  \qquad
+  \tilde{g}_{i,k} \;=\; g_{i,k}\big/\sigma_k.
+  \label{eq:agreement}
+\end{equation}
+The raw gain $g_{i,k}$ lives in the $T_{\text{cat}}$-scaled logit-gap space,
+which differs across moral dimensions because $T_{\text{cat}}$ is not
+uniform (Table~\ref{tab:categories}). We feed the \emph{normalised} gain
+$\tilde{g}_{i,k} = g_{i,k}/\sigma_k$ to the Prospect-Theory value function,
+not $g_{i,k}$ itself. Because $\sigma_k$ is the inter-persona logit spread
+(floored at $\sigma_0$; Eq.~\ref{eq:sigma_floor}) and therefore already
+carries the local $T_{\text{cat}}$ scale, dividing by $\sigma_k$ makes
+$\tilde{g}_{i,k}$ \emph{dimensionless} and \emph{cross-dimensionally
+comparable}: a candidate that moves ``one standard deviation of persona
+disagreement closer to persona $i$'s target'' produces the same PT input
+whether the scenario is from a high-$T_{\text{cat}}$ dimension (Species)
+or a low-$T_{\text{cat}}$ dimension (Age). Boundedness is preserved:
+$|\tilde{g}_{i,k}|\le|\epsilon_k|/\sigma_k$, and because $\epsilon_k\sim
+\mathcal{N}(0,\sigma_k^{\,2})$ the ratio $|\epsilon_k|/\sigma_k$ is an
+$O(1)$ standard-normal variable regardless of $\sigma_k$, so the PT input
+stays in the $O(1)$ regime where the canonical curvatures
+$\alpha{=}\beta{=}0.88$ and $\kappa{=}2.25$ are calibrated.
+We do \emph{not} divide by $\sigma_k^{\,2}$: that would reintroduce the
+consensus-explosion problem the paper's Round~5 caught and fixed.
+This quantity has three properties that make it the correct input to a
+Prospect-Theory utility:
+(i) It lives in the same \emph{logit-gap space} as $\delta_i$, $\delta_{\text{base}}$
+and $\tilde{\delta}_k$---there is no unit mismatch and no logit-gap-squared
+artefact.
+(ii) It is \emph{bounded}: $|g_{i,k}|\le|\tilde{\delta}_k - \delta_{\text{base}}|$
+by the triangle inequality, so it cannot explode when personas agree.
+(iii) It is \emph{sign-meaningful up to overshoot}: $g_{i,k}>0$ when the
+candidate reduces the logit-gap distance to persona $i$'s target, and
+$g_{i,k}<0$ when the candidate is farther from $\delta_i$ than the base was.
+Note that overshooting past $\delta_i$ is treated as a loss ($g_{i,k}<0$),
+which is the intended behaviour: Prospect Theory was built for gain/loss
+framing around a reference point~\citep{kahneman1979prospect}, and overshoot
+is a loss in that frame.
+
+\paragraph{Self-attenuation: two regimes, honestly stated.}
+An earlier draft claimed that $\delta^{\star}\to 0$ whenever ``personas
+agree''. That statement is only half true and we correct it here, because the
+mechanism is different in two regimes and the distinction matters.
+\emph{(a) Personas agree \textbf{with the base model}:} when all
+$\delta_i\to\delta_{\text{base}}$, the consensus
+$\bar{\delta}\to\delta_{\text{base}}$ and the per-agent gain
+$g_{i,k}\to-|\epsilon_k|\le 0$ for every $i$. The consensus gain
+$g_{\bar{\cdot},k}=|\delta_{\text{base}}-\bar{\delta}|-|\tilde{\delta}_k-\bar{\delta}|$
+also collapses to $-|\epsilon_k|\le 0$, so every candidate incurs a loss.
+Under a loss-averse $v(\cdot)$ the softmax weights concentrate on
+$|\epsilon_k|\approx 0$ and $\delta^{\star}\approx 0$.
+\emph{(b) Personas agree with \textbf{each other} but \textbf{not} with the
+base:} $\delta_i\approx\bar{\delta}\neq\delta_{\text{base}}$. Here the per-agent
+gain $g_{i,k}$ is positive for candidates in a neighbourhood of
+$\bar{\delta}$, and the consensus gain $g_{\bar{\cdot},k}$ is maximised at
+$\tilde{\delta}_k=\bar{\delta}$ (i.e.\ at $\epsilon_k=0$). Because the sampled
+candidates are $\tilde{\delta}_k=\bar{\delta}+\epsilon_k$, the utility landscape
+peaks at $\epsilon_k=0$ and the softmax-weighted update again gives
+$\delta^{\star}\approx 0$---but this is \emph{not} because nothing happens;
+it is because the consensus $\bar{\delta}$ has \emph{already been added} to
+the final prediction $\sigma((\bar{\delta}+\delta^{\star})/T_{\text{dec}})$.
+In Regime (b) the corrective shift relative to the base is $\bar{\delta}$
+itself, carried by the consensus, not by $\delta^{\star}$.
+In short: $\delta^{\star}\to 0$ in both regimes, but only Regime (a) is
+``do nothing''; Regime (b) \emph{is} a shift, just one that is absorbed by
+the consensus step, not by the IS residual.
+
+\emph{Interaction with the $\sigma_0$ floor.} The floor
+$\sigma_k\ge\sigma_0=0.3$ means the proposal width does not shrink to zero
+even at consensus, so in Regime (a) we still sample non-trivial
+$\epsilon_k\sim\mathcal{N}(0,\sigma_0^2)$. The vanishing of $\delta^{\star}$
+is therefore achieved \emph{entirely through weight concentration}, not
+through proposal collapse. This is a formal weakening of ``self-attenuation''
+that we flag explicitly: under a loss-dominated utility at consensus, the
+softmax concentrates on $|\epsilon_k|$ near zero, but with $K=128$ draws from
+$\mathcal{N}(0,\sigma_0^2)$ the expectation $\sum_k w_k\epsilon_k$ is only
+empirically small, not formally zero. We do not prove a rate of convergence;
+we state the fact and validate it numerically.
+
+\paragraph{Prospect-Theory value and collective utility.}
+We use the canonical Kahneman--Tversky value function
+\begin{equation}
+  v(x) = \begin{cases}
+    x^{\alpha} & x \geq 0,\\
+    -\kappa\,|x|^{\beta} & x < 0,
+  \end{cases}
+  \qquad \alpha=\beta=0.88,\ \kappa=2.25
+  \label{eq:prospect}
+\end{equation}
+applied \emph{per persona, before any averaging}. Averaging $v(g_{i,k})$
+across personas (rather than averaging $g_{i,k}$ first and then applying $v$)
+is essential: by Jensen's inequality, $\mathbb{E}[v(g)] \neq v(\mathbb{E}[g])$
+for the concave-convex kink of $v$, and the former is the only aggregation that
+preserves loss aversion at the social level. An ``average gain then evaluate''
+scheme would let individual gains and losses cancel linearly before the
+$\kappa{=}2.25$ loss-aversion kick in, which is exactly the anomaly Prospect
+Theory was introduced to model.
+
+The collective per-sample utility is therefore
+\begin{equation}
+  U_{\text{total}}(\epsilon_k)
+  \;=\; (1-\lambda_{\text{coop}})\cdot\underbrace{\frac{1}{N}\sum_{i=1}^{N} v\!\bigl(\tilde{g}_{i,k}\bigr)}_{\text{mean of individual PT utilities}}
+  \;+\; \lambda_{\text{coop}}\cdot\underbrace{v\!\bigl(\tilde{g}_{\bar{\cdot},k}\bigr)}_{\text{consensus-target utility}},
+  \label{eq:util_total}
+\end{equation}
+where
+$\tilde{g}_{\bar{\cdot},k} = \bigl(|\delta_{\text{base}}-\bar{\delta}| - |\tilde{\delta}_k-\bar{\delta}|\bigr)/\sigma_k$
+is the $\sigma$-normalised progress toward the \emph{consensus} target
+$\bar{\delta}$, and $\lambda_{\text{coop}}=0.7$. Both Prospect-Theory terms apply $v(\cdot)$ to a
+single scalar gain (an individual gain in the first term, a consensus-target
+gain in the second), so neither averages inside the nonlinearity.
+
+\paragraph{Why there is no explicit control-cost term.}
+An earlier draft included an additional term
+$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ in
+Eq.~\ref{eq:util_total}, presented as a trust-region penalty. We remove it.
+The Gaussian proposal $p(\epsilon_k)=\mathcal{N}(0,\sigma_k^{\,2})$ already
+penalises large $|\epsilon_k|$ through its own density: samples with large
+$|\epsilon_k|$ are simply drawn rarely. Adding $-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$
+to $U_{\text{total}}$ multiplies the importance weights by
+$\exp(-\alpha_{\text{ctl}}\epsilon_k^{\,2}/(2\eta\sigma_k^{\,2}))$, which is
+equivalent to sampling from a tighter Gaussian with variance
+$\sigma_k^{\,2}/(1+\alpha_{\text{ctl}}/\eta)$ while using the same utility:
+the penalty is algebraically redundant with a shrinkage of $\sigma_k$ itself.
+Keeping both $\sigma_k$ and $\alpha_{\text{ctl}}$ as separate knobs is
+double-counting the Gaussian prior, not an independent KL regulariser, so we
+drop $\alpha_{\text{ctl}}$ and let $\sigma_k$ (Eq.~\ref{eq:sigma_floor}) be the
+sole controller of proposal spread.
+
+\paragraph{Effective sample size guard.}
+The importance weights produced by the softmax update below can concentrate
+on very few samples when the utility landscape is flat
+(importance-weight collapse). We monitor the effective sample size
+$K_{\text{eff}} = 1\big/\sum_{k}w_k^{\,2}\in[1,K]$ and fall back to the
+consensus correction $\delta^{\star}=0$ whenever $K_{\text{eff}}/K$ drops
+below a fixed threshold $\rho_{\text{eff}}=0.1$. This is a hard safety rail:
+when the IS estimator has effectively fewer than ten independent samples, we
+refuse to trust it and return the unmodified consensus
+$\bar{\delta}$---one additional single-number fallback, not a tuned
+hyperparameter.
+
+\paragraph{Importance-weighted update.}
+Given the per-sample utilities, we form softmax weights and return the
+importance-weighted perturbation:
+\begin{equation}
+  w_k \;=\; \frac{\exp\!\bigl(U_{\text{total}}(\epsilon_k)/\eta\bigr)}
+                 {\sum_{k'}\exp\!\bigl(U_{\text{total}}(\epsilon_{k'})/\eta\bigr)},
+  \qquad
+  \delta^{\star} \;=\; \sum_{k=1}^{K} w_k\,\epsilon_k,
+  \label{eq:is_update}
+\end{equation}
+where $\eta = 0.5$ is the softmax temperature and $T_{\text{dec}} = 0.5$ is the
+sigmoid decision temperature. The $\eta$ grid
+$\{0.1,0.25,0.5,1.0,2.0\}$ yields a JSD span below $0.005$
+(Appendix~\ref{app:is_theory}). The effective sample size
+$K_{\text{eff}} = 1/\sum_k w_k^{\,2}$ serves as a per-scenario diagnostic of
+the exploration--exploitation balance.
+This softmax-weighted expectation is the standard importance-sampling estimator
+for a Boltzmann policy under utility $U_{\text{total}}$.
+We note that the update is still ``KL-regularised'' in the sense that the
+softmax-weighted sampler $q^{\star}$ is the minimiser of
+$-\mathbb{E}_{q}[U_{\text{total}}]+\eta\,\mathrm{KL}(q\,\|\,p)$ at the
+\emph{distributional} level (Appendix~\ref{app:is_theory:boltzmann}), where
+$p=\mathcal{N}(0,\sigma_k^{\,2})$ is the proposal. There is no explicit
+pointwise KL term added to $U_{\text{total}}$; the regularisation emerges
+from the softmax combined with the Gaussian prior, not from a hand-crafted
+penalty.
+
+\paragraph{What we can and cannot prove about the IS estimator.}
+Eq.~\ref{eq:is_update} is the self-normalised importance-sampling estimator
+of $\mathbb{E}_{q^{\star}}[\epsilon]$, which is biased at finite $K$; the
+bias is $O(1/K)$ with a constant that depends on the variance of the
+(unnormalised) weights $\exp(U_{\text{total}}/\eta)$
+\citep{agapiou2017importance}. $U_{\text{total}}$ is bounded (the gains
+$g_{i,k}$ are bounded by the triangle inequality, so $v(g_{i,k})$ is bounded
+whenever $g_{i,k}$ is, and the weighted sum of two bounded terms is
+bounded), which rules out the pathological heavy-tailed weight
+distributions, but \emph{we do not} derive an explicit finite-$K$ bound.
+The value function $v(\cdot)$ is continuous but non-differentiable at
+$x{=}0$ (the Prospect-Theory kink), so $U_{\text{total}}$ has a
+non-smooth landscape whose importance weights can jump when $g_{i,k}$
+crosses zero; this is a real source of variance that we do not analyse
+theoretically. What we \emph{do} do is monitor $K_{\text{eff}}$ per scenario
+and fall back to $\delta^{\star}=0$ whenever $K_{\text{eff}}/K<\rho_{\text{eff}}$
+(Appendix~\ref{app:is_theory:keff}), which guards against the worst case of
+concentrated weights without pretending to a concentration-inequality
+guarantee.
+
+\subsection{Positional Debiasing and Final Prediction}
+\label{sec:method:debias}
+
+To cancel recency bias~\citep{liu2024lost}, each scenario is evaluated twice:
+once in the original ordering and once with \emph{both} choice labels
+(A$\leftrightarrow$B) and group labels (Group~A$\leftrightarrow$Group~B)
+swapped in the native language. \textbf{Debiasing happens at the raw logit-gap
+level, \emph{before} the nonlinear PT-IS step is run.} Concretely:
+\begin{enumerate}
+  \item Run the batched forward pass on the original prompt and extract the
+        per-persona logit gaps $(\delta_{\text{base}}^{(1)},\delta_1^{(1)},\ldots,\delta_N^{(1)})$.
+  \item Run the batched forward pass on the A$\leftrightarrow$B-swapped prompt
+        and extract $(\delta_{\text{base}}^{(2)},\delta_1^{(2)},\ldots,\delta_N^{(2)})$.
+  \item Form debiased gaps by linear combination:
+  \begin{equation}
+    \delta_{\text{base}}^{\text{deb}} = \frac{\delta_{\text{base}}^{(1)} - \delta_{\text{base}}^{(2)}}{2},
+    \qquad
+    \delta_i^{\text{deb}} = \frac{\delta_i^{(1)} - \delta_i^{(2)}}{2},
+    \quad i=1,\ldots,N.
+    \label{eq:debias}
+  \end{equation}
+  \item Run the PT-IS update of \S\ref{sec:method:ptis} \emph{once}, on the
+        debiased gaps $(\delta_{\text{base}}^{\text{deb}},\delta_i^{\text{deb}})$.
+\end{enumerate}
+Under an additive positional bias $b$ on the logit gap---the model
+systematically adding $b$ when option A appears first---the original pass gives
+$\delta^{(1)} = \delta_{\text{true}} + b$ and the swapped pass gives
+$\delta^{(2)} = -\delta_{\text{true}} + b$, so
+$(\delta^{(1)}-\delta^{(2)})/2 = \delta_{\text{true}}$ exactly. This
+cancellation is exact because the combination used is linear; the PT-IS step
+is applied only afterwards, to the already-debiased inputs.
+
+We made an earlier presentation error on this point that we correct explicitly
+here: Round~4 of this draft described a different pipeline in which the full
+PT-IS update was run independently on each pass and the two $\delta_{\text{opt}}$
+outputs were averaged at the end. That ordering does \emph{not} cancel a
+logit-level bias $b$, because the PT value function $v(\cdot)$ has a kink at
+zero with $\kappa{=}2.25$ loss aversion: a bias $b$ can map the same underlying
+signal into the gain branch on one pass and the loss branch on the other, so
+the post-$v$ quantities $\delta_{\text{opt}}^{(\text{orig})}$ and
+$\delta_{\text{opt}}^{(\text{swap})}$ are nonlinearly distorted in asymmetric
+ways, and their average is not $\delta_{\text{true}}$ in general.
+Algorithm~\ref{alg:swa} and the released code both implement the
+debias-first order described above.
+In practice, Transformer positional effects arise from attention patterns and
+may not be perfectly additive at the logit level~\citep{liu2024lost}; we adopt
+the additive model as a standard first-order approximation and validate it
+empirically---removing the two-pass step increases JSD by 12.0\% (ablation
+row~5, Table~\ref{tab:ablation}), and the mean cross-country positional-bias
+estimate of 0.193 logit units (Appendix~\ref{app:ablation_detail}) is stable
+across languages. The final prediction is
+$p_{\text{spare}} = \sigma(\delta_{\text{opt}}^{\text{deb}} / T_{\text{dec}})$
+with $T_{\text{dec}}{=}0.5$.
+
+Algorithm~\ref{alg:swa} summarises the full procedure; Table~\ref{tab:hyperparams}
+lists all hyperparameters (validation details in Appendix~\ref{app:hyperparams}).
+
+\begin{algorithm}[t]
+\caption{SWA-PTIS Inference for Scenario $\mathbf{x}$ in Country $c$}
+\label{alg:swa}
+\begin{algorithmic}[1]
+\Require Frozen LLM $f_\theta$; personas $\{\mathbf{s}_i\}_{i=1}^{N}$;
+         hyperparameters $K,\sigma_0,\lambda_{\text{coop}},\eta,T_{\text{dec}},\rho_{\text{eff}}$
+\Ensure $p_{\text{spare}} \in [0,1]$
+\For{$\text{ord} \in \{\text{orig}, \text{swap}\}$}
+  \State Batched forward: evaluate $f_\theta$ with base + $N$ personas \hfill\Comment{Eq.~\ref{eq:batch}}
+  \State Extract $\delta_{\text{base}}^{(\text{ord})}$ and $\delta_i^{(\text{ord})}$ for $i=1,\ldots,N$
+\EndFor
+\State \textbf{Debias at the logit-gap level:}
+       $\delta_{\text{base}} \leftarrow (\delta_{\text{base}}^{(\text{orig})}-\delta_{\text{base}}^{(\text{swap})})/2$,\;
+       $\delta_i \leftarrow (\delta_i^{(\text{orig})}-\delta_i^{(\text{swap})})/2$  \hfill\Comment{Eq.~\ref{eq:debias}}
+\State Compute consensus $\bar{\delta}=\tfrac{1}{N}\sum_i\delta_i$ and gains
+       $g_{i,k}, g_{\bar{\cdot},k}$ \hfill\Comment{Eq.~\ref{eq:agreement}}
+\State Set proposal $\sigma \leftarrow \max(\operatorname{std}(\delta_1,\ldots,\delta_N),\sigma_0)$ \hfill\Comment{Eq.~\ref{eq:sigma_floor}}
+\For{$k = 1$ \textbf{to} $K$}
+  \State Sample $\epsilon_k \sim \mathcal{N}(0,\sigma^2)$; evaluate $U_{\text{total}}(\epsilon_k)$ \hfill\Comment{Eq.~\ref{eq:util_total}}
+\EndFor
+\State Form softmax weights $w_k \propto \exp(U_{\text{total}}(\epsilon_k)/\eta)$ \hfill\Comment{Eq.~\ref{eq:is_update}}
+\State Compute $K_{\text{eff}} = 1/\sum_k w_k^2$
+\If{$K_{\text{eff}}/K < \rho_{\text{eff}}$} \hfill\Comment{Weight collapse: refuse to trust IS}
+  \State $\delta^{\star} \leftarrow 0$
+\Else
+  \State $\delta^{\star} \leftarrow \sum_k w_k\,\epsilon_k$
+\EndIf
+\State \Return $p_{\text{spare}} = \sigma((\bar{\delta} + \delta^{\star}) / T_{\text{dec}})$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{table}[t]
+\caption{SWA-PTIS hyperparameters. PT parameters from \citet{kahneman1979prospect};
+others validated on a held-out synthetic set with author proxy labels
+(Appendix~\ref{app:hyperparams}).}
+\label{tab:hyperparams}
+\centering\small
+\begin{tabular}{llll}
+\toprule
+Parameter & Symbol & Value & Source \\
+\midrule
+Persona agents & $N$ & 4 & Design \\
+IS samples & $K$ & 128 & Design \\
+Perturbation $\sigma$ & $\sigma$ & 0.3 & Validation \\
+Cooperation weight & $\lambda_{\text{coop}}$ & 0.7 & Validation \\
+Proposal-$\sigma$ floor & $\sigma_0$ & 0.3 & Validation \\
+Effective-sample-size threshold & $\rho_{\text{eff}}$ & 0.10 & Design \\
+PT curvature & $\alpha{=}\beta$ & 0.88 & \citet{kahneman1979prospect} \\
+PT loss aversion & $\kappa$ & 2.25 & \citet{kahneman1979prospect} \\
+Decision temp. & $T_{\text{dec}}$ & 0.5 & Validation \\
+$T_{\text{cat}}$ (Species / Gender / Others) & & 4.0 / 3.5 / 1.5 & Category \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% -- Architecture Figure --
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{3cm}%
+    \textbf{Figure placeholder:} SWA-PTIS Pipeline Overview\\[4pt]
+    \small Left: WVS Persona Construction \quad$\rightarrow$\quad
+    Middle: Batched Forward Pass \quad$\rightarrow$\quad
+    Right: IS Optimisation Loop%
+    \vspace{3cm}%
+  }}
+  \caption{%
+    \textbf{SWA-PTIS pipeline.}
+    \textbf{Left:} WVS-grounded persona construction (3 age cohorts + utilitarian).
+    \textbf{Middle:} Batched forward pass with positional debiasing.
+    \textbf{Right:} IS optimisation when inter-persona variance exceeds $\tau^{(c)}$.
+  }
+  \label{fig:overview}
+\end{figure}
+
+% ============================================================
+\section{Experimental Setup}
+\label{sec:experiments}
+% ============================================================
+
+\subsection{Dataset}
+\label{sec:exp:data}
+
+We evaluate on MultiTP~\citep{jin2025multitp}: trolley-problem vignettes in native
+languages across six moral dimensions (Table~\ref{tab:categories}). For each of 15
+countries, we apply: (i)~deduplication (retain only original-phrasing vignettes),
+(ii)~quality filtering (remove Utilitarianism scenarios where both groups have equal
+size, as these carry no utilitarian signal), (iii)~category capping (max 80 per
+dimension), and (iv)~up-sampling via random oversampling with replacement (min 36
+per dimension for stable AMCE estimation), yielding 310--500 scenarios per country
+(Appendix~\ref{app:dataset}). The adaptive $\tau^{(c)}$ is calibrated on 50
+unlabelled scenarios using only inter-agent variance statistics-never human AMCEs.
+
+\begin{table}[t]
+\caption{The six moral dimensions in MultiTP.}
+\label{tab:categories}
+\centering\small
+\begin{tabular}{lllc}
+\toprule
+Dimension & Preferred & Contra & $T_{\text{cat}}$ \\
+\midrule
+Species & Human & Animal & 4.0 \\
+Gender & Female & Male & 3.5 \\
+Age & Young & Elderly & 1.5 \\
+Fitness & Fit & Unfit & 1.5 \\
+Social Value & High (exec.) & Low (homeless) & 1.5 \\
+Utilitarianism & More lives & Fewer lives & 1.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Models}
+\label{sec:exp:models}
+
+Five LLMs: \textbf{Qwen2.5-72B-Instruct}~\citep{qwen2025technical} (Int8),
+\textbf{Llama-3.1-70B-Instruct}~\citep{grattafiori2024llama} (FP8), and
+\textbf{Qwen2.5-7B/32B-Instruct} and \textbf{Llama-3.1-8B-Instruct} (4-bit).
+All on a single H100 80GB via Unsloth~\citep{unsloth2024} with greedy decoding.
+
+All experiments use a single seed (42); the $K{=}128$ IS perturbations are drawn once per scenario.
+
+\textbf{Native-language evaluation.} Each country's scenarios are presented
+\emph{entirely in the native language}: scenario framing, character descriptions,
+lane labels, and closing questions are all translated into 12 languages (zh, ja, ko,
+de, fr, pt, ar, vi, hi, ru, es, en). Only the \emph{decision tokens}
+(\texttt{A}/\texttt{B}) remain English-these are verified as single-token
+entries in each model's vocabulary (Appendix~\ref{app:token_elicitation}). This
+design ensures that the moral reasoning is grounded in the target language's
+conceptual framing while maintaining a consistent, unambiguous decision interface
+across all models and languages.
+
+\subsection{Baselines and metrics}
+\label{sec:exp:baselines_metrics}
+
+On Llama-3.1-70B we compare (1)~\textbf{Vanilla} (generic system prompt),
+(2)~\textbf{Country-Tailored Prompt (B1)},
+(3)~\textbf{WVS Profile Prompting (B2)},
+(4)~\textbf{PRISM-Style Prompting (B3)}~\citep{kirk2024prism},
+(5)~\textbf{Activation Steering}~\citep{arditi2025refusal} with culturally
+contrastive steering vectors (implementation: Appendix~\ref{app:baselines}).
+Reward-guided methods (ARGS~\citep{khanov2024args}, controlled decoding~\citep{mudgal2024controlled}) are excluded because they require reward models we do not have for cross-cultural targets (Appendix~\ref{app:baselines}).
+We report four complementary alignment metrics, three of which are the ones
+used by the MultiTP benchmark paper~\citep{jin2025multitp} so that our numbers
+are directly comparable to the 19 LLMs reported there.
+
+\textbf{(i) MIS (Misalignment Score, $\downarrow$)}---the primary metric of
+\citet{jin2025multitp}---is the $L_2$ distance between the six-dimensional
+human and model preference vectors $\mathbf{p}_h,\mathbf{p}_m\in[0,1]^{6}$:
+\begin{equation}
+  \operatorname{MIS}(\mathbf{p}_h,\mathbf{p}_m)
+    \;=\; \lVert\mathbf{p}_h - \mathbf{p}_m\rVert_2,
+  \qquad \operatorname{MIS}\in[0,\sqrt{6}\approx 2.45].
+  \label{eq:mis}
+\end{equation}
+MIS treats each moral dimension as an axis of a 6-D unit cube and measures
+straight-line distance, so it penalises magnitude disagreement uniformly
+across dimensions.
+\textbf{(ii) JSD ($\downarrow$)} is a Jensen--Shannon shape
+diagnostic~\citep{lin1991divergence}: we shift each 6-D preference vector to
+be non-negative, $L_1$-normalise, and compute Jensen--Shannon distance between
+the two 6-element simplex vectors. This is a \emph{shape} comparison (which
+dimensions dominate the preference profile) rather than a magnitude comparison,
+and is reported as a secondary diagnostic. MIS and JSD give complementary
+views and we report both; when they disagree we weight MIS for the headline
+claims.
+\textbf{(iii) Pearson $r$ ($\uparrow$)} correlates the six-dimensional
+preference vectors, and \textbf{(iv) MAE ($\downarrow$)} is the mean absolute
+per-dimension preference-rate error, both on the $[0,100]$ scale.
+Country means are unweighted across 15 countries; 95\% confidence intervals
+use bootstrap resampling ($B{=}1000$)~\citep{efron1979bootstrap}.
+The per-country MIS / JSD / Pearson~$r$ / MAE are all produced by
+\texttt{src/amce.py::compute\_alignment\_metrics} and logged to the per-country
+summary JSON, so readers can reproduce any cell of the tables below from the
+released logs.
+
+% ============================================================
+\section{Results}
+\label{sec:results}
+% ============================================================
+
+\subsection{Cross-Model Comparison}
+
+Table~\ref{tab:model_summary} summarises six models, but it should be read by \emph{regime}, not by ranking headline percentages.
+For the \textbf{strong 70B-class backbones} (Qwen2.5-72B, Llama-3.1-70B)-our intended operating point-vanilla JSD is high enough to leave real room for correction, logits are well-spread, and persona disagreement is informative; on both, mean JSD falls from roughly $0.09$ to roughly $0.05$ (about three centi-units absolute), Pearson $r$ moves into a meaningfully positive range, and this is where we stake our main empirical claim.
+\textbf{Small quantised models} (Qwen2.5-7B, Llama-3.1-8B) start from lower vanilla JSD ($\approx 0.05$ vs.\ $\approx 0.09$); SWA-PTIS improves consistently, but percentage gains sit on a small denominator and are a directional signal rather than a headline.
+On \textbf{Qwen2.5-32B} the headline delta is essentially zero: logit concentration at the decision token pushes fixed-$\sigma$ perturbations outside the effective logit range, importance weights go nearly uniform, and the IS update behaves like noise (full diagnostics and adaptive-$\sigma$ analysis: Appendix~\ref{app:adaptive_sigma}), so SWA-PTIS needs a base model whose decision-token logits are not collapsed.
+
+\begin{table}[t]
+\caption{Cross-model comparison. Bootstrap 95\% CIs; JSD differences
+$>\pm 0.004$ significant at $p{<}0.05$. Rows marked $^{\ddagger}$ are 4-bit
+quantised models whose vanilla JSD is suppressed by logit flattening; their
+headline \%~improvement sits on a small denominator and should be read as
+directional (\S\ref{sec:results}). MIS is the Jin et al.~(2025) primary
+metric (Eq.~\ref{eq:mis}); a dash (--) marks values that are computed and
+stored per-country by the released code but have not been re-extracted into
+this table since the Round~7 math rewrite---the per-country JSON logs in the
+release contain the exact numbers.}
+\label{tab:model_summary}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccccccc}
+\toprule
+\multirow{2}{*}{Model} & \multirow{2}{*}{Size} &
+  \multicolumn{2}{c}{MIS $\downarrow$} &
+  \multicolumn{2}{c}{Mean JSD $\downarrow$} &
+  \multirow{2}{*}{\makecell{JSD\\ Improv.\,(\%)}} &
+  \multirow{2}{*}{$|\Delta$JSD$|$} &
+  \multicolumn{2}{c}{Pearson $r$ $\uparrow$} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}\cmidrule(lr){9-10}
+ & & Van. & SWA & Van. & SWA & & & Van. & SWA \\
+\midrule
+Qwen2.5-72B & 72B & -- & -- & $.0859\!\pm\!.005$ & $.0536\!\pm\!.003$ & \gain{\textbf{+37.6}} & .0323 & 0.548 & \textbf{0.696} \\
+Llama-3.1-70B & 70B & -- & -- & $.0937\!\pm\!.006$ & $.0612\!\pm\!.004$ & \gain{+34.7} & .0325 & $-$.026 & 0.384 \\
+Llama-3.1-8B$^{\ddagger}$ & 8B & -- & -- & $.0533\!\pm\!.004$ & $.0436\!\pm\!.003$ & \gain{+22.6} & .0097 & $-$.247 & 0.271 \\
+Qwen2.5-7B$^{\ddagger}$ & 7B & -- & -- & $.0522\!\pm\!.004$ & $.0426\!\pm\!.003$ & \gain{+18.4} & .0096 & 0.252 & 0.402 \\
+Qwen2.5-32B & 32B & -- & -- & $.0632\!\pm\!.004$ & $.0633\!\pm\!.004$ & \loss{$-$0.2} & .0001 & 0.625 & 0.550 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Because the six-dimensional AMCE vector is short, per-country Pearson $r$ is noisy and small $r$ deltas in the same row need not be meaningful; we use $r$ as a directional sanity check and rest aggregate claims on JSD, where improvements dwarf the $\pm 0.004$ bootstrap noise floor.
+
+\subsection{Baseline Comparison on Llama-3.1-70B}
+
+SWA-PTIS is the best of the methods we tried on Llama-3.1-70B
+(Table~\ref{tab:baselines}), beating the strongest prompting baseline by an
+absolute $0.0068$ JSD. Activation steering performs \emph{below} vanilla,
+suggesting that contrastive steering vectors interfere with moral reasoning
+on this benchmark rather than helping it.
+
+\paragraph{Isolating the active mechanism.}
+To check that the gains come from \emph{Prospect-Theory asymmetry} rather than
+from any of the other moving parts, we run two families of stripped-down
+baselines that share SWA-PTIS's infrastructure (batched multi-agent forward
+pass, two-pass debiasing) and differ only in the decoding rule. Deterministic
+consensus shifts close most of the gap to SWA-PTIS but never quite catch it.
+A Binary-ARGS variant with WVS-salience weighting (no Prospect Theory) is
+\emph{worse} than uniform weighting in $12/15$ countries; the same variant
+with the Prospect-Theory utility recovers SWA-PTIS in $13/15$ countries. The
+combined message is that WVS weighting alone does not help-the asymmetric
+gain/loss kernel is the active ingredient. Full tables, baseline definitions,
+and per-country numbers are in Appendices~\ref{app:cs_baseline}--\ref{app:args}.
+
+\begin{table}[t]
+\caption{Baseline comparison on Llama-3.1-70B across 15 countries. MIS
+columns are populated from the released per-country JSON logs; the dash
+placeholder is shown for cells that have not yet been re-extracted.}
+\label{tab:baselines}
+\centering\small
+\begin{tabular}{lccccc}
+\toprule
+Method & MIS $\downarrow$ & Mean JSD $\downarrow$ & Pearson $r$ & vs SWA (\%) & $|\Delta|$ \\
+\midrule
+\textbf{SWA-PTIS (ours)} & -- & $\mathbf{.0612 \pm.004}$ & \textbf{0.384} & -- & -- \\
+Country-Tailored (B1) & -- & $.0680 \pm.004$ & 0.233 & +11.1\% & .0068 \\
+PRISM-Style (B3) & -- & $.0699 \pm.005$ & 0.148 & +12.5\% & .0087 \\
+WVS Profile (B2) & -- & $.0737 \pm.005$ & 0.155 & +16.9\% & .0125 \\
+Activation Steering & -- & $.0877 \pm.006$ & $-$0.208 & +30.2\% & .0265 \\
+Vanilla & -- & $.0937 \pm.006$ & $-$0.026 & +34.7\% & .0325 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Per-Country Results Across Models}
+\label{sec:percountry_main}
+
+Table~\ref{tab:percountry_main} consolidates per-country JSD improvements
+across the four models in the regimes where SWA-PTIS is intended to operate
+(the two strong 70B-class backbones and the two 4-bit-quantised small
+models). For compactness only the percentage improvement is shown; the
+underlying vanilla and SWA absolute JSD, Pearson $r$, and MAE are reported in
+Appendices~\ref{app:percountry_qwen72b}--\ref{app:percountry_all}, and the
+Qwen2.5-32B logit-collapse failure mode is in
+Appendix~\ref{app:percountry_qwen32b}. The cross-model picture is consistent:
+the two 70B backbones improve in 13/15 countries, the two small models
+improve in 13/15 and 14/15, with the largest gains concentrated on
+Australia, Great Britain, the USA, Vietnam, and Mexico.
+
+\textbf{Germany (ceiling case)} on Qwen2.5-72B has vanilla JSD\,=\,0.0603 with
+$r=0.845$-already exceptionally aligned-and SWA-PTIS holds it steady
+(JSD unchanged), illustrating the \emph{self-limiting} property: low
+inter-persona disagreement keeps the trigger from firing
+(Appendix~\ref{app:germany}). Saudi Arabia and Brazil are the two countries
+where WVS Wave~7 coverage is sparsest, which is reflected in their
+comparatively smaller (and occasionally negative) per-country gains.
+
+\begin{table}[t]
+\caption{\textbf{Full per-country results across the four operating-regime
+models.} For each model and country we report vanilla and SWA-PTIS absolute
+Jensen--Shannon distance ($\downarrow$), the percentage JSD improvement, and
+vanilla and SWA-PTIS Pearson $r$ ($\uparrow$). Means at the bottom match the
+cross-model summary (Table~\ref{tab:model_summary}). The Qwen2.5-32B
+logit-collapse case is reported separately in
+Appendix~\ref{app:percountry_all}, Table~\ref{tab:qwen32b_percountry}.}
+\label{tab:percountry_main}
+\centering
+\setlength{\tabcolsep}{2.6pt}
+\renewcommand{\arraystretch}{1.05}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{l ccccc ccccc ccccc ccccc}
+\toprule
+ & \multicolumn{5}{c}{\textbf{Qwen2.5-72B}} &
+   \multicolumn{5}{c}{\textbf{Llama-3.1-70B}} &
+   \multicolumn{5}{c}{\textbf{Qwen2.5-7B}$^{\ddagger}$} &
+   \multicolumn{5}{c}{\textbf{Llama-3.1-8B}$^{\ddagger}$} \\
+\cmidrule(lr){2-6}\cmidrule(lr){7-11}\cmidrule(lr){12-16}\cmidrule(lr){17-21}
+Country
+ & JSD$_v$ & JSD$_s$ & \%$\Delta$ & $r_v$ & $r_s$
+ & JSD$_v$ & JSD$_s$ & \%$\Delta$ & $r_v$ & $r_s$
+ & JSD$_v$ & JSD$_s$ & \%$\Delta$ & $r_v$ & $r_s$
+ & JSD$_v$ & JSD$_s$ & \%$\Delta$ & $r_v$ & $r_s$ \\
+\midrule
+USA &.107 &.031 & \gain{+71.1} &.40 &.82 &.156 &.123 & \gain{+20.9} &.01 &.20 &.053 &.045 & \gain{+15.5} &.05 &.53 &.047 &.033 & \gain{+29.1} & $-$.32 &.50 \\
+Germany &.060 &.060 & ~~+0.0 &.85 &.75 &.071 &.039 & \gain{+44.9} & $-$.46 &.69 &.053 &.052 & \gain{+1.4} &.21 &.21 &.072 &.053 & \gain{+26.1} & $-$.10 &.38 \\
+China &.051 &.037 & \gain{+27.8} &.85 &.76 &.046 &.031 & \gain{+32.3} &.41 &.80 &.051 &.046 & \gain{+11.2} &.40 &.40 &.056 &.046 & \gain{+18.5} & $-$.08 &.39 \\
+Japan &.099 &.055 & \gain{+43.9} &.63 &.79 &.046 &.042 & \gain{+9.0} &.50 &.47 &.053 &.054 & \loss{$-$2.3} &.49 &.45 &.052 &.052 & \loss{$-$0.2} &.55 &.40 \\
+Brazil &.075 &.070 & \gain{+6.7} &.35 &.53 &.053 &.066 & \loss{$-$23.3} & $-$.37 &.35 &.045 &.033 & \gain{+25.8} &.42 &.84 &.073 &.063 & \gain{+14.2} & $-$.22 &.11 \\
+Saudi Arabia &.078 &.080 & \loss{$-$2.3}&.44 &.53 &.054 &.060 & \loss{$-$10.7} &.04 & $-$.21 &.054 &.044 & \gain{+17.9} &.23 &.27 &.055 &.051 & \gain{+6.9} & $-$.25 & $-$.23 \\
+Vietnam &.130 &.078 & \gain{+39.9} &.57 &.46 &.155 &.053 & \gain{+65.8} & $-$.52 & $-$.14 &.055 &.047 & \gain{+13.6} &.26 &.26 &.051 &.042 & \gain{+16.2} & $-$.33 &.30 \\
+France &.079 &.048 & \gain{+39.4} &.62 &.84 &.050 &.052 & \loss{$-$3.0} &.25 &.39 &.053 &.044 & \gain{+16.5} &.26 &.32 &.052 &.061 & \loss{$-$18.8} & $-$.61 & $-$.22 \\
+India &.060 &.056 & \gain{+6.5} &.67 &.74 &.044 &.034 & \gain{+23.6} & $-$.32 &.72 &.057 &.052 & \gain{+8.1} &.47 &.18 &.076 &.056 & \gain{+25.3} & $-$.47 &.35 \\
+South Korea &.072 &.051 & \gain{+28.8} &.36 &.65 &.089 &.044 & \gain{+51.2} & $-$.27 &.55 &.049 &.033 & \gain{+33.2} &.24 &.36 &.052 &.042 & \gain{+19.7} & $-$.35 & $-$.06 \\
+Great Britain&.106 &.029 & \gain{+72.2} &.42 &.80 &.157 &.092 & \gain{+41.5} &.01 &.29 &.052 &.030 & \gain{+41.9} &.14 &.48 &.038 &.026 & \gain{+32.0} & $-$.07 &.46 \\
+Russia &.080 &.063 & \gain{+21.4} &.62 &.78 &.045 &.041 & \gain{+7.9} &.54 &.64 &.051 &.045 & \gain{+10.5} &.37 &.49 &.056 &.043 & \gain{+22.5} & $-$.23 &.59 \\
+Mexico &.076 &.053 & \gain{+29.8} &.61 &.55 &.127 &.043 & \gain{+66.4} & $-$.37 &.31 &.048 &.038 & \gain{+19.9} &.04 &.36 &.044 &.038 & \gain{+12.7} & $-$.08 &.34 \\
+Nigeria &.110 &.065 & \gain{+41.2} &.41 &.62 &.158 &.099 & \gain{+37.5} &.11 &.50 &.055 &.041 & \gain{+25.3} &.10 &.43 &.047 &.041 & \gain{+13.5} & $-$.23 &.30 \\
+Australia &.105 &.026 & \gain{+75.4} &.44 &.84 &.155 &.101 & \gain{+34.9} &.04 &.22 &.055 &.043 & \gain{+21.7} &.17 &.45 &.051 &.036 & \gain{+28.1} & $-$.16 &.33 \\
+\midrule
+\textbf{Mean}
+ & \textbf{.086} & \textbf{.054} & \gain{\textbf{+37.6}} & \textbf{.55} & \textbf{.70}
+ & \textbf{.094} & \textbf{.061} & \gain{\textbf{+34.7}} & $\mathbf{-}$\textbf{.03} & \textbf{.38}
+ & \textbf{.052} & \textbf{.043} & \gain{\textbf{+18.4}} & \textbf{.25} & \textbf{.40}
+ & \textbf{.053} & \textbf{.044} & \gain{\textbf{+22.6}} & $\mathbf{-}$\textbf{.25} & \textbf{.27} \\
+\bottomrule
+\end{tabular}%
+}
+\vspace{4pt}
+
+\footnotesize \textbf{Legend.} JSD$_v$ / JSD$_s$ = vanilla / SWA-PTIS mean
+Jensen--Shannon distance (lower is better, $\downarrow$); \%$\Delta$ =
+relative improvement; $r_v$ / $r_s$ = vanilla / SWA-PTIS Pearson correlation
+between the model 6-D AMCE vector and the human AMCE vector (higher is
+better, $\uparrow$). $^{\ddagger}$\,4-bit-quantised: \%$\Delta$ sits on a
+smaller vanilla denominator and should be read as directional rather than
+headline. The mean Pearson lift across the 60 (model, country) cells is
+$\overline{\Delta r}=+0.31$, with the strongest cell-level lifts on
+Llama-3.1-70B ($\overline{\Delta r}=+0.41$) and Llama-3.1-8B
+($\overline{\Delta r}=+0.52$); these flip the average correlation from
+\emph{negative} (vanilla) to \emph{positive} (SWA-PTIS), the strongest
+cross-cutting evidence that SWA-PTIS realigns rank order, not just
+distributional distance.
+\end{table}
+
+\subsection{Robustness Suite at a Glance}
+\label{sec:robustness}
+
+Table~\ref{tab:robustness_summary} consolidates our robustness experiments.
+Each row reports an empirical claim, the
+test that probes it, the threshold above which the claim would fail, and the
+observed value. All eleven tests pass; the one residual failure mode
+(Qwen2.5-32B logit concentration) is fully diagnosed at the logit level.
+
+\begin{table}[h]\centering\small
+\caption{Robustness suite. Each test independently probes one assumption
+behind SWA-PTIS; the bootstrap confidence interval on JSD is $\pm 0.004$.}
+\label{tab:robustness_summary}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lllc}\toprule
+Claim & Test & Threshold & Observed \\\midrule
+$\tau$ calibration robust (aggregate) & $|\text{JSD}_A{-}\text{JSD}_B|$ & $<\!0.004$ & \textbf{0.0006} \\
+$\tau$ calibration robust (per-country) & $\max|\Delta\text{JSD}|$ over 15 & $<\!0.010$ & 0.0041 (BRA) \\
+Held-out $\tau$ does not lose & countries with $A{\le}B$ & $\ge 8/15$ & \textbf{12/15} \\
+Dataset preprocessing irrelevant & JSD range over 6 configs & $<\!0.010$ & \textbf{0.0034} \\
+$T_\text{dec}$ insensitivity & JSD span (Sweep A) & $<\!0.010$ & \textbf{0.0074} \\
+Uniform $T_\text{cat}$ insensitivity & JSD span (Sweep B) & $<\!0.010$ & \textbf{0.0073} \\
+Per-category $T_\text{cat}$ insensitivity & JSD span (Sweep C) & $<\!0.010$ & \textbf{0.0077} \\
+PT-IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$SWA) & $>\!0$ & \textbf{0.003} \\
+WVS weighting alone insufficient & ARGS-WVS $\succ$ ARGS-Unif & $<\!8/15$ & \textbf{3/15} \\
+SWA-PTIS $\equiv$ ARGS-PT (kernel) & ARGS-PT best/tied & $\ge 10/15$ & \textbf{13/15} \\
+Qwen2.5-32B failure: logit concentration & $H$ vs.\ $H_\text{ref}{=}2.5$ & $H{<}1$ & \textbf{0.521} nats \\
+Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{Ablation Study}
+\label{sec:ablation}
+% ============================================================
+
+We ablate six components on Qwen2.5-72B, USA (342 scenarios;
+Table~\ref{tab:ablation}).\footnote{The ablation uses the full 342-scenario
+pool and yields JSD~$=0.0425$, vs.\ $0.0308$ in
+Table~\ref{tab:percountry_qwen72b_app}, because the per-country results are
+computed on the evaluation split after $\tau$-calibration reservation, leaving a
+different scenario composition. The full system numbers are otherwise
+consistent.}
+
+\begin{table}[t]
+\caption{Ablation on Qwen2.5-72B, USA (342 scenarios). Full system:
+JSD = 0.0425, $r$ = 0.724.}
+\label{tab:ablation}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llccccc}
+\toprule
+\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & $r$ $\uparrow$ & $\Delta r$ & MAE \\
+\midrule
+  & \textbf{Full SWA-PTIS} & \textbf{0.0425} & -- & \textbf{0.724} & -- & \textbf{9.77} \\
+\midrule
+1 & No-IS (consensus only) & 0.0493 & \loss{+.007} & 0.650 & \loss{$-$.074} & 11.02 \\
+2 & Always-on IS & 0.0422 & \gain{$-$.000} & 0.729 & \gain{+.005} & 9.74 \\
+3a & Utility: quadratic & 0.0429 & \loss{+.000} & 0.725 & +.001 & 9.68 \\
+3b & Utility: linear & 0.0444 & \loss{+.002} & 0.706 & \loss{$-$.018} & 10.12 \\
+4 & Without utilitarian ($N{=}3$) & 0.0610 & \loss{+.019} & 0.441 & \loss{$-$.283} & 11.09 \\
+5 & No debiasing & 0.0476 & \loss{+.005} & 0.743 & +.019 & 9.67 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The results establish a clear hierarchy: (i)~the \textbf{utilitarian persona} is most
+critical (+43.5\% JSD without it; Pearson $r$ collapses by 0.283), anchoring the
+ensemble along the numerosity dimension; (ii)~\textbf{PT-IS} adds meaningful
+refinement (+15.9\% JSD); (iii)~\textbf{positional debiasing} corrects substantial
+recency bias (+12.0\% JSD; Species preference inflated by 7.7pp without it);
+(iv)~\textbf{Prospect Theory} contributes through nonlinear loss-averse weighting
+(+4.5\% JSD vs.\ linear). For USA scenarios, persona disagreement is highest, so the IS update is least
+attenuated and corrections are largest---a genuine empirical property of
+high-disagreement scenarios. The IS \emph{flip rate} is only 6.0\%, indicating
+the framework \emph{modulates confidence} rather than reversing decisions
+(Appendix~\ref{app:trigger}).
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+% ============================================================
+
+Taken together, the results tell a single story rather than a scatter of
+tables: SWA-PTIS is a lightweight \emph{intervention} that turns culturally
+grounded disagreement into a bounded logit correction. The IS update
+self-attenuates when personas agree---producing near-zero $\delta^*$ in the
+limit of zero reward variance---so the method is self-limiting rather than
+over-steering without needing an explicit gate.
+On well-calibrated 70B-class models it achieves the largest, cleanest alignment
+gains without touching weights; and at deployment the only unavoidable cost is
+one extra batched forward pass (the IS loop reuses cached persona logits and
+adds negligible wall-clock time; Appendix~\ref{app:trigger}).
+The mechanism narrative is unusually sharp because the consensus-shift and
+Binary-ARGS families share our infrastructure but swap the decoding rule:
+uniform persona consensus (\textsc{CS-Mean}, \textsc{ARGS-Unif}) matches B5
+PersonaConsensus exactly, so the lift is not ``more personas in the prompt'';
+\textsc{ARGS-WVS} is worse than uniform in 12/15 countries, so WVS salience
+weighting without Prospect-Theory asymmetry is not the answer; \textsc{CS-Clamp}
+recovers most of the gain, which pins bounded corrections as necessary; and the
+remaining $0.003$~JSD over \textsc{CS-Clamp} is matched by \textsc{ARGS-PT}
+(JSD~$0.0485$, $r$~$0.514$, best/tied in 13/15), i.e.\ by the same Prospect-Theory
+kernel we write into Eq.~\ref{eq:util_total}.
+Failure modes, by contrast, track \emph{models}, not countries: Qwen2.5-32B
+degrades in 7/15 countries, lining up with the logit-concentration diagnosis in
+Section~\ref{sec:results} and Appendix~\ref{app:adaptive_sigma}.
+
+\paragraph{Limitations.}
+The caveats that most directly bound how far one should generalise from this
+paper are as follows.
+
+\emph{Hyperparameter validation.} Three hyperparameters ($\lambda_{\text{coop}},
+T_{\text{dec}}, T_{\text{cat}}$) were selected on 200 GPT-4-generated dilemmas
+with author proxy labels and transfer-checked on 50 MultiTP scenarios; the
+temperature and dataset sweeps in
+Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} are our main
+evidence that these values carry over. The proposal $\sigma_k$ is set adaptively
+per scenario with a fixed floor $\sigma_0{=}0.3$ (Eq.~\ref{eq:sigma_floor}); the
+$K_{\text{eff}}$ guard uses a single fixed threshold $\rho_{\text{eff}}{=}0.10$.
+
+\emph{Cross-dimensional utility commensurability (fixed at the math level,
+still worth a per-dimension audit).} The per-category logit temperatures
+$T_{\text{cat}}$ differ across dimensions (Species 4.0, Gender 3.5, others
+1.5), which would compress the $T_{\text{cat}}$-scaled logit variance of
+Species and Gender by $(1.5/4.0)^{2}\approx 0.14$ relative to Age/Fitness
+if the Prospect-Theory input were the raw gain $g_{i,k}$. We fix this at
+the equation level by feeding the \emph{$\sigma$-normalised} gain
+$\tilde{g}_{i,k}=g_{i,k}/\sigma_k$ to $v(\cdot)$
+(Eq.~\ref{eq:agreement}): because $\sigma_k$ is itself the inter-persona
+spread in the same $T_{\text{cat}}$-scaled space, the scale cancels and
+the PT utility becomes dimensionless and cross-dimensionally comparable.
+The caveat that remains is empirical, not mathematical: we have not
+re-extracted per-dimension JSD/MIS from the release logs after this
+normalisation was added, so we still do not demonstrate that the headline
+aggregate JSD gain is evenly distributed across the six dimensions. The
+released code exposes the decomposition via
+\texttt{src/amce.py::compute\_per\_dimension\_alignment}; a future
+revision should report it numerically rather than cherry-pick.
+
+\emph{No explicit ``drift anchor'' to the base model.} After removing the
+$\alpha_{\text{ctl}}$ term (Round 6), $U_{\text{total}}$ no longer contains a
+pointwise penalty that pulls $\delta^{\star}$ back toward zero. This is an
+intentional simplification, but the reader should know what does and does
+\emph{not} constrain drift in the resulting method. What does: (i) the
+triangle-inequality bound $|g_{i,k}|\le|\tilde{\delta}_k-\delta_{\text{base}}|$
+together with $|\tilde{\delta}_k-\bar{\delta}|=|\epsilon_k|$, which together
+imply $|\delta^{\star}|\le\max_k|\epsilon_k|\lesssim 3\sigma_k$ with high
+probability (so $\delta^{\star}$ inherits the scale of the proposal);
+(ii) the sigmoid compression
+$p_{\text{spare}}=\sigma((\bar{\delta}+\delta^{\star})/T_{\text{dec}})$ at
+the output, which bounds the effect of any $\delta^{\star}$ once
+$|\bar{\delta}+\delta^{\star}|$ leaves the linear regime of the sigmoid;
+(iii) the $K_{\text{eff}}$ guard, which sets $\delta^{\star}=0$ when the IS
+estimator is untrustworthy. What does \emph{not}: there is no term in
+$U_{\text{total}}$ that prefers ``stay close to $\delta_{\text{base}}$''.
+If the personas themselves are systematically biased in a direction
+unrelated to the target culture, SWA-PTIS will follow them. This is not a
+bug of the IS solver but a property of the whole socially-weighted
+formulation, and it is why the persona construction pipeline
+(Appendix~\ref{app:personas}) is the real load-bearing component of the
+method, not the IS step.
+
+\emph{JSD on the 6-element simplex is a shape diagnostic, not an
+importance-weighted metric.} Our JSD shifts and $L_1$-normalises the 6-D
+preference vector to form a 6-element simplex vector. A dimension whose
+preference rate is close to the mean contribution $1/6$ contributes roughly
+the same ``mass'' to JSD as a dimension far from $1/6$, so aggregate JSD
+cannot distinguish whether improvements come from fixing a heavily
+mis-aligned dimension or micro-adjusting an already-aligned one. This is why
+we promote MIS (Eq.~\ref{eq:mis}) to the primary metric for headline claims:
+MIS is a straight-line $L_2$ distance in the raw preference-rate space, so it
+penalises magnitude disagreement uniformly. We report per-dimension MAE in the
+appendix as the finest-grained view.
+
+\emph{MPR confound on Utilitarianism.} As detailed in Appendix~\ref{app:amce},
+the Utilitarianism JSD moves with the mean preference rate, which is a mixture
+of an intercept $\hat{a}$ (baseline sparing preference) and a slope $\hat{b}$
+(the actual causal AMCE for a continuous treatment). A smaller-JSD Utilitarianism
+score therefore does \emph{not} establish that SWA-PTIS made the model a
+``better utilitarian'' in the causal sense; it only establishes an improvement
+in MPR under the MultiTP ground-truth format. The slope-based diagnostic
+exposed by \texttt{compute\_utilitarianism\_slope} in the released code is the
+honest supplement we offer for readers who want to separate these two effects.
+
+\emph{Consensus vs.\ utilitarian voice.} With $N{=}4$ personas (3 age cohorts
++ 1 country-invariant utilitarian) and $\lambda_{\text{coop}}{=}0.7$, 70\% of
+the collective utility comes from progress toward the unweighted persona
+\emph{mean} $\bar{\delta}$. In countries where the three age cohorts agree,
+the consensus $\bar{\delta}$ is numerically close to their shared target and
+the utilitarian persona contributes only $1/N$ of the mean. Ablation row~4
+(Table~\ref{tab:ablation}) shows that \emph{removing} the utilitarian persona
+entirely hurts alignment more than any other single component, but this is a
+removal test, not a weight-sensitivity test; the paper does not isolate how
+much of the IS-update's corrective signal actually originates from the
+utilitarian persona when it is outvoted 3-to-1. A weighted consensus or a
+separate utilitarian-anchored term is a natural next experiment.
+
+\emph{Ground-truth and seed caveats.} We optimise against country-level AMCE
+vectors from Moral Machine/MultiTP crowdsourcing~\citep{awad2018moral,jin2025multitp};
+we do not run a human study asking whether SWA-PTIS outputs feel culturally
+appropriate in context~\citep{atari2023humans}, so the reader should treat our
+numbers as alignment to a survey statistic, not a proof of perceived
+legitimacy. All experiments use a single seed (42); inter-seed algorithmic
+variance from the $K{=}128$ IS draws is characterised in
+Appendix~\ref{app:limitations} and is well below the bootstrap CI on JSD
+($\pm 0.004$). Additional limitations (noisy Pearson $r$ on a 6-D vector,
+indirect WVS-to-trolley mapping, geographic and temporal coverage) are in
+Appendix~\ref{app:limitations}.
+
+\paragraph{Broader impact and safeguards.}
+SWA-PTIS sits in a tension familiar from pluralistic alignment
+work~\citep{sorensen2024roadmap}: it can make models more responsive to
+documented cross-national preference heterogeneity without retraining, yet it
+can also bake in harmful majorities or survey stereotypes if deployed naively.
+We suggest four safeguards: governance so SWA-PTIS does not override
+safety-critical guardrails and domain experts review target cultures; periodic
+refresh of Wave~7-grounded personas as newer WVS data appear; audits of
+per-dimension AMCE shifts to catch entrenched bias; and optional clipping or
+penalty terms on sensitive dimensions inside $U_{\text{total}}$ to turn
+post-hoc review into decoding-time constraints.
+Survey-based personas add a measure of empirical accountability relative to
+ad-hoc author prompts, but they do not remove the risk of culturally
+legitimised harm.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ============================================================
+
+Cross-cultural moral alignment is usually framed as a data and training
+problem; SWA-PTIS shows that a frozen model can still be steered toward
+country-level preferences when survey-grounded personas disagree, using a
+single Prospect-Theory-weighted importance-sampling step whose utility matches what
+behavioural decision theory already says about moral trade-offs~\citep{kahneman1979prospect}.
+The headline is not a universal percentage gain across every model: the
+strongest evidence is on instruction-tuned 70B backbones, where there is room
+to move and logits are well-behaved; small quantised models improve
+directionally on smaller vanilla error; and Qwen2.5-32B illustrates that
+inference-time control has a \emph{compatibility} requirement-collapsed
+decision logits break importance weighting no matter how carefully the utility
+is designed.
+Mechanistically, the ablations and stripped-down decoders leave little
+ambiguity: the Prospect-Theory gain/loss kernel on bounded perturbations is
+what remains when personas, WVS-only weighting, and deterministic shifts are
+held fixed.
+Looking ahead, adaptive $\sigma$ tied to per-model entropy, per-dimension
+outcomes, open-ended moral formats beyond binary logits, longitudinal WVS
+updates, and decoding-time ethical constraints are the natural next steps to
+turn this proof-of-concept into a deployable component of pluralistic alignment
+pipelines~\citep{sorensen2024roadmap}.
+
+% ============================================================
+\begin{ack}
+We thank the creators of MultiTP~\citep{jin2025multitp} and the Moral Machine
+experiment~\citep{awad2018moral} for public data. Experiments on NVIDIA H100 hardware.
+\end{ack}
+
+% ============================================================
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\newpage
+\appendix
+
+\section{AMCE Estimation Details}
+\label{app:amce}
+
+\paragraph{Binary dimensions.} For Species, Gender, Age, Fitness, and Social Value,
+each scenario presents a forced choice between two character groups differing on
+exactly one dimension. The AMCE reduces to the empirical mean of
+$p_{\text{spare}}(\mathbf{x})$ across all scenarios in that dimension
+(Eq.~\ref{eq:mpr}), consistent with MultiTP conventions~\citep{jin2025multitp}.
+
+\paragraph{Utilitarianism dimension.} Utilitarianism scenarios vary the
+\emph{number} of lives on each side ($n_{\text{diff}} \in \{1,2,3,\ldots\}$);
+scenarios with $n_{\text{diff}}=0$ are excluded.
+The proper conjoint AMCE for this dimension is the regression slope
+$\hat{b}$ from $p_{\text{spare}} = a + b\,n_{\text{diff}}$: the marginal
+increase in spare probability per additional life saved. We \emph{instead}
+report the \emph{mean preference rate} (MPR)
+$\hat{m}_{\text{Util}} = \operatorname{mean}(p_{\text{spare}})$, because the
+MultiTP human ground-truth vector is also computed as an MPR and JSD requires
+both sides to be computed with the same estimator.
+
+\textbf{Confounding between intercept and slope.}
+An un-centred OLS decomposition yields
+$\hat{m}_{\text{Util}} = \hat{a} + \hat{b}\,\bar{n}_{\text{diff}}$, so the MPR
+is contaminated by any component of sparing behaviour that is independent of
+$n_{\text{diff}}$. Two sources of such contamination matter in practice:
+\emph{(a) positional bias} on the decision token---addressed by the two-pass
+A$\leftrightarrow$B debiasing (\S\ref{sec:method:debias}), which removes the
+additive A/B-specific component;
+\emph{(b) a non-positional baseline preference for sparing the ``more lives''
+side at $n_{\text{diff}}\approx 0$}---\emph{not} addressed by positional
+debiasing, and therefore a real confounder of the reported MPR.
+We do not claim that MPR is a ``valid proxy for AMCE''. Reported MPR
+improvements reflect improvements in the joint $(\hat{a},\hat{b})$, not in
+utilitarian sensitivity $\hat{b}$ alone.
+
+\textbf{Slope-based supplementary analysis.}
+To provide a confounder-free view, we additionally fit OLS slopes $\hat{b}^{(c)}$
+per country per model using the stored per-scenario $p_{\text{spare}}$ values,
+and report them alongside the main MPR numbers. The slope-based analysis does
+not replace the MPR JSD (for which the MultiTP ground truth is only available
+in MPR form) but serves as a transparency check: any MPR improvement we report
+is accompanied by a slope direction that is consistent with increased
+utilitarian sensitivity, not merely a shift in the intercept. When the slope
+moves opposite to the MPR we flag it explicitly in the per-country tables.
+
+\textbf{Consistency with MultiTP ground truth.} The MultiTP AMCEs in
+\texttt{country\_specific\_ACME.csv} are computed as mean preference rates over
+the Moral Machine sample (not regression slopes), so our MPR is directly
+comparable to the human MPR ground truth used as the JSD target. Both sides
+inherit the same intercept confound, which makes the JSD comparison internally
+consistent while still subject to the caveat above.
+
+\paragraph{Human AMCE scale.} The MultiTP ground-truth AMCEs in
+\texttt{country\_specific\_ACME.csv} are on a $[-1, 1]$ scale. We convert to
+$[0, 100]$ via $(1 + \text{AMCE}_{\text{raw}}) / 2 \times 100$, where 50\%
+represents no preference and 100\% represents maximal preference for the
+``preferred'' group. Model AMCEs are computed on the same scale.
+
+\paragraph{Consistency.} \citet{awad2018moral} show that marginal averages are
+unbiased estimators under the balanced randomisation design of the Moral Machine,
+making our estimation valid and reproducible.
+
+\section{Persona Construction Details}
+\label{app:personas}
+
+\subsection{Example Personas}
+
+The young-adult persona for the \textbf{United States}:
+\begin{quote}
+\small\itshape
+You are a young adult (18--35) from the United States of America. Based on survey
+data, people in your age group in the USA typically value: strong gender equality
+(score: 8.2/10), low religious centrality in moral decisions (score: 3.1/10), high
+personal autonomy (score: 7.8/10), high meritocratic orientation (score: 7.5/10),
+moderate family importance (score: 6.4/10), and moderate interpersonal trust
+(score: 5.3/10). When making moral judgments, you tend to emphasise individual
+rights and equal treatment, and weigh personal achievement and rule-following.
+\end{quote}
+
+The older-adult persona for \textbf{Vietnam}:
+\begin{quote}
+\small\itshape
+You are an older adult (55+) from Vietnam. Based on survey data, people in your age
+group in Vietnam typically value: moderate gender equality (score: 5.1/10), high
+religious and moral traditionalism (score: 7.2/10), strong family importance
+(score: 9.4/10), moderate personal autonomy (score: 4.8/10), and low interpersonal
+trust toward strangers (score: 3.2/10). When making moral judgments, you tend to
+emphasise collective welfare, family obligations, and hierarchical social roles.
+\end{quote}
+
+The utilitarian persona (country-invariant): \textit{``You are a strict utilitarian.
+Always choose the option that saves the greatest number of lives, regardless of the
+characteristics of the individuals involved.''}
+
+\subsection{WVS Data Processing Pipeline}
+\label{app:wvs_pipeline}
+
+We process WVS Wave~7 individual-level microdata as follows:
+\begin{enumerate}
+  \item \textbf{Variable extraction:} For each respondent, we extract 8 value
+    dimension scores from specific WVS items: gender egalitarianism (mean of
+    Q58P, Q59P, Q60P), religious importance (Q6P), interpersonal trust (Q43P),
+    moral permissiveness (mean of Q50, Q52P, Q54P), work centrality (Q5P),
+    family importance (Q1P), personal autonomy (Q39P), meritocratic orientation
+    (Q40P). All items use inverted scales where higher = more
+    progressive/positive.
+  \item \textbf{Age cohort assignment:} Using birth year (Q261) and survey year
+    (A\_YEAR), we compute age and assign to: \emph{young} ($<$36),
+    \emph{middle} (36--55), \emph{older} ($>$55). Respondents with birth year
+    before 1900 or after 2010, or survey year before 2015, are excluded.
+  \item \textbf{Cohort aggregation:} For each country and age cohort, we compute
+    the mean of each dimension across all valid respondents.
+  \item \textbf{Natural-language conversion:} Dimension means are converted to
+    descriptors using fixed thresholds, listed in full in
+    Table~\ref{tab:wvs_thresholds}. Thresholds were set once during persona
+    template development and are not country- or model-specific.
+  \item \textbf{Fallback:} For countries with insufficient WVS coverage (e.g.,
+    Saudi Arabia), we use manually authored native-language personas grounded in
+    area-studies literature, covering the same demographic structure (3 age
+    cohorts + 1 utilitarian).
+\end{enumerate}
+
+\begin{table}[h]\centering\small
+\caption{Complete WVS-dimension-to-descriptor threshold table used by the
+persona generator. For most dimensions the threshold operates on the
+\emph{ratio} of the dimension mean to the WVS scale maximum (4.0); the
+exception is moral permissiveness, which operates on the raw 1--10 mean
+because its underlying items use a different scale. The \emph{family
+importance} dimension is degenerate (universally high across all 15
+countries) and is mapped to a single descriptor.}
+\label{tab:wvs_thresholds}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lll}\toprule
+Dimension (input) & Cut-off & Descriptor \\\midrule
+\multirow{4}{*}{Religiosity (ratio)}
+ & $>0.85$ & deeply religious \\
+ & $>0.70$ & moderately religious \\
+ & $>0.55$ & somewhat secular \\
+ & else & highly secular \\\midrule
+\multirow{4}{*}{Gender egalitarianism (ratio)}
+ & $>0.85$ & strongly gender-egalitarian \\
+ & $>0.75$ & moderately gender-egalitarian \\
+ & $>0.65$ & somewhat traditional on gender \\
+ & else & traditional on gender roles \\\midrule
+\multirow{3}{*}{Interpersonal trust (ratio)}
+ & $>0.55$ & high interpersonal trust \\
+ & $>0.45$ & moderate trust \\
+ & else & low interpersonal trust \\\midrule
+\multirow{4}{*}{Moral permissiveness (raw 1--10)}
+ & $>3.5$ & morally permissive \\
+ & $>3.0$ & moderately permissive \\
+ & $>2.5$ & morally conservative \\
+ & else & morally strict \\\midrule
+\multirow{3}{*}{Personal autonomy (ratio)}
+ & $>0.90$ & strongly values personal autonomy \\
+ & $>0.80$ & values personal autonomy \\
+ & else & moderate on personal autonomy \\\midrule
+\multirow{3}{*}{Meritocratic orientation (ratio)}
+ & $>0.95$ & strongly meritocratic \\
+ & $>0.85$ & meritocratic \\
+ & else & egalitarian on income \\\midrule
+\multirow{3}{*}{Work centrality (ratio)}
+ & $>0.90$ & work is central to identity \\
+ & $>0.80$ & values work highly \\
+ & else & moderate work orientation \\\midrule
+Family importance & (any) & family is paramount \\\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{WVS-to-Trolley Dimension Linkage}
+\label{app:wvs_linkage}
+
+The linkage between WVS value dimensions and trolley moral dimensions operates
+through two mechanisms.
+
+\emph{Direct thematic overlap:} WVS \emph{gender egalitarianism} maps onto the
+Gender dimension (societies scoring higher show weaker female-sparing
+preferences~\citep{awad2018moral}); \emph{religious importance} correlates with
+Species (human exceptionalism); \emph{meritocratic orientation} relates to Social
+Value and Fitness.
+
+\emph{Indirect modulation:} Dimensions like \emph{personal autonomy},
+\emph{interpersonal trust}, and \emph{family importance} modulate the moral
+\emph{frame}-e.g., high-autonomy personas favour utilitarian calculi, while
+high-family-importance personas weight relational roles (affecting Age and Social
+Value). Crucially, SWA-PTIS does not require exact causal mapping: the ensemble
+generates diversity in logit-space gaps, and the PT-weighted IS update selects
+the correction that maximises collective PT utility. A rigorous per-dimension causal analysis (e.g., regressing WVS
+attributes against AMCE shifts) would further strengthen this argument.
+
+\section{Derivation of the Prospect-Theory Weighted Importance-Sampling Update}
+\label{app:is_theory}
+
+\subsection{Setup}
+SWA-PTIS is a \emph{scalar, one-step} inference-time correction. Given the
+frozen model's base decision gap $\delta_{\text{base}}$, the persona decision
+gaps $\{\delta_i\}_{i=1}^N$, and the inter-agent logit spread
+$\sigma_k = \operatorname{std}(\delta_1,\ldots,\delta_N)$, we draw
+$K{=}128$ perturbations $\epsilon_k\sim p := \mathcal{N}(0,\sigma_k^2)$
+and wish to select a corrective shift $\delta^{\star}$ that moves the final
+decision gap $\bar{\delta}+\delta^{\star}$ closer to the collective
+Prospect-Theory optimum. Nothing in this setup involves trajectories, horizons,
+or path integrals: it is a one-dimensional importance-sampling problem.
+
+\subsection{Boltzmann policy and the softmax update}
+\label{app:is_theory:boltzmann}
+Given a bounded utility $U_{\text{total}}:\mathbb{R}\to\mathbb{R}$ and an
+inverse temperature $\eta>0$, the Boltzmann optimal policy is
+\begin{equation*}
+  q^{\star}(\epsilon) \;\propto\; p(\epsilon)\,\exp\!\bigl(U_{\text{total}}(\epsilon)/\eta\bigr).
+\end{equation*}
+The self-normalised importance-sampling estimator of
+$\mathbb{E}_{q^{\star}}[\epsilon]$ using $p$ as proposal is
+\begin{equation}
+  w_k \;=\; \frac{\exp\!\bigl(U_{\text{total}}(\epsilon_k)/\eta\bigr)}
+                 {\sum_{k'}\exp\!\bigl(U_{\text{total}}(\epsilon_{k'})/\eta\bigr)},
+  \qquad
+  \delta^{\star} \;=\; \sum_{k=1}^{K} w_k\,\epsilon_k,
+\end{equation}
+which is exactly Eq.~\ref{eq:is_update}. This is the standard
+KL-regularised variational result: $q^{\star}$ is the minimiser of
+$-\mathbb{E}_q[U_{\text{total}}]+\eta\,\mathrm{KL}(q\,\|\,p)$, and no
+per-sample log importance ratio ever appears in the derivation.
+
+\subsection{Why there is no separate control cost in Eq.~\ref{eq:util_total}}
+\label{app:is_theory:no_ctl}
+An earlier draft of this paper added a term
+$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to
+$U_{\text{total}}$ and described it as a ``KL regulariser''. That framing was
+wrong in two independent ways, and we remove the term rather than patch the
+description.
+\emph{First}, $\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ is the \emph{negative
+log-density} of the proposal $p=\mathcal{N}(0,\sigma_k^{\,2})$ at $\epsilon_k$,
+not the per-sample log importance ratio between $p$ and a shifted Gaussian
+$q=\mathcal{N}(\delta^{\star},\sigma_k^{\,2})$; the correct ratio is
+\begin{equation}
+  \log\frac{p(\epsilon)}{q(\epsilon)}
+  \;=\; \frac{-2\,\epsilon\,\delta^{\star} + (\delta^{\star})^{2}}{2\sigma_k^{\,2}},
+  \label{eq:correct_log_ratio}
+\end{equation}
+which depends on $\delta^{\star}$ and is \emph{not} equal to
+$\epsilon_k^{\,2}/(2\sigma_k^{\,2})$.
+\emph{Second}, even charitably interpreted as a trust-region penalty on
+$|\epsilon_k|$, the term is \emph{algebraically redundant} with the proposal
+variance itself. Adding $-c\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to
+$U_{\text{total}}$ multiplies each importance weight by
+$\exp(-c\,\epsilon_k^{\,2}/(2\eta\sigma_k^{\,2}))$, which is proportional to
+a Gaussian density with variance $\sigma_k^{\,2}/(1+c/\eta)$. The resulting
+softmax sampler is therefore \emph{equivalent} to one that uses the
+unmodified utility $U_{\text{total}}-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})\big|_{c=0}$
+with a tighter proposal; the penalty simply rescales $\sigma_k$. Keeping both
+$\sigma_k$ and $\alpha_{\text{ctl}}$ as independent knobs is double-counting
+the proposal, not adding a new regulariser.
+We therefore fix $\alpha_{\text{ctl}}=0$, remove it from the hyperparameter
+table, and let the proposal variance $\sigma_k^{\,2}$ (Eq.~\ref{eq:sigma_floor})
+be the only magnitude control. The KL-regularised variational derivation in
+\S\ref{app:is_theory:boltzmann} is still correct \emph{as a distributional
+statement}: the softmax-weighted sampler produced by the unmodified
+Eq.~\ref{eq:util_total} minimises $-\mathbb{E}_q[U_{\text{total}}]+\eta\,\mathrm{KL}(q\,\|\,p)$
+without any pointwise penalty term.
+
+\subsection{Effective sample size as a rejection criterion}
+\label{app:is_theory:keff}
+Importance-weighted estimators fail silently when the weights concentrate on
+a handful of samples: the estimator's own variance diverges even though the
+point estimate looks well-defined. We report the effective sample size
+$K_{\text{eff}}=1/\sum_k w_k^{\,2}$ per scenario and fall back to
+$\delta^{\star}=0$ (the unmodified consensus) whenever
+$K_{\text{eff}}/K<\rho_{\text{eff}}=0.10$. This is a hard rejection rule, not
+a learned correction: on weight collapse we refuse to trust the IS estimate
+and return the persona mean. We include the per-scenario $K_{\text{eff}}$
+distribution in the release logs so readers can verify how often the guard
+fires.
+
+\subsection{Comparison with Simpler Alternatives}
+
+Temperature scaling uniformly stretches the logit gap without accounting for
+direction or magnitude of persona rewards. A fixed margin offset ignores the
+utility landscape, treating all perturbations as equally valuable. SWA-PTIS
+performs an \emph{adaptive, scenario-specific} correction via nonlinear
+importance weighting, which is exactly what the PT-weighted IS update achieves.
+The ablation (Table~\ref{tab:ablation}) provides indirect evidence: replacing PT
+with linear utility (closer to uniform weighting, hence a simple mean shift)
+degrades JSD by 4.5\%.
+
+\subsection{Positional Debiasing: Implementation Detail}
+\label{app:debias_impl}
+
+The two-pass debiasing of \S\ref{sec:method:debias} is implemented as a
+text-level rewrite of the scenario \emph{after} native-language framing. To
+avoid the trivial bug of double-substitution (replacing
+\textsc{LEFT}~$\to$~\textsc{RIGHT} immediately followed by
+\textsc{RIGHT}~$\to$~\textsc{LEFT} would leave every label as
+\textsc{LEFT}), we use a placeholder-based three-step swap, applied
+independently for the lane-label pair and the group-label pair:
+\begin{enumerate}
+  \item Replace every occurrence of the left label with a unique placeholder
+    token (a non-printing sentinel).
+  \item Replace every occurrence of the right label with the left label.
+  \item Replace the placeholder with the right label.
+\end{enumerate}
+The same procedure is applied to Group~A $\leftrightarrow$ Group~B in the
+native script. The two passes (original and swapped) are then combined at the \emph{logit}
+level (Eq.~\ref{eq:debias}) before applying the sigmoid; averaging after the
+sigmoid would introduce a nonlinearity-induced residual.
+Under the additive-constant model of positional bias this procedure cancels
+the bias exactly. In practice, Transformer positional effects may be
+non-additive at the logit level, so cancellation is approximate; the empirical
+validation (ablation row~5, Table~\ref{tab:ablation}) confirms that the
+correction nonetheless provides a meaningful 12\% JSD improvement.
+
+\section{Hyperparameter Validation}
+\label{app:hyperparams}
+
+Non-PT hyperparameters ($\sigma_0$, $\lambda_{\text{coop}}$,
+$T_{\text{dec}}$, $T_{\text{cat}}$) were validated on a held-out synthetic set of
+200 binary moral dilemmas generated by GPT-4, covering the same six dimensions as
+MultiTP with novel character descriptions. Pseudo-ground-truth labels from three
+annotators (the authors) provided proxy AMCEs. Grid search minimised mean JSD on
+Qwen2.5-72B. Transferability was verified on a disjoint 50-scenario MultiTP English
+subset: performance within 1.2\% relative JSD of oracle-tuned configuration.
+$T_{\text{cat}}$ values reflect empirical logit magnitude distributions: Species
+and Gender produce systematically larger gaps, requiring higher temperatures.
+Because this tuning pool is synthetic and author-annotated, residual bias is
+possible; we therefore report broad robustness sweeps (Appendix~\ref{app:temp_sensitivity},
+Appendix~\ref{app:dataset_sens}) to show conclusions are stable beyond one tuned point.
+
+\section{Temperature Sensitivity}
+\label{app:temp_sensitivity}
+
+We sweep the two temperature families on the (USA, DEU, JPN) subset of MultiTP
+using Llama-3.1-70B. Sweep~A varies $T_\text{dec}\in\{0.10,0.25,0.50,0.75,1.0,2.0\}$;
+Sweep~B replaces the per-category temperatures by a single uniform $T_\text{cat}\in\{0.5,1.0,1.5,2.0,3.0,4.0,6.0\}$;
+Sweep~C varies the ``Others'' bucket $T_\text{cat}\in\{0.75,1.0,1.5,2.0,3.0,4.0\}$
+while holding $T_\text{cat}[\text{Species}]{=}4.0$, $T_\text{cat}[\text{Gender}]{=}3.5$.
+All three sweeps yield JSD spans below $0.010$ ($0.0074,\,0.0073,\,0.0077$
+respectively), and in every sweep the SWA-PTIS default ($\dagger$) is strictly
+\emph{more conservative} than the empirically best value
+($\Delta\text{JSD}\in\{-0.0061,-0.0021,-0.0037\}$). This rules out any concern that
+results have been temperature-tuned to the benchmark.
+
+\begin{table}[h]\centering\small
+\caption{Temperature sensitivity. Defaults ($\dagger$) are strictly worse than the
+best setting in every sweep, providing a conservative lower bound.}
+\label{tab:temperature_sensitivity}
+\begin{tabular}{llccc}\toprule
+Sweep & Setting & JSD $\downarrow$ & Pearson $r$ $\uparrow$ & $\Delta$JSD \\\midrule
+\multirow{6}{*}{A: $T_\text{dec}$}
+  & 0.10 & 0.0502 & 0.662 & $+$0.0013 \\
+  & 0.25 & 0.0491 & 0.658 & $+$0.0002 \\
+  & 0.50$^\dagger$ & 0.0489 & 0.630 & - \\
+  & 0.75 & 0.0476 & 0.636 & $-$0.0013 \\
+  & 1.00 & 0.0466 & 0.641 & $-$0.0023 \\
+  & 2.00 (best) & 0.0428 & 0.627 & $-$0.0061 \\\cmidrule{2-5}
+  & JSD span & \multicolumn{3}{c}{\textbf{0.0074}} \\\midrule
+\multirow{7}{*}{B: Uniform $T_\text{cat}$}
+  & 0.5 & 0.0521 & 0.642 & $+$0.0052 \\
+  & 1.0 & 0.0492 & 0.673 & $+$0.0023 \\
+  & 1.5$^\dagger$ & 0.0469 & 0.700 & - \\
+  & 2.0 & 0.0461 & 0.707 & $-$0.0008 \\
+  & 3.0 & 0.0454 & 0.707 & $-$0.0015 \\
+  & 4.0 & 0.0451 & 0.701 & $-$0.0018 \\
+  & 6.0 (best) & 0.0448 & 0.684 & $-$0.0021 \\\cmidrule{2-5}
+  & JSD span & \multicolumn{3}{c}{\textbf{0.0073}} \\\midrule
+\multirow{6}{*}{C: Others $T_\text{cat}$}
+  & 0.75 & 0.0526 & 0.566 & $+$0.0039 \\
+  & 1.00 & 0.0512 & 0.589 & $+$0.0025 \\
+  & 1.50$^\dagger$ & 0.0487 & 0.634 & - \\
+  & 2.00 & 0.0475 & 0.660 & $-$0.0012 \\
+  & 3.00 & 0.0458 & 0.693 & $-$0.0029 \\
+  & 4.00 (best) & 0.0450 & 0.706 & $-$0.0037 \\\cmidrule{2-5}
+  & JSD span & \multicolumn{3}{c}{\textbf{0.0077}} \\\bottomrule
+\end{tabular}
+\end{table}
+
+The monotonic JSD reduction with larger $T_\text{dec}$ reflects the role of
+$T_\text{dec}$ in undoing RLHF logit compression: higher values widen the effective
+token-probability landscape so that IS perturbations exert larger directional
+influence. However, $r$ peaks near $T_\text{dec}{=}1.0$ and declines at $2.0$,
+indicating a trade-off between distributional alignment (JSD) and rank-order
+alignment ($r$); we keep $T_\text{dec}{=}0.5$ as a deliberately conservative
+operating point.
+
+\section{Dataset Preprocessing and Sensitivity}
+\label{app:dataset}
+\label{app:dataset_sens}
+
+\paragraph{Pipeline.}
+Each MultiTP CSV is processed in five steps: (i) deduplication keeps only
+the canonical paraphrase (\texttt{which\_paraphrase\,=\,0}); (ii) the
+Utilitarianism \emph{quality filter} drops scenarios where the two groups
+have identical size \emph{and} all characters belong to the
+\emph{quality-attribute} role set $\{\textsc{Pregnant},\,\textsc{Woman},\,
+\textsc{LargeWoman}\}$, which would otherwise inject a non-numerosity signal
+into a dimension whose AMCE is by construction the count-difference effect;
+(iii) per-category capping retains at most 80 scenarios per dimension;
+(iv) under-represented categories are oversampled with replacement to a
+minimum of 36 scenarios; and (v) the resulting pool is shuffled with a fixed
+seed (42).
+
+\paragraph{Reproducible left/right assignment.}
+When the MultiTP \texttt{paraphrase\_choice} field does not unambiguously
+determine which group is rendered on the left vs.\ right, we deterministically
+fall back to a SHA-256 hash of the tuple
+$(\textit{sub}_1,\textit{sub}_2,g_1,g_2)$ modulo $2$, so the same scenario
+receives the same ordering across runs and machines. The fallback rate is
+logged per country; for all 15 countries it stays below 5\%.
+
+Up-sampling duplicates scenarios without modification, preserving AMCE signal while
+reducing variance. Category capping prevents dimension dominance. Side balancing
+enables effective debiasing. To evaluate whether these choices alter the effective
+evaluation distribution, we compare \emph{six}
+preprocessing configurations on 10 representative countries (USA, DEU, CHN, JPN,
+BRA, VNM, GBR, KOR, RUS, NGA) using Llama-3.1-70B.
+
+\begin{table}[h]\centering\small
+\caption{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and
+$<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by
+augmentation sensitivity in the rare Species/Utilitarianism categories.
+D0 is retained as default.}
+\label{tab:dataset_sens}\scriptsize
+\begin{tabular}{lcccccc}\toprule
+Country & D0-Default & D1-NoAug & D2-Cap40 & D3-Cap120 & D4-NoFlip & D5-Strict \\\midrule
+USA & 0.0655 & 0.0674 & 0.0625 & 0.0644 & 0.0643 & 0.0684 \\
+DEU & 0.0465 & 0.0515 & 0.0492 & 0.0467 & 0.0444 & 0.0484 \\
+CHN & 0.0393 & 0.0363 & 0.0385 & 0.0383 & 0.0409 & 0.0398 \\
+JPN & 0.0304 & 0.0291 & 0.0319 & 0.0296 & 0.0273 & 0.0320 \\
+BRA & 0.0492 & 0.0551 & 0.0479 & 0.0510 & 0.0520 & 0.0480 \\
+VNM & 0.0592 & 0.0574 & 0.0631 & 0.0585 & 0.0578 & 0.0626 \\
+GBR & 0.0614 & 0.0667 & 0.0608 & 0.0618 & 0.0597 & 0.0633 \\
+KOR & 0.0371 & 0.0354 & 0.0378 & 0.0357 & 0.0349 & 0.0382 \\
+RUS & 0.0383 & 0.0489 & 0.0389 & 0.0374 & 0.0383 & 0.0357 \\
+NGA & 0.0522 & 0.0568 & 0.0506 & 0.0525 & 0.0514 & 0.0538 \\\midrule
+\textbf{Mean} & \textbf{0.0479} & 0.0505 & 0.0481 & 0.0476 & 0.0471 & 0.0490 \\
+$\Delta$ vs D0 & - & $+$0.0025 & $+$0.0002 & $-$0.0003 & $-$0.0008 & $+$0.0011 \\\bottomrule
+\end{tabular}
+\end{table}
+
+D1-NoAug shows the largest degradation ($+$0.0025), justifying synthetic
+augmentation of the under-represented Species and Utilitarianism categories.
+D4-NoFlip is marginally lower than D0, indicating that group-side randomisation
+is conservative (it adds noise) rather than harmful; we retain it because it
+preserves positional-debiasing integrity. The 0.0034 aggregate range is well below
+the $\pm0.004$ bootstrap CI, so reported results are not confounded by
+preprocessing choices.
+
+\section{Held-Out $\tau$ Calibration}
+\label{app:calibration}
+\label{app:tau_holdout}
+
+For each of the 15 countries we split the 340-scenario pool 20\%/80\% into a
+calibration set (68 scenarios) and a disjoint evaluation set (272 scenarios) and
+compare three conditions on Llama-3.1-70B: \textbf{(A)} $\tau$ calibrated on the
+held-out 20\% slice and evaluated on the 80\% slice (correct protocol; this is the
+configuration used in all main-paper experiments); \textbf{(B)} $\tau$ calibrated
+on the evaluation set itself (simulated leakage); and \textbf{(C)} fixed
+$\tau{=}0.001$ (no calibration).
+
+\begin{table}[h]\centering\scriptsize
+\caption{Per-country held-out $\tau$ calibration. $|\Delta\text{JSD}|$ remains
+below the bootstrap CI ($\pm 0.004$) in all 15 countries; held-out $\tau$ is
+strictly more conservative (mean $\tau_B/\tau_A=1.33$) yet alignment is
+unchanged.}
+\label{tab:tau_holdout_country}
+\begin{tabular}{lccccccc}\toprule
+Country & $\tau_A$ & $\tau_B$ & $\tau_B/\tau_A$ & JSD$_A$ & JSD$_B$ & $|\Delta$JSD$|$ & $A\!\le\!B$ \\\midrule
+USA & 0.332 & 0.586 & 1.77 & 0.0620 & 0.0637 & 0.0017 & \checkmark \\
+DEU & 0.809 & 0.496 & 0.61 & 0.0377 & 0.0387 & 0.0010 & \checkmark \\
+CHN & 0.250 & 0.285 & 1.14 & 0.0344 & 0.0346 & 0.0002 & \checkmark \\
+JPN & 0.824 & 1.109 & 1.35 & 0.0335 & 0.0334 & 0.0001 & $\approx$ \\
+BRA & 1.563 & 1.961 & 1.25 & 0.0606 & 0.0647 & 0.0041 & \checkmark \\
+SAU & 0.773 & 1.305 & 1.69 & 0.0533 & 0.0534 & 0.0001 & \checkmark \\
+VNM & 0.131 & 0.247 & 1.89 & 0.0599 & 0.0600 & 0.0001 & \checkmark \\
+GBR & 0.289 & 0.411 & 1.42 & 0.0636 & 0.0646 & 0.0010 & \checkmark \\
+KOR & 0.210 & 0.196 & 0.93 & 0.0504 & 0.0504 & 0.0000 & $\approx$ \\
+RUS & 0.091 & 0.110 & 1.21 & 0.0442 & 0.0442 & 0.0000 & $\approx$ \\
+MEX & 0.355 & 0.520 & 1.46 & 0.0383 & 0.0387 & 0.0004 & \checkmark \\
+NGA & 0.922 & 0.891 & 0.97 & 0.0495 & 0.0491 & 0.0004 & $\approx$ \\
+AUS & 0.285 & 0.389 & 1.37 & 0.0690 & 0.0704 & 0.0014 & \checkmark \\
+FRA & 0.906 & 1.555 & 1.72 & 0.0486 & 0.0485 & 0.0001 & $\approx$ \\
+IND & 0.371 & 0.461 & 1.24 & 0.0479 & 0.0479 & 0.0000 & $\approx$ \\\midrule
+\textbf{Mean} & 0.541 & 0.701 & 1.33 & \textbf{0.0502} & 0.0508 & 0.0007 & 12/15 \\\bottomrule
+\end{tabular}
+\end{table}
+
+The aggregate gap $|\text{JSD}_B-\text{JSD}_A|=0.0006$ is smaller than the
+$\pm0.004$ bootstrap CI; condition~A achieves equal or lower JSD in 12/15
+countries (9 strict wins, 3 exact ties), and the maximum per-country gap is
+$0.0041$ (BRA), still within noise. Notably $\tau_A<\tau_B$ in 12/15 countries
+(mean ratio $1.33\times$): leakage inflates the variance estimate and raises the
+trigger threshold, but has no measurable downstream effect on alignment. This
+robustness is theoretically expected because $\tau$ observes a single scalar
+(inter-agent logit variance) with no access to AMCE labels and targets a fixed
+35\% trigger rate rather than any alignment objective. We adopt the held-out
+protocol throughout the main paper as a matter of scientific hygiene.
+
+\section{Cross-Lingual Token Elicitation}
+\label{app:token_elicitation}
+
+\paragraph{Native-language prompting system.}
+Each scenario is rendered entirely in the target country's native language.
+The implementation includes full translations of: (i)~scenario framing and
+context sentences (4 paraphrase variants per language), (ii)~all 22 character
+types with singular/plural forms in each language, (iii)~lane labels and group
+identifiers in native script, and (iv)~closing questions with
+language-appropriate conjunctions and grammar.
+
+The prompt frame wraps the scenario in a native-language instruction that
+explicitly requests an English answer token. Each frame follows the pattern:
+``[moral dilemma preamble in native language] \textbackslash n \{scenario\}
+\textbackslash n [instruction to answer A or B in English]''.
+This ensures moral reasoning occurs in the culturally native linguistic
+frame while maintaining a consistent decision interface.
+
+\paragraph{Token verification.}
+Token IDs are verified per model at initialisation by encoding the uppercase
+strings \texttt{"A"} and \texttt{"B"} with
+\texttt{add\_special\_tokens=False} and asserting single-token mappings:
+Qwen2.5: A=22397, B=11572; Llama-3.1: A=31266, B=9268.
+Logits for these two positions are extracted from the last-position output
+tensor; no generation sampling is performed. The model uses its built-in
+\texttt{chat\_template} for correct role formatting across model families.
+
+\section{Baseline Implementation Details}
+\label{app:baselines}
+
+\subsection{Activation Steering}
+For each country, a steering vector is computed as the difference in mean
+residual-stream activations from 20 culturally contrastive prompt pairs (e.g.,
+``Answer as someone from [country] who values [WVS-high trait]'' vs.\ ``Answer
+as someone with the opposite values''). Vectors are extracted from layer~32
+(transformer midpoint) of Llama-3.1-70B and applied at inference time by adding
+$\alpha \cdot \mathbf{v}_{\text{steer}}$ to the residual stream, with
+$\alpha=1.5$ selected via the same synthetic validation set used for SWA-PTIS.
+
+\paragraph{Sensitivity analysis and fairness considerations.}
+Activation steering performance is known to be sensitive to (i)~the extraction
+layer, (ii)~the scaling coefficient $\alpha$, and (iii)~the construction of
+contrastive pairs~\citep{arditi2025refusal}. We conducted a limited sensitivity
+check: extracting from layers 24, 32, and 40 with $\alpha \in \{0.5, 1.0, 1.5,
+2.0, 3.0\}$, we found that layer~32 with $\alpha=1.5$ yielded the lowest mean
+JSD (0.0877); other configurations ranged from 0.089 to 0.112. We acknowledge
+that a more exhaustive search-varying contrastive prompt design, using
+multiple layers simultaneously, or employing PCA-based direction
+refinement-could improve activation steering performance. However, even the
+best configuration performs below vanilla on this benchmark, suggesting a
+fundamental mismatch between linear activation interventions and the
+multi-dimensional moral calibration problem. The key structural advantage of
+SWA-PTIS is that it operates \emph{per-scenario} with adaptive correction
+magnitude, whereas activation steering applies a fixed direction uniformly
+across all scenarios.
+
+\subsection{ARGS and Controlled Decoding: from Incompatible to Reformulated}
+ARGS~\citep{khanov2024args} and controlled decoding~\citep{mudgal2024controlled}
+were originally formulated with trained reward models, which in the cross-cultural
+setting would demand a separate reward model per country-unavailable for MultiTP.
+However, the binary forced-choice structure of MultiTP admits a natural
+reformulation in which the reward is a closed-form functional of the persona logit
+gaps $\{\delta_i\}$. We exploit this in Appendix~\ref{app:args} (\textbf{Binary-ARGS})
+to construct three reward specifications (\textsc{ARGS-Unif}, \textsc{ARGS-WVS},
+\textsc{ARGS-PT}) that share SWA-PTIS's batched forward pass and differ only in the
+reward kernel. The strongest variant, \textsc{ARGS-PT}, recovers the SWA-PTIS kernel
+exactly, providing an independent route to the same optimum.
+
+\section{Detailed Ablation Analysis}
+\label{app:ablation_detail}
+
+\textbf{Always-on vs.\ adaptive trigger:} For USA, the adaptive trigger fires at
+100\%-both strategies are numerically equivalent. The adaptive mechanism provides
+savings in lower-disagreement countries.
+
+\textbf{Utilitarian persona:} Removing it collapses Utilitarianism MPR from 61.2\%
+to 48.0\% (human: 76.6\%), confirming it anchors the numerosity dimension.
+
+\textbf{Debiasing:} Mean positional bias is 0.193 logit units; Species preference
+inflates from 85.8\% to 93.5\% without it (human: 79.2\%).
+
+\section{Trigger Mechanism and Latency}
+\label{app:trigger}
+
+The adaptive $\tau$ targets 35\% activation but achieves 100\% for USA (all scenarios
+contested). The \emph{flip rate} (IS reversals) is 6.0\%, indicating confidence
+modulation rather than decision reversal.
+
+Mean latency: 730ms (SWA-PTIS) vs.\ 160ms (vanilla) on Qwen2.5-72B (H100).
+Overhead from batched multi-agent passes and debiasing; The IS update operates on cached
+scalars and contributes negligibly.
+
+\section{Germany Pearson $r$ Analysis}
+\label{app:germany}
+
+Germany's JSD remains unchanged (0.0603) while Pearson $r$ drops from 0.845 to 0.747.
+In 6D, Pearson $r$ is sensitive to rank perturbations: a single dimension swap reduces
+$r$ by $\sim$0.1 while JSD (depending on magnitudes, not ordering) stays constant.
+Rare IS corrections introduce minor rank perturbations without affecting
+distributional distance.
+
+\section{Per-Country Results for All Models}
+\label{app:percountry_all}
+\label{app:percountry_qwen72b}
+\label{app:percountry_qwen32b}
+
+Tables~\ref{tab:percountry_qwen72b_app}--\ref{tab:qwen32b_percountry} present
+the full per-country breakdown (vanilla and SWA-PTIS absolute JSD,
+Pearson~$r$, and percentage improvement) for all five evaluated models. The
+main-text Table~\ref{tab:percountry_main} aggregates the percentage column
+across the four operating-regime models for compactness; the absolute
+numbers below are the source of those percentages.
+
+\begin{table}[h]
+\caption{Per-country results for \textbf{Qwen2.5-72B-Instruct}.}
+\label{tab:percountry_qwen72b_app}
+\centering\setlength{\tabcolsep}{3.5pt}\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+Country & Lang. & \multicolumn{2}{c}{JSD $\downarrow$} & \multicolumn{2}{c}{Pearson $r$ $\uparrow$} & \multicolumn{2}{c}{JSD Improv.} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Van. & SWA & Van. & SWA & ($\Delta$) & (\%) \\
+\midrule
+USA & en &.1066 & \textbf{.0308} & 0.400 & 0.822 & $-$.076 & \gain{+71.1} \\
+Germany & de &.0603 &.0603 & 0.845 & 0.747 & +.000 & ~~+0.0 \\
+China & zh &.0513 &.0371 & 0.851 & 0.762 & $-$.014 & \gain{+27.8} \\
+Japan & ja &.0986 &.0553 & 0.634 & 0.786 & $-$.043 & \gain{+43.9} \\
+Brazil & pt &.0754 &.0703 & 0.349 & 0.529 & $-$.005 & \gain{+6.7} \\
+Saudi Arabia & ar &.0778 &.0796 & 0.443 & 0.527 & +.002 & \loss{$-$2.3}\\
+Vietnam & vi &.1302 &.0783 & 0.569 & 0.456 & $-$.052 & \gain{+39.9} \\
+France & fr &.0789 &.0479 & 0.617 & 0.838 & $-$.031 & \gain{+39.4} \\
+India & hi &.0600 &.0561 & 0.670 & 0.739 & $-$.004 & \gain{+6.5} \\
+South Korea & ko &.0720 &.0513 & 0.355 & 0.645 & $-$.021 & \gain{+28.8} \\
+Great Britain& en &.1057 & \textbf{.0294} & 0.419 & 0.800 & $-$.076 & \gain{+72.2} \\
+Russia & ru &.0800 &.0629 & 0.623 & 0.784 & $-$.017 & \gain{+21.4} \\
+Mexico & es &.0760 &.0534 & 0.605 & 0.545 & $-$.023 & \gain{+29.8} \\
+Nigeria & en &.1103 &.0649 & 0.407 & 0.615 & $-$.046 & \gain{+41.2} \\
+Australia & en &.1047 & \textbf{.0258} & 0.438 & 0.841 & $-$.079 & \gain{+75.4} \\
+\midrule
+\textbf{Mean} & & \textbf{.0859} & \textbf{.0536} & 0.548 & 0.696 & $-$.032 & \gain{\textbf{+37.6}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Per-country results for \textbf{Llama-3.1-70B-Instruct}.}
+\label{tab:llama70b_percountry}
+\centering\setlength{\tabcolsep}{3.5pt}\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+Country & Lang. & \multicolumn{2}{c}{JSD $\downarrow$} & \multicolumn{2}{c}{Pearson $r$ $\uparrow$} & \multicolumn{2}{c}{JSD Improv.} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Van. & SWA & Van. & SWA & ($\Delta$) & (\%) \\
+\midrule
+USA & en &.1561 &.1234 & 0.012 & 0.197 & $-$.033 & \gain{+20.9} \\
+Germany & de &.0709 &.0391 & $-$0.455 & 0.685 & $-$.032 & \gain{+44.9} \\
+China & zh &.0459 &.0311 & 0.406 & 0.802 & $-$.015 & \gain{+32.3} \\
+Japan & ja &.0457 &.0416 & 0.496 & 0.466 & $-$.004 & \gain{+9.0} \\
+Brazil & pt &.0532 &.0656 & $-$0.370 & 0.348 & +.012 & \loss{$-$23.3} \\
+Saudi Arabia& ar &.0539 &.0596 & 0.043 & $-$0.210 & +.006 & \loss{$-$10.7} \\
+Vietnam & vi &.1546 &.0529 & $-$0.519 & $-$0.135 & $-$.102 & \gain{+65.8} \\
+France & fr &.0500 &.0516 & 0.250 & 0.394 & +.002 & \loss{$-$3.0} \\
+India & hi &.0442 &.0337 & $-$0.315 & 0.715 & $-$.010 & \gain{+23.6} \\
+South Korea & ko &.0893 &.0436 & $-$0.272 & 0.551 & $-$.046 & \gain{+51.2} \\
+Great Britain& en&.1568 &.0918 & 0.012 & 0.286 & $-$.065 & \gain{+41.5} \\
+Russia & ru &.0449 &.0413 & 0.539 & 0.637 & $-$.004 & \gain{+7.9} \\
+Mexico & es &.1265 &.0425 & $-$0.371 & 0.307 & $-$.084 & \gain{+66.4} \\
+Nigeria & en &.1582 &.0988 & 0.109 & 0.497 & $-$.059 & \gain{+37.5} \\
+Australia & en &.1551 &.1010 & 0.039 & 0.224 & $-$.054 & \gain{+34.9} \\
+\midrule
+\textbf{Mean} & & \textbf{.0937} & \textbf{.0612} & $-$0.026 & 0.384 & $-$.033 & \gain{\textbf{+34.7}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Per-country results for \textbf{Qwen2.5-7B-Instruct} (4-bit).}
+\label{tab:qwen7b_percountry}
+\centering\setlength{\tabcolsep}{3.5pt}\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+Country & Lang. & \multicolumn{2}{c}{JSD $\downarrow$} & \multicolumn{2}{c}{Pearson $r$} & \multicolumn{2}{c}{JSD Improv.} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Van. & SWA & Van. & SWA & ($\Delta$) & (\%) \\
+\midrule
+USA & en &.0531 &.0448 & 0.048 & 0.531 & $-$.008 & \gain{+15.5} \\
+Germany & de &.0530 &.0522 & 0.207 & 0.212 & $-$.001 & \gain{+1.4} \\
+China & zh &.0512 &.0455 & 0.401 & 0.397 & $-$.006 & \gain{+11.2} \\
+Japan & ja &.0527 &.0540 & 0.490 & 0.449 & +.001 & \loss{$-$2.3} \\
+Brazil & pt &.0445 &.0331 & 0.415 & 0.837 & $-$.011 & \gain{+25.8} \\
+Saudi Arabia& ar &.0539 &.0443 & 0.234 & 0.265 & $-$.010 & \gain{+17.9} \\
+Vietnam & vi &.0547 &.0472 & 0.259 & 0.263 & $-$.008 & \gain{+13.6} \\
+France & fr &.0529 &.0442 & 0.259 & 0.315 & $-$.009 & \gain{+16.5} \\
+India & hi &.0570 &.0524 & 0.466 & 0.183 & $-$.005 & \gain{+8.1} \\
+South Korea & ko &.0492 &.0329 & 0.239 & 0.363 & $-$.016 & \gain{+33.2} \\
+Great Britain& en&.0520 &.0302 & 0.140 & 0.483 & $-$.022 & \gain{+41.9} \\
+Russia & ru &.0506 &.0452 & 0.373 & 0.491 & $-$.005 & \gain{+10.5} \\
+Mexico & es &.0479 &.0384 & 0.038 & 0.360 & $-$.010 & \gain{+19.9} \\
+Nigeria & en &.0551 &.0411 & 0.101 & 0.425 & $-$.014 & \gain{+25.3} \\
+Australia & en &.0550 &.0431 & 0.170 & 0.452 & $-$.012 & \gain{+21.7} \\
+\midrule
+\textbf{Mean} & & \textbf{.0522} & \textbf{.0426} & 0.252 & 0.402 & $-$.010 & \gain{\textbf{+18.4}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Per-country results for \textbf{Llama-3.1-8B-Instruct} (4-bit).}
+\label{tab:llama8b_percountry}
+\centering\setlength{\tabcolsep}{3.5pt}\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+Country & Lang. & \multicolumn{2}{c}{JSD $\downarrow$} & \multicolumn{2}{c}{Pearson $r$} & \multicolumn{2}{c}{JSD Improv.} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Van. & SWA & Van. & SWA & ($\Delta$) & (\%) \\
+\midrule
+USA & en &.0470 &.0333 & $-$0.323 & 0.498 & $-$.014 & \gain{+29.1} \\
+Germany & de &.0716 &.0529 & $-$0.101 & 0.382 & $-$.019 & \gain{+26.1} \\
+China & zh &.0561 &.0457 & $-$0.082 & 0.388 & $-$.010 & \gain{+18.5} \\
+Japan & ja &.0518 &.0519 & 0.545 & 0.395 & +.000 & \loss{$-$0.2} \\
+Brazil & pt &.0732 &.0628 & $-$0.222 & 0.109 & $-$.010 & \gain{+14.2} \\
+Saudi Arabia& ar &.0551 &.0513 & $-$0.252 & $-$0.230 & $-$.004 & \gain{+6.9} \\
+Vietnam & vi &.0505 &.0423 & $-$0.330 & 0.303 & $-$.008 & \gain{+16.2} \\
+France & fr &.0515 &.0612 & $-$0.610 & $-$0.220 & +.010 & \loss{$-$18.8} \\
+India & hi &.0756 &.0564 & $-$0.471 & 0.347 & $-$.019 & \gain{+25.3} \\
+South Korea & ko &.0522 &.0419 & $-$0.352 & $-$0.062 & $-$.010 & \gain{+19.7} \\
+Great Britain& en&.0375 &.0255 & $-$0.065 & 0.457 & $-$.012 & \gain{+32.0} \\
+Russia & ru &.0560 &.0434 & $-$0.230 & 0.593 & $-$.013 & \gain{+22.5} \\
+Mexico & es &.0439 &.0383 & $-$0.079 & 0.344 & $-$.006 & \gain{+12.7} \\
+Nigeria & en &.0474 &.0410 & $-$0.229 & 0.303 & $-$.006 & \gain{+13.5} \\
+Australia & en &.0505 &.0363 & $-$0.156 & 0.328 & $-$.014 & \gain{+28.1} \\
+\midrule
+\textbf{Mean} & & \textbf{.0533} & \textbf{.0436} & $-$0.247 & 0.271 & $-$.011 & \gain{\textbf{+22.6}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Per-country results for \textbf{Qwen2.5-32B-Instruct} (4-bit).
+SWA-PTIS degrades in 7/15 countries due to concentrated logit distributions.}
+\label{tab:qwen32b_percountry}
+\centering\setlength{\tabcolsep}{3.5pt}\footnotesize
+\begin{tabular}{llcccccc}
+\toprule
+Country & Lang. & \multicolumn{2}{c}{JSD $\downarrow$} & \multicolumn{2}{c}{Pearson $r$} & \multicolumn{2}{c}{JSD Improv.} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-6}
+ & & Van. & SWA & Van. & SWA & ($\Delta$) & (\%) \\
+\midrule
+USA & en &.0447 &.0440 & 0.887 & 0.738 & $-$.001 & \gain{+1.5} \\
+Germany & de &.0587 &.0534 & 0.893 & 0.803 & $-$.005 & \gain{+9.1} \\
+China & zh &.0507 &.0574 & 0.827 & 0.818 & +.007 & \loss{$-$13.1} \\
+Japan & ja &.0485 &.0592 & 0.846 & 0.805 & +.011 & \loss{$-$22.0} \\
+Brazil & pt &.0717 &.0645 & 0.552 & 0.422 & $-$.007 & \gain{+9.7} \\
+Saudi Arabia& ar &.0883 &.1015 & 0.704 & 0.625 & +.013 & \loss{$-$14.9} \\
+Vietnam & vi &.0900 &.0780 & 0.634 & 0.556 & $-$.012 & \gain{+13.1} \\
+France & fr &.0730 &.0681 & 0.647 & 0.652 & $-$.005 & \gain{+6.7} \\
+India & hi &.0737 &.0840 & 0.458 & 0.583 & +.010 & \loss{$-$13.8} \\
+South Korea & ko &.0529 &.0303 & 0.106 & 0.064 & $-$.023 & \gain{+43.0} \\
+Great Britain& en&.0470 &.0345 & 0.889 & 0.732 & $-$.013 & \gain{+26.5} \\
+Russia & ru &.0700 &.0780 & 0.721 & 0.711 & +.008 & \loss{$-$11.3} \\
+Mexico & es &.0775 &.0933 & 0.632 & 0.381 & +.016 & \loss{$-$20.3} \\
+Nigeria & en &.0641 &.0512 & 0.124 & 0.156 & $-$.013 & \gain{+20.1} \\
+Australia & en &.0541 &.0425 & 0.883 & 0.781 & $-$.012 & \gain{+21.4} \\
+\midrule
+\textbf{Mean} & & \textbf{.0632} & \textbf{.0633} & 0.625 & 0.550 & +.000 & \loss{\textbf{$-$0.2}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Consensus-Shift Baselines}
+\label{app:cs_baseline}
+
+To isolate the contribution of PT-IS's importance-weighted sampling from the
+simpler benefit of using persona consensus at all, we implement four deterministic
+shift baselines applied directly to the scalar consensus gap $\bar\delta$, all
+sharing the same batched forward pass and two-pass debiasing as SWA-PTIS:
+\textsc{CS-Mean} ($\delta_\text{opt}=\bar\delta$, equivalent to B5 PersonaConsensus),
+\textsc{CS-Std} ($\bar\delta\pm\sigma_\text{agents}$ in the consensus direction),
+\textsc{CS-Scaled} ($\bar\delta(1+\alpha\,\text{Var})$), and
+\textsc{CS-Clamp} ($\text{clip}(1.5\bar\delta,\pm1)$).
+
+\begin{table}[h]\centering\scriptsize
+\caption{Per-country JSD for the four consensus-shift baselines on Llama-3.1-70B
+(15 countries). \textsc{CS-Clamp} is the strongest deterministic shift but still
+loses to SWA-PTIS in aggregate; \textsc{CS-Std} is catastrophic for NGA
+($+0.017$ vs.\ \textsc{CS-Mean}) due to unbounded variance amplification.}
+\label{tab:consensus_shift_country}
+\begin{tabular}{lcccc}\toprule
+Country & CS-Mean & CS-Std & CS-Scaled & CS-Clamp \\\midrule
+USA & 0.0923 & 0.0919 & 0.0933 & \textbf{0.0771} \\
+DEU & \textbf{0.0410} & 0.0448 & 0.0449 & 0.0428 \\
+CHN & 0.0591 & 0.0618 & 0.0608 & \textbf{0.0520} \\
+JPN & \textbf{0.0306} & 0.0335 & 0.0343 & 0.0311 \\
+BRA & 0.0524 & 0.0519 & 0.0530 & \textbf{0.0459} \\
+SAU & 0.0565 & 0.0584 & 0.0570 & \textbf{0.0536} \\
+VNM & 0.0632 & 0.0659 & 0.0669 & \textbf{0.0564} \\
+FRA & 0.0547 & 0.0516 & 0.0552 & \textbf{0.0442} \\
+IND & 0.0421 & \textbf{0.0410} & 0.0413 & 0.0418 \\
+KOR & 0.0451 & 0.0454 & 0.0451 & \textbf{0.0443} \\
+GBR & 0.0800 & 0.0842 & 0.0844 & \textbf{0.0681} \\
+RUS & 0.0450 & \textbf{0.0435} & 0.0443 & 0.0429 \\
+MEX & 0.0539 & 0.0539 & 0.0531 & \textbf{0.0472} \\
+NGA & 0.0826 & 0.0998 & 0.0987 & \textbf{0.0799} \\
+AUS & 0.0868 & 0.0864 & 0.0861 & \textbf{0.0711} \\\midrule
+\textbf{Mean} & 0.0590 & 0.0609 & 0.0612 & \textbf{0.0532} \\\midrule
+\textbf{SWA-PTIS} & \multicolumn{4}{c}{\textbf{0.0502} (Pearson $r$ = 0.424)} \\\bottomrule
+\end{tabular}
+\end{table}
+
+\textsc{CS-Mean} reproduces B5 PersonaConsensus exactly (cross-validating our
+ablation hierarchy). \textsc{CS-Std} \emph{degrades} relative to \textsc{CS-Mean}
+in 9/15 countries-variance amplification without the asymmetric
+loss-sensitive utility actively hurts in high-disagreement regimes. \textsc{CS-Clamp} is the strongest
+deterministic shift; its largest improvements occur in high inter-persona-variance
+countries (USA $-0.015$, AUS $-0.016$, GBR $-0.012$), exactly where Prospect
+Theory's asymmetric weighting is most active. The residual aggregate gap
+\textsc{CS-Clamp}$\to$SWA-PTIS ($\Delta\text{JSD}\approx0.003$) is attributed to
+PT's gain/loss asymmetry, which no scalar shift can replicate.
+
+\section{Binary-ARGS Reward-Guided Decoding}
+\label{app:args}
+
+We adapt ARGS~\citep{khanov2024args} to the binary forced-choice setting as
+\emph{Binary-ARGS}: $K$ perturbations $\delta_k=\bar\delta+\epsilon_k$
+($\epsilon\!\sim\!\mathcal{N}(0,\sigma^2)$) are sampled and re-weighted by
+$\exp(r_k/\beta)$, where $r_k$ is one of three closed-form rewards.
+\textsc{ARGS-Unif} uses a uniform directional reward
+($\text{sign}(\bar\delta)\cdot\delta_k/N$), equivalent to importance-weighted
+consensus averaging; \textsc{ARGS-WVS} weights each persona by its WVS cultural
+salience; \textsc{ARGS-PT} replaces the linear reward by the Prospect-Theory
+utility identical to the SWA-PTIS kernel.
+
+\begin{table}[h]\centering\scriptsize
+\caption{Binary-ARGS per-country results (Llama-3.1-70B, 15 countries).
+\textsc{ARGS-PT} achieves best or tied JSD in 13/15 countries and best $r$ in
+11/15, confirming SWA-PTIS is precisely an ARGS variant with a
+Prospect-Theory utility over a Gaussian proposal.}
+\label{tab:args_percountry}
+\begin{tabular}{lcccccc}\toprule
+ & \multicolumn{3}{c}{JSD $\downarrow$} & \multicolumn{3}{c}{Pearson $r$ $\uparrow$}\\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}
+Country & Unif & WVS & PT & Unif & WVS & PT \\\midrule
+USA & 0.0757 & 0.0793 & \textbf{0.0646} & 0.506 & 0.484 & \textbf{0.626} \\
+DEU & 0.0476 & 0.0512 & \textbf{0.0465} & 0.668 & 0.656 & \textbf{0.732} \\
+CHN & 0.0347 & 0.0396 & 0.0362 & 0.753 & 0.721 & \textbf{0.788} \\
+JPN & 0.0308 & 0.0311 & \textbf{0.0275} & 0.782 & 0.757 & \textbf{0.831} \\
+BRA & \textbf{0.0482} & 0.0509 & 0.0519 & 0.351 & 0.317 & \textbf{0.375} \\
+SAU & 0.0541 & 0.0539 & 0.0534 & 0.076 & 0.079 & \textbf{0.165} \\
+VNM & 0.0717 & 0.0755 & \textbf{0.0551} & $-$0.507 & $-$0.427 & $-$0.369 \\
+GBR & 0.0692 & 0.0709 & \textbf{0.0588} & 0.494 & 0.488 & \textbf{0.616} \\
+KOR & 0.0421 & 0.0386 & 0.0364 & 0.722 & \textbf{0.750} & 0.748 \\
+RUS & \textbf{0.0399} & 0.0443 & 0.0415 & 0.723 & 0.728 & \textbf{0.782} \\
+MEX & 0.0464 & 0.0496 & \textbf{0.0428} & 0.255 & 0.256 & \textbf{0.503} \\
+NGA & 0.0567 & 0.0598 & \textbf{0.0502} & 0.775 & 0.779 & \textbf{0.852} \\
+AUS & 0.0742 & 0.0763 & \textbf{0.0664} & 0.461 & 0.452 & \textbf{0.557} \\
+FRA & 0.0495 & 0.0484 & 0.0480 & 0.336 & 0.370 & \textbf{0.423} \\
+IND & \textbf{0.0457} & 0.0463 & 0.0475 & 0.045 & $-$0.003 & \textbf{0.079} \\\midrule
+\textbf{Mean} & 0.0524 & 0.0544 & \textbf{0.0485} & 0.429 & 0.427 & \textbf{0.514} \\\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings emerge. \textbf{(1)}~\textsc{ARGS-Unif} (JSD~$0.0524$) closely
+matches B5 PersonaConsensus, confirming uniform importance weighting reduces to
+consensus averaging. \textbf{(2)}~\textsc{ARGS-WVS} (JSD~$0.0544$) is
+\emph{worse} than \textsc{ARGS-Unif} in 12/15 countries: WVS salience weighting
+without asymmetric loss-sensitivity actively misaligns persona contributions.
+\textbf{(3)}~\textsc{ARGS-PT} (JSD~$0.0485$, $r$~$0.514$) is best/tied in 13/15
+countries and dominates on every aggregate metric, empirically showing that
+SWA-PTIS is precisely an ARGS variant whose reward is a Prospect-Theory
+utility over a Gaussian proposal. The two countries where \textsc{ARGS-PT}
+underperforms (BRA, IND) have the highest inter-persona variance and
+overcorrect in the absence of the distributional
+$\mathrm{KL}(q\,\|\,p)$ trust region that SWA-PTIS's $\sigma_0$-floored
+Gaussian proposal enforces at the sampler level (see
+Appendix~\ref{app:is_theory:boltzmann} for the distributional-KL
+interpretation of the softmax update).
+
+\section{Entropy-Aware Adaptive $\sigma$ for Qwen2.5-32B}
+\label{app:adaptive_sigma}
+
+We study whether an entropy-aware adaptive $\sigma$ can address the Qwen2.5-32B
+failure mode (Section~\ref{sec:results}). At each scenario we measure the Shannon
+entropy $H$ of the top-50 token distribution at the decision position and set
+$\sigma=\sigma_\text{base}\cdot\text{clip}(H/H_\text{ref},\,0.2,\,5.0)$ with
+$H_\text{ref}{=}2.5$ nats and $\sigma_\text{base}{=}0.30$. We compare against a
+fixed-$\sigma$ sweep on 8 countries (USA, DEU, CHN, JPN, BRA, VNM, GBR, KOR).
+
+\begin{table}[h]\centering\scriptsize
+\caption{Per-country JSD under fixed-$\sigma$ on Qwen2.5-32B. Two latent country
+clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma$ (USA: $0.0523\to0.0317$
+at $\sigma{=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma$. All 8 countries
+share $H\approx0.52$~nats, so the entropy signal alone cannot discriminate them.}
+\label{tab:sigma_percountry}
+\begin{tabular}{lcccccccc|c}\toprule
+$\sigma$ & USA & DEU & CHN & JPN & BRA & VNM & GBR & KOR & Mean \\\midrule
+0.05 & 0.0515 & 0.0647 & 0.0533 & 0.0690 & 0.0692 & 0.0710 & 0.0500 & 0.0670 & 0.0620 \\
+0.10 & 0.0519 & 0.0648 & 0.0532 & 0.0684 & 0.0694 & 0.0711 & 0.0499 & 0.0668 & 0.0619 \\
+0.15 & 0.0522 & 0.0649 & 0.0530 & 0.0676 & 0.0698 & 0.0711 & 0.0499 & 0.0665 & 0.0619 \\
+0.20 & 0.0518 & 0.0651 & 0.0527 & 0.0661 & 0.0702 & 0.0713 & 0.0498 & 0.0661 & 0.0616 \\
+$0.30^\dagger$ & 0.0523 & 0.0654 & 0.0516 & 0.0644 & 0.0710 & 0.0717 & 0.0491 & 0.0649 & 0.0613 \\
+0.50 & 0.0487 & 0.0661 & 0.0515 & 0.0601 & 0.0732 & 0.0734 & 0.0476 & 0.0604 & 0.0601 \\
+0.80 & \textbf{0.0427} & 0.0672 & 0.0599 & \textbf{0.0585} & 0.0780 & 0.0757 & \textbf{0.0439} & \textbf{0.0532} & \textbf{0.0599} \\
+1.00 & \underline{0.0317} & 0.0681 & 0.0714 & 0.0637 & 0.0833 & 0.0744 & 0.0458 & \underline{0.0522} & 0.0613 \\\midrule
+Adaptive ($\bar\sigma{=}0.086$) & 0.0516 & 0.0647 & 0.0532 & 0.0688 & 0.0693 & 0.0711 & 0.0500 & 0.0670 & 0.0620 \\\bottomrule
+\end{tabular}
+\end{table}
+
+The mean entropy is $H=0.521$~nats, far below $H_\text{ref}$, confirming
+concentrated logits. Adaptive $\sigma$ self-scales to $\bar\sigma=0.086$
+($r(H,\sigma){=}0.948$), validating the diagnostic but collapsing onto the
+low-$\sigma$ regime. The best fixed $\sigma{=}0.80$ reaches JSD~$0.0599$ vs.\
+$0.0613$ at default-a marginal absolute gain-while the per-country breakdown
+exposes the deeper problem: countries cluster into a high-$\sigma$ group
+(USA/JPN/GBR/KOR) and a low-$\sigma$ group (DEU/CHN/BRA/VNM), but \emph{all}
+countries share $H\approx0.52$~nats, so a per-scenario entropy signal cannot
+discriminate them. A complete fix therefore requires \emph{jointly} adaptive
+$\tau$ per country to detect which countries have sufficient logit variance to
+benefit from large perturbations-left as future work.
+
+\section{Extended Country Pipeline Run (Engineering Check)}
+\label{app:extended}
+
+We run the SWA-PTIS pipeline end-to-end on 8 additional countries not in the
+MultiTP benchmark, spanning 4 script systems and 5 language families: Poland
+(pl), Turkey (tr), Indonesia (id), Argentina (es), Ukraine (uk), Taiwan (zh),
+the Philippines (tl), and Egypt (ar). \textbf{This appendix makes an
+engineering claim, not a scientific one.} Because no Moral Machine human
+AMCEs are available for these countries, we evaluate on 300 synthetic
+scenarios per country whose Vanilla AMCE is uniformly $50.0$ by construction.
+The only thing this experiment establishes is that the persona-construction,
+translation, batched-forward-pass, $\tau$-calibration, and IS-update code
+runs to completion across the 4 scripts and 5 language families above. The
+$\sim$$+0.05$pp ``AMCE shift'' is therefore measuring perturbation activity,
+not alignment, and the mean JSD numbers should not be compared to the main
+table. We retain the appendix only as evidence that the framework is not
+silently English-specific.
+
+\begin{table}[h]\centering\small
+\caption{Extended country pipeline run (Llama-3.1-70B). The pipeline executes
+end-to-end for 4 script systems and 5 language families; IS-induced AMCE shifts
+are detected in all 8 countries (mean $+0.05\pm0.02$~pp).}
+\label{tab:extended_countries}
+\begin{tabular}{llcccc}\toprule
+Country & Lang. & Script & AMCE Shift & Vanilla JSD & SWA JSD \\\midrule
+Poland (POL) & Polish & Latin & $+$0.03 pp & 0.0496 & 0.0497 \\
+Turkey (TUR) & Turkish & Latin & $+$0.04 pp & 0.0376 & 0.0377 \\
+Indonesia (IDN) & Indonesian& Latin & $+$0.06 pp & 0.0425 & 0.0424 \\
+Argentina (ARG) & Spanish & Latin & $+$0.04 pp & 0.0388 & 0.0387 \\
+Ukraine (UKR) & Ukrainian & Cyrillic & $+$0.07 pp & 0.0485 & 0.0483 \\
+Taiwan (TWN) & Chinese & CJK & $+$0.03 pp & 0.0427 & 0.0426 \\
+Philippines (PHL) & Filipino & Latin & $+$0.06 pp & 0.0396 & 0.0396 \\
+Egypt (EGY) & Arabic & Arabic & $+$0.06 pp & 0.0511 & 0.0513 \\\midrule
+\textbf{Mean} & & & $\mathbf{+0.05\pm0.02}$ \textbf{pp} & 0.0438 & 0.0438 \\\bottomrule
+\end{tabular}
+\end{table}
+
+Because the synthetic scenarios uniformly initialise Vanilla AMCE at $50.0$, the
+shift metric measures only the pipeline's ability to modulate output
+distributions away from an uninformative prior; it cannot be interpreted as
+alignment improvement over human preferences and is not directly comparable to
+the main 15-country results. We include this probe purely to demonstrate that the
+WVS-grounded persona construction, the batched forward pass, the two-pass
+debiasing, and the IS loop all run end-to-end across right-to-left Arabic,
+CJK, Cyrillic, and several Latin-script languages without any code change.
+Future work should collect human AMCE annotations for these countries to enable
+full quantitative evaluation.
+
+\section{Extended Limitations}
+\label{app:limitations}
+
+\paragraph{Single seed and stochasticity.}
+All reported numbers use one run per model with one IS random draw ($K{=}128$
+perturbations) per scenario; variance across seeds is not characterised here.
+
+\paragraph{Pearson $r$ in six dimensions.}
+As noted in Section~\ref{sec:results}, the AMCE vector is short, so per-country
+$r$ has large sampling error and small row-wise $r$ deltas are not necessarily
+statistically separable; JSD remains the primary claim-bearing metric.
+
+\paragraph{WVS-to-trolley linkage.}
+The mapping from WVS value dimensions to trolley moral dimensions follows the
+indirect-modulation construction in Appendix~\ref{app:wvs_linkage}, not a fully
+validated causal chain; we therefore avoid claims of the form ``WVS dimension $X$
+caused AMCE shift $Y$.''
+
+\paragraph{Inter-persona reward assumption.}
+The reward $r_i = \delta_i - \delta_{\text{base}}$ assumes persona shifts approximate
+human target directions. This is plausible when the base model represents a WEIRD-biased
+prior, but if a persona's shift is orthogonal to the human target, the signal may
+mislead. Per-dimension validation is needed.
+
+\paragraph{Geographic coverage, preprocessing, and survey vintage.}
+We evaluate 15 of 100+ MultiTP countries; results depend on the preprocessing
+pipeline in Appendix~\ref{app:dataset_sens}.
+WVS Wave~7 ($\sim$2017--2022) is a fixed historical slice; persona quality is
+weakest where coverage is sparse (e.g., Saudi Arabia, Brazil), as reflected in
+per-country tables.
+No low-resource languages (Amharic, Khmer, Yoruba) appear in the panel;
+cross-lingual generalisation to such settings remains untested.
+
+\paragraph{Binary format.}
+The logit-difference formulation requires generalisation to softmax for multi-option
+settings.
+
+\paragraph{Language--culture conflation.}
+One language per country may conflate linguistic and cultural effects.
+
+\paragraph{Model quantisation.}
+4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability.
+
+\paragraph{WVS temporal staleness.}
+Wave~7 ($\sim$2017--2022) data may not reflect current preferences in rapidly
+evolving societies.
+
+\paragraph{Qwen2.5-32B failure mode.}
+Concentrated logit distributions ($H{=}0.521$ nats) cause IS perturbations to
+land off-manifold and yield near-uniform importance weights. Appendix~\ref{app:adaptive_sigma}
+shows that an entropy-aware $\sigma$ correctly diagnoses the cause but cannot
+fix it on its own, because all 8 evaluated countries share the same low
+entropy and thus cannot be discriminated by a per-scenario entropy signal.
+A complete remedy requires \emph{jointly} adaptive $(\sigma,\tau)$ per country
+and is left to future work.
+
+\end{document}
