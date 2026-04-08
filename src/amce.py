@@ -166,6 +166,43 @@ def compute_utilitarianism_slope(
 
 
 # ============================================================================
+# SUPPLEMENTARY: Per-dimension alignment breakdown
+# ============================================================================
+def compute_per_dimension_alignment(
+    model_scores: Dict[str, float],
+    human_scores: Dict[str, float],
+) -> Dict[str, Dict[str, float]]:
+    """Per-dimension |model - human| and per-dimension signed error.
+
+    Returns a dict keyed by the common dimension labels. Each value contains:
+        human:   the human MPR (0-100 scale)
+        model:   the model MPR (0-100 scale)
+        abs_err: |model - human|                 (MAE contribution)
+        signed:  model - human                   (direction of disagreement)
+
+    This is the missing "per-dimension AMCE breakdown" flagged in the paper
+    as the largest analytical gap. It does NOT replace JSD/MIS; it just
+    exposes where the improvement (or regression) comes from, dimension by
+    dimension, so readers can check whether a reduction in aggregate JSD
+    is driven by fixing a badly-misaligned dimension or by micro-adjusting
+    an already-close one. The values are computed from the stored
+    per-country model and human AMCE dicts; no re-inference is required.
+    """
+    common = sorted(set(model_scores.keys()) & set(human_scores.keys()))
+    out: Dict[str, Dict[str, float]] = {}
+    for k in common:
+        m = float(model_scores[k])
+        h = float(human_scores[k])
+        out[k] = {
+            "human":   h,
+            "model":   m,
+            "abs_err": float(abs(m - h)),
+            "signed":  float(m - h),
+        }
+    return out
+
+
+# ============================================================================
 # HUMAN AMCE LOADING & ALIGNMENT METRICS
 # ============================================================================
 def load_human_amce(

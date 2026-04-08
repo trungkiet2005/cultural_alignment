@@ -15,6 +15,7 @@ from src.i18n import PROMPT_FRAME_I18N
 from src.controller import ImplicitSWAController
 from src.amce import (
     compute_amce_from_preferences,
+    compute_per_dimension_alignment,
     compute_utilitarianism_slope,
     load_human_amce,
     compute_alignment_metrics,
@@ -153,6 +154,11 @@ def run_country_experiment(
     human_amce = load_human_amce(cfg.human_amce_path, country_iso)
     alignment = compute_alignment_metrics(model_amce, human_amce)
 
+    # Per-dimension breakdown (paper: "largest analytical gap"). This is a
+    # post-hoc decomposition of the aggregate JSD/MIS/MAE into per-dimension
+    # errors so readers can see *where* the alignment gain comes from.
+    per_dim = compute_per_dimension_alignment(model_amce, human_amce)
+
     summary = {
         "country": country_iso,
         "n_scenarios": diagnostics["total_count"],
@@ -166,6 +172,7 @@ def run_country_experiment(
         "model_amce": model_amce,
         "human_amce": human_amce,
         "alignment": alignment,
+        "per_dimension_alignment": per_dim,
         "utilitarianism_slope": util_slope,
         "diagnostics": diagnostics,
     }
@@ -184,6 +191,11 @@ def run_country_experiment(
         print(f"  MAE:               {alignment['mae']:.2f}")
     print(f"  Model MPR : { {k: f'{v:.1f}' for k, v in model_amce.items()} }")
     print(f"  Human MPR : { {k: f'{v:.1f}' for k, v in human_amce.items()} }")
+    if per_dim:
+        print("  Per-dim |err| (|model-human|, sorted):")
+        for k, d in sorted(per_dim.items(), key=lambda kv: -kv[1]["abs_err"]):
+            print(f"    {k:<28s}  human={d['human']:5.1f}  "
+                  f"model={d['model']:5.1f}  |err|={d['abs_err']:4.1f}")
     if util_slope.get("n_obs", 0) >= 3:
         print(f"  Util slope: b_hat={util_slope['slope_hat']:+.4f} "
               f"(se={util_slope['slope_se']:.4f}, "
