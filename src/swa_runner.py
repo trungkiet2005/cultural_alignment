@@ -48,6 +48,7 @@ def run_country_experiment(
         pt_beta=cfg.pt_beta,
         pt_kappa=cfg.pt_kappa,
         decision_temperature=cfg.decision_temperature,
+        assistant_lang=lang,
     )
 
     # Debug: print 3 sample prompts with model prediction (logit extraction)

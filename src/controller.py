@@ -6,7 +6,11 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
-from src.i18n import PROMPT_FRAME_I18N, SCENARIO_FRAME_I18N
+from src.i18n import (
+    BASE_ASSISTANT_I18N,
+    PROMPT_FRAME_I18N,
+    SCENARIO_FRAME_I18N,
+)
 from src.model import ChatTemplateHelper
 
 
@@ -39,11 +43,13 @@ class ImplicitSWAController:
         pt_beta: float = 0.88,
         pt_kappa: float = 2.25,
         decision_temperature: float = 1.0,
+        assistant_lang: str = "en",
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.personas = personas
         self.N = len(personas)
+        self.assistant_lang = assistant_lang
         self.lambda_coop = lambda_coop
         self.alpha_kl = alpha_kl
         self.pt_alpha = pt_alpha
@@ -126,7 +132,10 @@ class ImplicitSWAController:
 
     @torch.no_grad()
     def _build_persona_prefixes(self):
-        print(f"[SWA] Building persona prefixes for {self.N} agents + 1 base...")
+        print(
+            f"[SWA] Building persona prefixes for {self.N} agents + 1 base "
+            f"(assistant_lang={self.assistant_lang!r})..."
+        )
         t0 = time.time()
 
         self.persona_prefix_ids = []
@@ -134,8 +143,11 @@ class ImplicitSWAController:
             ids = self.chat_helper.build_prefix_ids(persona_text, self.device)
             self.persona_prefix_ids.append(ids)
 
+        base_text = BASE_ASSISTANT_I18N.get(
+            self.assistant_lang, BASE_ASSISTANT_I18N["en"]
+        )
         self.base_prefix_ids = self.chat_helper.build_prefix_ids(
-            "You are a helpful assistant.", self.device
+            base_text, self.device
         )
 
         elapsed = time.time() - t0

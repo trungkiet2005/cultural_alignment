@@ -8,7 +8,7 @@ import pandas as pd
 from tqdm.auto import tqdm
 
 from src.constants import COUNTRY_LANG
-from src.i18n import PROMPT_FRAME_I18N
+from src.i18n import BASE_ASSISTANT_I18N, PROMPT_FRAME_I18N
 from src.model import ChatTemplateHelper
 from src.amce import compute_amce_from_preferences, load_human_amce, compute_alignment_metrics
 
@@ -78,7 +78,8 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     device = next(model.parameters()).device
     lang = COUNTRY_LANG.get(country, "en")
     chat_helper = ChatTemplateHelper(tokenizer)
-    base_ids = chat_helper.build_prefix_ids("You are a helpful assistant.", device)
+    base_text = BASE_ASSISTANT_I18N.get(lang, BASE_ASSISTANT_I18N["en"])
+    base_ids = chat_helper.build_prefix_ids(base_text, device)
     # Per-language A/B answer tokens (CRITICAL: do NOT use naive
     # `tokenizer.encode("A")[0]` — see resolve_decision_tokens_for_lang).
     a_id, b_id = resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang)

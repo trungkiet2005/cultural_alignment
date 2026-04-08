@@ -115,6 +115,32 @@ PROMPT_FRAME_I18N: Dict[str, str] = {
     ),
 }
 
+# Neutral “no cultural persona” system preamble for the extra forward pass in
+# :class:`src.controller.ImplicitSWAController` (batch index 0). Keys align
+# with ``PROMPT_FRAME_I18N`` so base + WVS agents share the same locale.
+BASE_ASSISTANT_I18N: Dict[str, str] = {
+    "en": "You are a helpful assistant.",
+    "zh": "你是一个乐于助人的助手。",
+    "zh_tw": "你是一位樂於助人的助手。",
+    "ja": "あなたは親切で助けになるアシスタントです。",
+    "ko": "당신은 도움이 되는 어시스턴트입니다.",
+    "de": "Sie sind ein hilfreicher Assistent.",
+    "fr": "Vous êtes un assistant serviable.",
+    "pt": "Você é um assistente prestativo.",
+    "ar": "أنت مساعد مفيد.",
+    "vi": "Bạn là một trợ lý hữu ích.",
+    "hi": "आप एक उपयोगी सहायक हैं।",
+    "ru": "Вы полезный помощник.",
+    "es": "Eres un asistente servicial.",
+    "id": "Anda adalah asisten yang membantu.",
+    "tr": "Yardımcı bir asistansınız.",
+    "pl": "Jesteś pomocnym asystentem.",
+    "sv": "Du är en hjälpsam assistent.",
+    "ur": "آپ ایک مددگار معاون ہیں۔",
+    "uk": "Ви корисний помічник.",
+    "fa": "شما یک دستیار مفید هستید.",
+}
+
 # Scenario framing: lane labels name choices A/B in each locale (same ASCII
 # letters as PROMPT_FRAME_I18N) so prompts are not English-mixed; the model
 # still grounds on neutral A/B tokens. Keys `left_lane` / `right_lane` are

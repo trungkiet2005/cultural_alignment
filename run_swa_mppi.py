@@ -18,6 +18,7 @@ Usage:
 import os
 import gc
 import json
+import textwrap
 import argparse
 import pickle
 from dataclasses import asdict
@@ -209,7 +210,9 @@ def main():
         personas = build_country_personas(country, wvs_path=config.wvs_data_path)
         print(f"\n  [PERSONAS] {country} ({len(personas)} personas):")
         for pi, ptxt in enumerate(personas):
-            print(f"    P{pi+1}: {ptxt[:150]}{'...' if len(ptxt) > 150 else ''}")
+            print(f"    P{pi+1}:")
+            print(textwrap.indent(ptxt, prefix="      "))
+            print()
         all_personas[country] = personas
 
         # Dump first 5 raw scenario prompts (reproducibility)
