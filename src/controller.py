@@ -1,4 +1,10 @@
-"""ImplicitSWAController: SWA-MPPI engine for cultural value negotiation."""
+"""ImplicitSWAController: SWA-PTIS engine for cultural value negotiation.
+
+SWA-PTIS = Socially-Weighted Alignment with Prospect-Theory Importance Sampling.
+The algorithm applies a single-step KL-regularised importance-sampling update
+(which is the 1-step, 1-dimensional degeneration of MPPI) with a cooperative
+Prospect-Theory utility function aggregated over N culturally-grounded persona agents.
+"""
 
 import time
 from typing import Dict, List, Optional, Tuple
@@ -19,12 +25,19 @@ from src.model import ChatTemplateHelper
 # ============================================================================
 class ImplicitSWAController:
     """
-    Socially-Weighted Alignment (SWA) via Model Predictive Path Integral (MPPI)
-    on the DECISION-FOCUSED logit space.
+    SWA-PTIS: Socially-Weighted Alignment with Prospect-Theory Importance Sampling.
+
+    Applies a KL-regularised importance-sampling update in logit space.
+    At a single decision step over a scalar decision gap δ, the MPPI
+    free-energy framework degenerates to importance sampling with a
+    KL-divergence regulariser — mathematically equivalent to KL-IS.
 
     Features:
-      - Per-category logit temperature applied per predict() call
-      - MPPI runs unconditionally on every scenario (no adaptive gating)
+      - Per-category logit temperature (T_cat) applied per predict() call
+      - Importance-sampling update runs unconditionally; self-attenuates when
+        persona rewards agree (delta_star → 0 as r_i variance → 0)
+      - Prospect-Theory value function for nonlinear loss-averse utility
+      - Logit-level positional debiasing (two-pass A↔B swap)
     """
 
     def __init__(
@@ -206,8 +219,23 @@ class ImplicitSWAController:
         delta_agents = z_agents[:, 1] - z_agents[:, 0]
         r_agents = delta_agents - delta_base.squeeze()
         delta_consensus = delta_agents.mean()
-        variance = torch.var(delta_agents).item()
+        variance = torch.var(delta_agents).item()   # diagnostic (χ²(N-1) scaled)
         return r_agents, variance, delta_consensus
+
+    def _adaptive_noise_std(self, z_agents: torch.Tensor) -> float:
+        """Compute per-scenario adaptive noise std from the empirical spread of
+        agent logit gaps (T_cat-scaled).  Using the inter-agent std as σ ensures
+        the perturbation magnitude is commensurate with the actual disagreement
+        in logit space rather than being fixed across all models and categories.
+
+        Falls back to self.noise_std when fewer than 2 agents are available or
+        when the empirical std is zero (all agents agree exactly).
+        """
+        delta_agents = z_agents[:, 1] - z_agents[:, 0]
+        if delta_agents.numel() < 2:
+            return self.noise_std
+        std = float(delta_agents.std(unbiased=True).item())
+        return std if std > 1e-6 else self.noise_std
 
     def _prospect_value(self, x: torch.Tensor) -> torch.Tensor:
         """Prospect Theory value function (Kahneman & Tversky, 1979).
@@ -227,17 +255,51 @@ class ImplicitSWAController:
         delta_consensus: torch.Tensor,
         r_agents: torch.Tensor,
         z_base: torch.Tensor,
+        sigma: Optional[float] = None,
     ) -> torch.Tensor:
-        epsilon = torch.randn(self.K, device=self.device) * self.noise_std
+        """KL-regularised importance-sampling update (1-step IS / degenerate MPPI).
+
+        Args:
+            delta_consensus: mean T_cat-scaled decision gap across personas.
+            r_agents: per-agent rewards r_i = delta_i - delta_base (shape N).
+            z_base: base-model logits for [A, B] tokens (shape 1×2, T_cat-scaled).
+            sigma: noise std to use; defaults to self.noise_std (fixed) or
+                   the adaptive per-scenario value passed from _predict_single_pass.
+        """
+        sigma = sigma if sigma is not None else self.noise_std
+        # delta_base: scalar base decision gap (T_cat-scaled), same space as delta_consensus.
+        delta_base_scalar = z_base[0, 1] - z_base[0, 0]
+
+        epsilon = torch.randn(self.K, device=self.device) * sigma
         delta_pert = delta_consensus + epsilon
-        kl_penalty = 0.5 * (epsilon ** 2) / (self.noise_std ** 2 + 1e-8)
+
+        # Agreement score: r_i * (delta_pert - delta_base).
+        # Both factors are in the same relative space:
+        #   r_i = delta_i - delta_base  (persona's desired shift from base)
+        #   delta_pert - delta_base = mean(r_agents) + epsilon  (candidate's total
+        #     displacement from base, including the stochastic perturbation)
+        # The product is positive when the perturbation moves in the direction
+        # persona i wishes to move, and negative otherwise — a correct signed
+        # agreement score in units of logit-gap².
+        delta_rel = delta_pert - delta_base_scalar  # shape (K,)
+
+        # KL penalty = per-sample log importance ratio log(p/q) for
+        # p = N(0, σ²), q = N(δ*, σ²). Scales as ε²/(2σ²).
+        kl_penalty = 0.5 * (epsilon ** 2) / (sigma ** 2 + 1e-8)
+
+        # Normalise the agreement score by σ² so the PT input is dimensionless.
+        # Both r_i and delta_rel are in logit-gap units (scale ~ σ), so their
+        # product is in logit-gap² units (scale ~ σ²). Dividing by σ² yields a
+        # dimensionless signal-to-noise ratio that is comparable across model
+        # families and logit-temperature settings (see Eq. eq:agreement in paper).
+        sigma2 = sigma ** 2 + 1e-8
 
         U_total = torch.zeros(self.K, device=self.device)
         for i in range(self.N):
             r_i = r_agents[i].item()
             r_others = (r_agents.sum() - r_agents[i]) / max(1, self.N - 1)
-            u_private = self._prospect_value(r_i * delta_pert)
-            u_social = self._prospect_value(r_others.item() * delta_pert)
+            u_private = self._prospect_value(r_i * delta_rel / sigma2)
+            u_social = self._prospect_value(r_others.item() * delta_rel / sigma2)
             u_i = (1 - self.lambda_coop) * u_private + self.lambda_coop * u_social
             U_total += u_i
         U_total /= self.N
@@ -310,8 +372,13 @@ class ImplicitSWAController:
         z_base, z_agents = self._evaluate_all_agents(query_ids, lang, logit_temp=logit_temp)
         r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
 
-        # MPPI runs unconditionally (adaptive conflict gating removed).
-        delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base)
+        # Adaptive σ: scale noise to the empirical inter-agent logit spread so
+        # the perturbation magnitude is commensurate with actual disagreement,
+        # rather than fixed across all models and categories.
+        sigma = self._adaptive_noise_std(z_agents)
+
+        # KL-IS update runs unconditionally; self-attenuates when r_agents ≈ 0.
+        delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base, sigma=sigma)
         delta_opt = delta_consensus + delta_star
 
         consensus_sign = (delta_consensus > 0).item()
@@ -330,6 +397,7 @@ class ImplicitSWAController:
             "p_left": 1.0 - p_right,
             "p_spare_preferred": p_spare_preferred,
             "variance": variance,
+            "sigma_used": sigma,            # adaptive σ for this scenario
             "mppi_flipped": mppi_flipped,
             "delta_z_norm": abs(delta_star.item()),
             "delta_consensus": delta_consensus.item(),
@@ -375,21 +443,31 @@ class ImplicitSWAController:
             swapped_query, not preferred_on_right, phenomenon_category, lang
         )
 
-        # Average the debiased p_spare_preferred
-        p_pref_avg = (r1["p_spare_preferred"] + r2["p_spare_preferred"]) / 2.0
+        # Debiasing at logit level (then apply sigmoid once).
+        # Under additive positional bias b:
+        #   delta_opt_1 = delta_true + b   (original ordering)
+        #   delta_opt_2 = -delta_true + b  (A↔B swapped: signal negated, bias preserved)
+        # => debiased_delta = (delta_opt_1 - delta_opt_2) / 2 = delta_true  (bias cancels)
+        # Averaging probabilities after sigmoid gives a different result due to
+        # sigmoid nonlinearity — logit-level averaging is the principled choice.
+        debiased_delta = (r1["delta_opt"] - r2["delta_opt"]) / 2.0
+        p_right_avg = torch.sigmoid(
+            torch.tensor(debiased_delta / self.decision_temperature)
+        ).item()
 
-        # Use pass-1 diagnostics but override the debiased result
+        if preferred_on_right:
+            p_pref_avg = p_right_avg
+        else:
+            p_pref_avg = 1.0 - p_right_avg
+
+        # Use pass-1 diagnostics but override with logit-debiased result.
         result = r1.copy()
         result["p_spare_preferred"] = p_pref_avg
         result["p_spare_preferred_pass1"] = r1["p_spare_preferred"]
         result["p_spare_preferred_pass2"] = r2["p_spare_preferred"]
         result["positional_bias"] = abs(r1["p_spare_preferred"] - r2["p_spare_preferred"])
-        # Recompute p_right/p_left from debiased p_spare_preferred
-        if preferred_on_right:
-            result["p_right"] = p_pref_avg
-            result["p_left"] = 1.0 - p_pref_avg
-        else:
-            result["p_right"] = 1.0 - p_pref_avg
-            result["p_left"] = p_pref_avg
+        result["delta_opt_debiased"] = debiased_delta
+        result["p_right"] = p_right_avg
+        result["p_left"] = 1.0 - p_right_avg
 
         return result
