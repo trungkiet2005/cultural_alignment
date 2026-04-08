@@ -1,36 +1,114 @@
-"""WVS-based persona generation for SWA-MPPI cultural agents."""
+"""WVS-based persona generation for SWA-MPPI cultural agents.
+
+Cultural variables follow the 10-variable scheme of Greco et al. (2025,
+"Culturally Grounded Personas in Large Language Models"), which derives
+its set from WVS-7 and the Inglehart–Welzel cultural map. We use the
+"inverted" WVS-7 file where polarised items carry the ``P`` suffix.
+
+Each entry in WVS_DIMS is a 4-tuple:
+    (q_codes, label, expected_range, direction)
+
+* ``expected_range`` = (min, max) of the WVS-7 polarised value, used to
+  normalise into [0, 1] for the categorical descriptor cuts.
+* ``direction``     = +1 if higher raw value means more of the *positive
+  pole* of the variable (e.g. higher = more religious), -1 if reversed.
+  This lets us write descriptor logic uniformly: after applying the
+  direction we always read "higher = more X" where X is the variable label.
+
+The 10 variables, mapped to WVS-7 question codes, are:
+
+  1. religiosity              Q6P            (importance of religion, 1-4)
+  2. child_rearing            Q14P,Q17P      (independence ↔ obedience-faith)
+  3. moral_acceptability      Q177-Q182      (justifiability of contested acts, 1-10)
+  4. social_trust             Q57P           (most-people-trusted vs cannot-trust, 1-2)
+  5. political_participation  Q199P-Q201P    (signed petition / boycott / lawful demo, 1-3)
+  6. national_pride           Q254P          (1=very proud .. 4=not proud at all)
+  7. happiness                Q46P           (1=very happy .. 4=not at all happy)
+  8. gender_equality          Q29P-Q33P      (gender role attitudes, 1-4)
+  9. materialism_orientation  Q152-Q154      (Inglehart 4-item battery)
+ 10. tolerance_diversity      Q19P-Q23P      (undesirable-neighbour mentions, 1-2)
+
+For dimensions whose WVS coding goes from 1=high to N=low (e.g. religiosity
+where 1 = "very important"), ``direction`` is set to ``-1`` so the
+normalised score ``(val - mid) * direction`` is always interpretable as
+"how much more of the positive pole than the median country".
+"""
 
 import os
 import csv as _csv
 from collections import defaultdict
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 from src.constants import COUNTRY_FULL_NAMES, COUNTRY_LANG
 
-# WVS dimension labels for persona generation (inverted scale: higher = more positive/progressive)
-WVS_DIMS = {
-    "gender_equality": (["Q58P", "Q59P", "Q60P"], "gender egalitarianism"),
-    "religion":        (["Q6P"],                   "religious importance"),
-    "trust":           (["Q43P"],                  "interpersonal trust"),
-    "moral_permissiveness": (["Q50", "Q52P", "Q54P"], "moral permissiveness"),
-    "work_importance": (["Q5P"],                   "work centrality"),
-    "family":          (["Q1P"],                   "family importance"),
-    "autonomy":        (["Q39P"],                  "personal autonomy"),
-    "meritocracy":     (["Q40P"],                  "meritocratic orientation"),
+
+# (q_codes, human_label, expected_range, direction)
+#
+# Directions and ranges are validated empirically against per-country raw
+# means in the inverted WVS-7 CSV (see commit message / smoke test).
+# Critically, the "inverted" CSV pre-flips most *P Likert items so HIGHER
+# raw value = MORE of the variable label (e.g. higher Q6P = more religious,
+# higher Q46P = happier, higher Q57P = more trust). Two exceptions remain:
+#  - Q29P-Q33P: the question itself is negatively framed ("men should have
+#    priority"), so higher raw = MORE traditional → flip for "egalitarian".
+#  - Binary 0/1 mention items (Q14P/Q17P/Q19P-Q23P) keep their raw 0/1
+#    semantics regardless of inversion (1 = mentioned), so direction is set
+#    according to whether "mentioned" aligns with the positive pole.
+#
+# Items WITHOUT the P suffix (Q152/Q153/Q177-Q182) use original WVS coding.
+WVS_DIMS: Dict[str, Tuple[List[str], str, Tuple[float, float], int]] = {
+    # 1. religiosity — inverted Q6P: higher = more religious.
+    "religiosity":            (["Q6P"],                              "religiosity",              (1.0, 4.0), +1),
+    # 2. child-rearing values — Q17P (religious faith) is the cleanest
+    #    obedience-faith proxy (Q14P "hard work" is culturally noisy:
+    #    high in both Anglo and Confucian societies). 0/1 binary; higher
+    #    = more religious-faith emphasis → flip for "independence/
+    #    imagination" pole (Greco et al.).
+    "child_rearing":          (["Q17P"],                             "child-rearing values",     (0.0, 1.0), -1),
+    # 3. moral acceptability — Q177-Q182, original 1-10 justifiability.
+    #    Higher = more permissive.
+    "moral_acceptability":    (["Q177", "Q178", "Q179", "Q180", "Q181", "Q182"], "moral acceptability", (1.0, 10.0), +1),
+    # 4. social trust — inverted Q57P: higher = more trust.
+    "social_trust":           (["Q57P"],                             "social trust",             (1.0, 2.0), +1),
+    # 5. political participation — inverted Q199P (signed petition),
+    #    Q200P (joined boycott). Higher = more active.
+    "political_participation":(["Q199P", "Q200P"],                   "political participation",  (1.0, 3.0), +1),
+    # 6. national pride — inverted Q254P: higher = more proud.
+    "national_pride":         (["Q254P"],                            "national pride",           (1.0, 4.0), +1),
+    # 7. happiness — inverted Q46P: higher = happier.
+    "happiness":              (["Q46P"],                             "happiness",                (1.0, 4.0), +1),
+    # 8. gender equality — Q29P-Q33P, agreement that men have priority
+    #    over women in jobs/politics/education. Inverted CSV: higher =
+    #    MORE traditional (more agreement). Flip for "egalitarian" pole.
+    "gender_equality":        (["Q29P", "Q30P", "Q31P", "Q33P"],     "gender equality",          (1.0, 4.0), -1),
+    # 9. materialism orientation — Q152/Q153, the 4-item Inglehart
+    #    battery in original WVS coding (1=materialist, 3=postmat).
+    #    Higher = more postmaterialist. Q154 dropped (different scale).
+    "materialism_orientation":(["Q152", "Q153"],                     "materialism orientation",  (1.0, 3.0), +1),
+    # 10. tolerance/diversity — Q19P-Q23P, "would not want as a neighbour"
+    #     mention rates (0/1 binary). Higher = more intolerant; flip for
+    #     "tolerance" positive pole.
+    "tolerance_diversity":    (["Q19P", "Q20P", "Q21P", "Q22P", "Q23P"], "tolerance for diversity", (0.0, 1.0), -1),
 }
 
 _WVS_PROFILES_CACHE: Dict[str, Dict] = {}
 
 
 def load_wvs_profiles(wvs_csv_path: str, target_countries: List[str]) -> Dict[str, Dict]:
-    """Load and compute WVS value profiles per country per age group."""
+    """Load and compute WVS value profiles per country per age group.
+
+    Returns ``{country: {age_group: {dim_name: mean_value}}}`` where
+    ``age_group`` ∈ {"young", "middle", "older", "all"} and ``dim_name``
+    is one of the keys in :data:`WVS_DIMS`. Missing dimensions are stored
+    as ``0.0`` (sentinel).
+    """
     global _WVS_PROFILES_CACHE
     if _WVS_PROFILES_CACHE:
         return _WVS_PROFILES_CACHE
 
-    all_vars = set()
-    for vars_list, _ in WVS_DIMS.values():
-        all_vars.update(vars_list)
+    all_vars: Set[str] = set()
+    for entry in WVS_DIMS.values():
+        all_vars.update(entry[0])
     all_vars.add("Q261")   # Birth year
     all_vars.add("A_YEAR") # Survey year
 
@@ -41,13 +119,17 @@ def load_wvs_profiles(wvs_csv_path: str, target_countries: List[str]) -> Dict[st
         return "older"
 
     data = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    missing_cols: Set[str] = set()
 
     try:
-        with open(wvs_csv_path, 'r') as f:
+        with open(wvs_csv_path, 'r', encoding='utf-8', errors='replace') as f:
             reader = _csv.reader(f)
             header = next(reader)
             cidx = header.index("B_COUNTRY_ALPHA")
             var_idx = {v: header.index(v) for v in all_vars if v in header}
+            missing_cols = {v for v in all_vars if v not in header}
+            if missing_cols:
+                print(f"[WVS] Header missing columns: {sorted(missing_cols)}")
 
             for row in reader:
                 country = row[cidx]
@@ -63,11 +145,16 @@ def load_wvs_profiles(wvs_csv_path: str, target_countries: List[str]) -> Dict[st
                 ag = _age_group(birth, syear)
 
                 for var in all_vars:
-                    if var in ("Q261", "A_YEAR"):
+                    if var in ("Q261", "A_YEAR") or var not in var_idx:
                         continue
                     try:
                         val = float(row[var_idx[var]])
-                        if val > 0:
+                        # WVS uses negative codes (-1, -2, -4, -5) for refusal /
+                        # don't know / not asked. Keep 0 because the inverted
+                        # CSV stores several recoded items as 0/1 binary
+                        # (Q8P/Q14P/Q15P/Q17P child-rearing, Q19P-Q26P
+                        # neighbour-tolerance), where 0 = not mentioned.
+                        if val >= 0:
                             data[country][ag][var].append(val)
                             data[country]["all"][var].append(val)
                     except (ValueError, KeyError):
@@ -76,95 +163,240 @@ def load_wvs_profiles(wvs_csv_path: str, target_countries: List[str]) -> Dict[st
         print(f"[WARN] WVS data not found: {wvs_csv_path}")
         return {}
 
-    profiles = {}
+    profiles: Dict[str, Dict] = {}
     for c in target_countries:
         profiles[c] = {}
         for ag in ["young", "middle", "older", "all"]:
-            dim_means = {}
-            for dim_name, (vars_list, _) in WVS_DIMS.items():
-                vals = []
+            dim_means: Dict[str, float] = {}
+            for dim_name, (vars_list, _label, _rng, _direction) in WVS_DIMS.items():
+                vals: List[float] = []
                 for v in vars_list:
                     vals.extend(data[c][ag][v])
-                dim_means[dim_name] = round(sum(vals) / len(vals), 2) if vals else 0
+                dim_means[dim_name] = round(sum(vals) / len(vals), 3) if vals else 0.0
             profiles[c][ag] = dim_means
 
-    n_loaded = sum(1 for c in profiles if profiles[c].get("all", {}).get("religion", 0) > 0)
+    n_loaded = sum(
+        1 for c in profiles
+        if profiles[c].get("all", {}).get("religiosity", 0) > 0
+    )
     print(f"[WVS] Loaded profiles for {n_loaded}/{len(target_countries)} countries")
     _WVS_PROFILES_CACHE = profiles
     return profiles
 
 
-def describe_value(dim_name: str, value: float, scale_max: float = 4.0) -> str:
-    """Convert a WVS dimension mean into a natural language descriptor."""
-    ratio = value / scale_max
-    if dim_name == "religion":
-        if ratio > 0.85: return "deeply religious"
-        if ratio > 0.70: return "moderately religious"
-        if ratio > 0.55: return "somewhat secular"
-        return "highly secular"
-    elif dim_name == "gender_equality":
-        if ratio > 0.85: return "strongly gender-egalitarian"
-        if ratio > 0.75: return "moderately gender-egalitarian"
-        if ratio > 0.65: return "somewhat traditional on gender"
-        return "traditional on gender roles"
-    elif dim_name == "trust":
-        if ratio > 0.55: return "high interpersonal trust"
-        if ratio > 0.45: return "moderate trust"
-        return "low interpersonal trust"
-    elif dim_name == "moral_permissiveness":
-        # Scale is 1-10 for Q50, but mixed; use relative
-        if value > 3.5: return "morally permissive"
-        if value > 3.0: return "moderately permissive"
-        if value > 2.5: return "morally conservative"
-        return "morally strict"
-    elif dim_name == "autonomy":
-        if ratio > 0.90: return "strongly values personal autonomy"
-        if ratio > 0.80: return "values personal autonomy"
-        return "moderate on personal autonomy"
-    elif dim_name == "meritocracy":
-        if ratio > 0.95: return "strongly meritocratic"
-        if ratio > 0.85: return "meritocratic"
-        return "egalitarian on income"
-    elif dim_name == "work_importance":
-        if ratio > 0.90: return "work is central to identity"
-        if ratio > 0.80: return "values work highly"
-        return "moderate work orientation"
-    elif dim_name == "family":
-        return "family is paramount"  # universally high across all countries
-    return ""
+# ---------------------------------------------------------------------------
+# Categorical descriptors per cultural variable
+# ---------------------------------------------------------------------------
+# For each dimension we keep a 4-way categorical mapping (high / mid-high /
+# mid-low / low) along the *positive pole* of the variable as defined in
+# WVS_DIMS. The "positive pole" is determined by the ``direction`` field:
+# +1 means raw value already monotonically increases with the positive pole,
+# -1 means we flip it.
+#
+# Cuts are quartiles in [0, 1] of the dimension's expected range. They are
+# intentionally simple and uniform; per-dimension calibration would be more
+# accurate but is left as a downstream tweak.
+#
+# Each entry is a list of 4 strings ordered from "highest positive pole" to
+# "lowest positive pole".
+#
+# Each descriptor is an adjectival / participial phrase that fits naturally
+# after "you are" in second-person voice; sentence templates below pair
+# them with verbs that match the subject "you". This avoids the broken
+# third-person grammar that occurs when the descriptor itself contains a
+# conjugated verb (e.g. "strongly emphasises"). For dimensions whose
+# descriptor needs a different verb than "are" (e.g. trust → "have"),
+# the sentence template supplies that verb.
+DIM_DESCRIPTORS: Dict[str, List[str]] = {
+    "religiosity": [
+        "deeply religious",
+        "moderately religious",
+        "somewhat secular",
+        "highly secular",
+    ],
+    "child_rearing": [
+        # Positive pole = secular "independence/imagination" (Greco et al.).
+        "firmly oriented toward independence and imagination",
+        "leaning toward independence and imagination",
+        "leaning toward obedience and religious faith",
+        "firmly oriented toward obedience and religious faith",
+    ],
+    "moral_acceptability": [
+        "very permissive on contested moral issues such as abortion, divorce and homosexuality",
+        "moderately permissive on contested moral issues",
+        "morally conservative on contested issues",
+        "strictly opposed to such contested moral acts",
+    ],
+    "social_trust": [
+        "very high trust in other people",
+        "moderate trust in other people",
+        "a guarded attitude toward strangers",
+        "deep distrust of other people",
+    ],
+    "political_participation": [
+        "an active political participant who signs petitions, joins boycotts and takes part in lawful demonstrations",
+        "an occasional political participant",
+        "a passive political participant",
+        "politically disengaged",
+    ],
+    "national_pride": [
+        "intensely proud of your country",
+        "moderately proud of your country",
+        "lukewarm about national pride",
+        "not proud of your country",
+    ],
+    "happiness": [
+        "very happy with your life",
+        "rather happy with your life",
+        "not very happy with your life",
+        "unhappy with your life",
+    ],
+    "gender_equality": [
+        "strongly egalitarian on gender roles",
+        "moderately egalitarian on gender roles",
+        "somewhat traditional on gender roles",
+        "strongly traditional on gender roles",
+    ],
+    "materialism_orientation": [
+        "strongly post-materialist, prioritising freedom, voice and self-expression",
+        "leaning post-materialist",
+        "leaning materialist, prioritising economic and physical security",
+        "strongly materialist, prioritising economic and physical security",
+    ],
+    "tolerance_diversity": [
+        "highly tolerant of outgroups such as immigrants, minorities and people with different lifestyles",
+        "moderately tolerant of outgroups",
+        "somewhat intolerant of outgroups",
+        "strongly intolerant of outgroups",
+    ],
+}
+
+
+def _normalised_score(dim_name: str, value: float) -> float:
+    """Project a raw WVS mean into [0, 1] along the dimension's positive pole.
+
+    Returns a score in [0, 1] where 1.0 means "maximum of the positive pole"
+    (e.g. for religiosity: most religious; for tolerance_diversity: most
+    tolerant). Returns ``-1.0`` if the dimension is missing or out of range.
+    """
+    entry = WVS_DIMS.get(dim_name)
+    if entry is None or value <= 0:
+        return -1.0
+    _q, _label, (lo, hi), direction = entry
+    if hi <= lo:
+        return -1.0
+    raw = (value - lo) / (hi - lo)        # in [0, 1] if value ∈ [lo, hi]
+    raw = max(0.0, min(1.0, raw))         # clamp
+    if direction < 0:
+        raw = 1.0 - raw                   # flip so higher = positive pole
+    return raw
+
+
+def describe_value(dim_name: str, value: float) -> str:
+    """Convert a WVS dimension mean into a natural-language descriptor.
+
+    Quartile cuts on the *positive-pole-normalised* score:
+        score ≥ 0.75 → descriptor[0]   (strong positive)
+        score ≥ 0.50 → descriptor[1]
+        score ≥ 0.25 → descriptor[2]
+        score <  0.25 → descriptor[3]   (strong negative)
+    """
+    score = _normalised_score(dim_name, value)
+    if score < 0:
+        return ""
+    descriptors = DIM_DESCRIPTORS.get(dim_name)
+    if not descriptors:
+        return ""
+    if score >= 0.75: return descriptors[0]
+    if score >= 0.50: return descriptors[1]
+    if score >= 0.25: return descriptors[2]
+    return descriptors[3]
+
+
+# Sentence templates for the cultural mapping section. Each template takes
+# the descriptor returned by ``describe_value`` and weaves it into a
+# first-person line that grounds the persona's behaviour in the variable.
+# Following Greco et al. (2025), each cultural variable contributes its
+# own explicit sentence so that the moral worldview is structured rather
+# than a flat trait list.
+DIM_SENTENCE_TEMPLATES: Dict[str, str] = {
+    "religiosity":
+        "On matters of faith you are {desc}.",
+    "child_rearing":
+        "On raising children you are {desc}.",
+    "moral_acceptability":
+        "On contested moral choices you are {desc}.",
+    "social_trust":
+        "In your dealings with strangers you have {desc}.",
+    "political_participation":
+        "Civically you are {desc}.",
+    "national_pride":
+        "You are {desc}.",
+    "happiness":
+        "Overall you are {desc}.",
+    "gender_equality":
+        "On the role of women in society you are {desc}.",
+    "materialism_orientation":
+        "In what you prioritise in life you are {desc}.",
+    "tolerance_diversity":
+        "Toward people unlike yourself you are {desc}.",
+}
 
 
 def generate_wvs_persona(country_iso: str, age_group: str,
                           profile: Dict[str, float],
                           country_name: str, lang: str) -> str:
-    """Generate a single persona string from a WVS value profile."""
+    """Generate a single persona string from a WVS value profile.
+
+    The persona has three parts (Greco et al. 2025-style):
+        1. **Header** — role + country + age band.
+        2. **Cultural mapping** — one sentence per WVS dimension that has
+           data in ``profile``, using the descriptor from
+           :func:`describe_value`. Dimensions with no data are silently
+           skipped.
+        3. **Closing line** — explicit anchor that the persona reasons
+           about moral dilemmas through these values.
+    """
     age_desc = {
-        "young": ("young adult", "in your 20s-30s"),
-        "middle": ("middle-aged adult", "in your 40s-50s"),
-        "older": ("senior citizen", "over 60"),
-        "all": ("citizen", ""),
+        "young": ("young adult", "in your 20s and early 30s"),
+        "middle": ("middle-aged adult", "in your 40s or 50s"),
+        "older": ("senior citizen", "over 60 years old"),
+        "all":   ("adult citizen", ""),
     }
-    role, age_range = age_desc.get(age_group, ("citizen", ""))
+    role, age_range = age_desc.get(age_group, ("adult citizen", ""))
 
-    # Build value description from WVS data
-    traits = []
-    for dim_name in ["religion", "gender_equality", "trust", "moral_permissiveness",
-                     "autonomy", "meritocracy", "work_importance"]:
-        val = profile.get(dim_name, 0)
-        if val > 0:
-            desc = describe_value(dim_name, val)
-            if desc:
-                traits.append(desc)
-
-    traits_str = ", ".join(traits[:5])  # Keep concise
-
-    persona = (
+    header = (
         f"You are a {role} from {country_name}"
-        f"{' ' + age_range if age_range else ''}. "
-        f"Based on the cultural values of your society, you are {traits_str}. "
-        f"You weigh moral dilemmas according to these values."
+        f"{', ' + age_range if age_range else ''}. "
+        f"Your worldview is shaped by the cultural values prevalent in your community."
     )
-    return persona
+
+    # Build the cultural-variable mapping in the canonical paper order.
+    mapping_lines: List[str] = []
+    for dim_name in WVS_DIMS.keys():
+        val = profile.get(dim_name, 0.0)
+        if val <= 0:
+            continue
+        desc = describe_value(dim_name, val)
+        if not desc:
+            continue
+        template = DIM_SENTENCE_TEMPLATES.get(dim_name)
+        if not template:
+            continue
+        mapping_lines.append(template.format(desc=desc))
+
+    closing = (
+        "When you face a moral dilemma, you weigh the choices through this set of values "
+        "and answer in a way that is consistent with the worldview above."
+    )
+
+    if not mapping_lines:
+        # Defensive: if no WVS dimension loaded for this profile, fall back
+        # to a minimal but non-degenerate header (caller should ideally use
+        # BASE_PERSONAS instead).
+        return f"{header} {closing}"
+
+    return header + " " + " ".join(mapping_lines) + " " + closing
 
 
 BASE_PERSONAS: Dict[str, List[str]] = {
@@ -361,6 +593,55 @@ BASE_PERSONAS: Dict[str, List[str]] = {
         "Eres un anciano líder comunitario mexicano. Los lazos familiares, el respeto por la edad y la solidaridad comunitaria son los fundamentos de tu universo moral.",
         "Eres un médico mexicano en un hospital público. La ética de triaje exige salvar la mayor cantidad de vidas: los jóvenes y sanos tienen más vida por delante.",
     ],
+
+    # ------------------------------------------------------------------
+    # WVS Wave 7 replacement countries (CAN/CHL/TWN/MAR/IRN). These five
+    # are used in `target_countries` to substitute SAU/FRA/POL/ZAF/SWE
+    # which lack WVS-7 coverage. Even though the WVS-7 file *does* contain
+    # all five, we keep manual fallbacks here so a load failure or column
+    # mismatch never silently degrades to four identical generic personas.
+    # ------------------------------------------------------------------
+
+    # Canada (English) — Anglo Western liberal voice (replaces FRA slot)
+    "CAN": [
+        "You are a young Canadian university student in Toronto. Multiculturalism, human rights, and tolerance are core to your identity. Every life has equal worth, regardless of background.",
+        "You are a middle-aged Canadian healthcare worker. Universal healthcare ethics — fairness, dignity, and protecting the most vulnerable — guide your moral reasoning.",
+        "You are an elderly Canadian veteran. Duty, civic responsibility, and protecting future generations are the values you have lived by.",
+        "You are a Canadian utilitarian thinker. The morally correct choice is the one that saves the greatest number of lives.",
+    ],
+
+    # Chile (Spanish) — Andean Latin America
+    "CHL": [
+        "Eres un joven activista chileno de Santiago. Después del estallido social crees en la justicia, los derechos humanos y la igualdad — toda vida vale lo mismo, sin distinción de clase.",
+        "Eres un católico chileno de mediana edad. La santidad de la vida humana, los valores familiares y la protección de los más vulnerables guían tus decisiones morales.",
+        "Eres un anciano chileno que vivió la dictadura militar. La memoria, la solidaridad comunitaria y proteger a los jóvenes son los pilares de tu visión moral.",
+        "Eres un médico chileno del sistema público. La ética del triaje médico te guía: salvar la mayor cantidad de vidas, dando prioridad a quienes tienen más años por delante.",
+    ],
+
+    # Taiwan (Chinese) — Confucian sinosphere, distinct from PRC
+    "TWN": [
+        "你是一位來自台北的年輕台灣人。你重視民主、人權和個體自由，相信每一個生命都有平等的價值。",
+        "你是一位中年台灣公務員。你深受儒家思想影響，重視社會和諧、家庭責任以及對長輩的尊敬。",
+        "你是一位來自南部農村的年長台灣公民。傳統儒家孝道、敬老尊賢和守護下一代是你的道德核心。",
+        "你是一位台灣的醫療人員。醫療分流倫理引導你——盡可能挽救更多生命，並優先考慮年輕健康的患者。",
+    ],
+
+    # Morocco (Arabic) — Maghreb Islamic culture
+    "MAR": [
+        "أنت شاب مغربي من الدار البيضاء. تجمع بين القيم الإسلامية المعتدلة والحداثة. كل حياة إنسانية مقدسة وتستحق الحماية.",
+        "أنت إمام مسجد مغربي في مدينة فاس. حفظ النفس مقصد شرعي أعلى، وحماية الضعفاء والنساء والأطفال واجب ديني وأخلاقي.",
+        "أنت أم مغربية متوسطة العمر من الأطلس الكبير. الأسرة، الأطفال، وتضامن المجتمع هي أهم أولوياتك الأخلاقية.",
+        "أنت طبيب مغربي في مستشفى عام. أخلاقيات الفرز الطبي توجهك: إنقاذ أكبر عدد من الأرواح، مع إعطاء الأولوية للشباب والأصحاء.",
+    ],
+
+    # Iran (Persian/Farsi text would be ideal; English fallback used since
+    # PROMPT_FRAME_I18N currently lacks Persian — see COUNTRY_LANG note.)
+    "IRN": [
+        "You are a young Iranian engineer in Tehran. You blend respect for Persian cultural traditions with modern, pragmatic reasoning — saving more human lives is always the right choice.",
+        "You are a middle-aged Iranian Shia cleric. Islamic jurisprudence and the principle of preserving life (hifz al-nafs) guide you. Every human life is sacred and protecting the vulnerable is a sacred duty.",
+        "You are an elderly Iranian citizen who lived through the Revolution and the Iran–Iraq war. Family honour, community solidarity, and protecting the young as the future of the nation are your core values.",
+        "You are an Iranian physician in a public hospital. Medical triage ethics guide you: save the greatest number of lives possible, prioritising those with the most years of life ahead.",
+    ],
 }
 
 
@@ -376,28 +657,31 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
     """
     country_name = COUNTRY_FULL_NAMES.get(country_iso, country_iso)
 
-    # Try WVS-based generation
+    # Try WVS-based generation. We treat ``religiosity`` as the canary
+    # dimension: if it loaded with a positive value, the rest of the
+    # profile loaded too.
     if wvs_path and os.path.exists(wvs_path):
         profiles = load_wvs_profiles(wvs_path, list(COUNTRY_FULL_NAMES.keys()))
         country_profile = profiles.get(country_iso, {})
 
-        if country_profile and country_profile.get("all", {}).get("religion", 0) > 0:
+        if country_profile and country_profile.get("all", {}).get("religiosity", 0) > 0:
             personas = []
             for ag in ["young", "middle", "older"]:
                 p = country_profile.get(ag, country_profile["all"])
-                if p.get("religion", 0) > 0:
+                if p.get("religiosity", 0) > 0:
                     personas.append(generate_wvs_persona(
                         country_iso, ag, p, country_name,
                         lang=COUNTRY_LANG.get(country_iso, "en"),
                     ))
-            # 4th persona: utilitarian (save more lives)
+            # 4th persona: utilitarian anchor (save more lives). Domain-specific
+            # for trolley-style dilemmas, intentionally not derived from WVS.
             personas.append(
                 f"You are a utilitarian thinker from {country_name}. "
                 f"You believe the morally correct choice is always to save the greater "
                 f"number of lives. The number of lives at stake is the single most "
                 f"important factor in your moral reasoning."
             )
-            # Ensure exactly 4
+            # Ensure exactly 4 (defensive: if some age band had no data).
             while len(personas) < 4:
                 personas.append(generate_wvs_persona(
                     country_iso, "all", country_profile["all"], country_name,
@@ -405,11 +689,19 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
                 ))
             print(f"[WVS] Generated {len(personas)} personas for {country_iso} from WVS data")
             return personas[:4]
+        else:
+            print(f"[WVS] No usable profile for {country_iso} — falling back to BASE_PERSONAS")
 
-    # Fallback: manually written personas (for SAU, FRA, or if WVS unavailable)
-    base = BASE_PERSONAS.get(country_iso, [
-        f"You are a thoughtful person from {country_name} who weighs moral dilemmas carefully."
-    ] * 4)
+    # Fallback: hand-written personas. Every country in COUNTRY_FULL_NAMES
+    # (including the 5 WVS-Wave-7 replacement countries CAN/CHL/TWN/MAR/IRN)
+    # has a BASE_PERSONAS entry; only an unknown ISO falls through to the
+    # last-resort generic message, which is intentionally noisy.
+    base = BASE_PERSONAS.get(country_iso)
+    if base is None:
+        print(f"[WARN] No BASE_PERSONAS entry for {country_iso} — using generic fallback")
+        return [
+            f"You are a thoughtful person from {country_name} who weighs moral dilemmas carefully."
+        ] * 4
     return list(base)
 
 
