@@ -162,6 +162,8 @@ def run_country_experiment(
     print(f"  Mean variance:     {summary['mean_variance']:.6f}")
     print(f"  Mean decision gap: {summary['mean_decision_gap']:.4f}")
     print(f"  Mean latency:      {summary['mean_latency_ms']:.1f} ms")
+    if "mis" in alignment:
+        print(f"  MIS (L2, paper):   {alignment['mis']:.4f}   [0=perfect, √6≈2.45=worst]")
     if "jsd" in alignment:
         print(f"  JSD vs Human:      {alignment['jsd']:.4f}")
         print(f"  Pearson r:         {alignment['pearson_r']:.4f} (p={alignment['pearson_p']:.4f})")

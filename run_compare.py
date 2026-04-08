@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from src.amce import compute_mis_improvement
 from src.config import resolve_output_dir
 from src.viz.style import setup_matplotlib, BASELINE_COLOR, SWA_COLOR, HUMAN_COLOR
 from src.viz.radar import plot_radar_single
@@ -29,10 +30,12 @@ from src.viz.comparison import plot_baseline_comparison, plot_comparison_table
 from src.viz.bar_charts import plot_amce_comparison_bar
 
 
-# Metrics expected inside summary["alignment"]
-ALIGN_METRICS = ["jsd", "cosine_sim", "pearson_r", "spearman_rho", "mae", "rmse"]
+# Metrics expected inside summary["alignment"].
+# MIS is the paper-aligned L2 misalignment (Jin et al., ICLR 2025) and is
+# listed first so it appears as the headline metric in plots and CSVs.
+ALIGN_METRICS = ["mis", "jsd", "cosine_sim", "pearson_r", "spearman_rho", "mae", "rmse"]
 # Lower is better for these:
-LOWER_BETTER = {"jsd", "mae", "rmse"}
+LOWER_BETTER = {"mis", "jsd", "mae", "rmse"}
 
 AMCE_KEYS = [
     "Species_Humans", "Gender_Female", "Age_Young",
@@ -255,7 +258,7 @@ def plot_radar_overlays(bl, sw, countries, out_dir: Path):
         plt.show(); plt.close(fig)
 
 
-def print_console_summary(agg: pd.DataFrame):
+def print_console_summary(agg: pd.DataFrame, metric_df: pd.DataFrame):
     print("\n" + "=" * 72)
     print("  AGGREGATE COMPARISON  (mean over countries)")
     print("=" * 72)
@@ -265,6 +268,60 @@ def print_console_summary(agg: pd.DataFrame):
               f"{r['baseline_mean']:8.4f}±{r['baseline_std']:.3f} "
               f"{r['swa_mean']:8.4f}±{r['swa_std']:.3f} "
               f"{r['delta_mean']:+10.4f} {r['swa_wins']:>10s}")
+    print("=" * 72)
+
+    # ------------------------------------------------------------------
+    # Headline: paper-aligned MIS improvement (Jin et al., ICLR 2025).
+    # ------------------------------------------------------------------
+    bl_mis = metric_df["baseline_mis"].to_numpy(dtype=float)
+    sw_mis = metric_df["swa_mis"].to_numpy(dtype=float)
+    finite = np.isfinite(bl_mis) & np.isfinite(sw_mis)
+    bl_mis_f = bl_mis[finite]
+    sw_mis_f = sw_mis[finite]
+
+    print("\n" + "=" * 72)
+    print("  MIS (PAPER-ALIGNED) IMPROVEMENT  —  L2 misalignment, lower=better")
+    print("=" * 72)
+
+    if bl_mis_f.size == 0:
+        print("  [WARN] No finite MIS values in either run.")
+        print("=" * 72)
+        return
+
+    # Per-country breakdown.
+    print(f"  {'country':>8s} {'baseline':>10s} {'swa':>10s} {'delta':>10s} {'improv %':>12s}")
+    for c, b, s in zip(metric_df["country"], bl_mis, sw_mis):
+        if not (np.isfinite(b) and np.isfinite(s)):
+            print(f"  {c:>8s} {'—':>10s} {'—':>10s} {'—':>10s} {'—':>12s}")
+            continue
+        imp = compute_mis_improvement(b, s)
+        marker = "↓" if imp["delta"] > 1e-6 else ("↑" if imp["delta"] < -1e-6 else " ")
+        print(f"  {c:>8s} {b:10.4f} {s:10.4f} {imp['delta']:+10.4f} "
+              f"{imp['pct']:+10.2f}% {marker}")
+
+    # Aggregate improvement: mean of per-country improvement %, plus the
+    # macro-average improvement (computed on the means).
+    bl_mean = float(np.mean(bl_mis_f))
+    sw_mean = float(np.mean(sw_mis_f))
+    macro_imp = compute_mis_improvement(bl_mean, sw_mean)
+
+    per_country_pct = []
+    for b, s in zip(bl_mis_f, sw_mis_f):
+        imp = compute_mis_improvement(b, s)
+        if np.isfinite(imp["pct"]):
+            per_country_pct.append(imp["pct"])
+    micro_pct = float(np.mean(per_country_pct)) if per_country_pct else float("nan")
+    n_wins = int(np.sum(sw_mis_f < bl_mis_f))
+
+    print("-" * 72)
+    print(f"  Mean baseline MIS:            {bl_mean:.4f}")
+    print(f"  Mean SWA-MPPI MIS:            {sw_mean:.4f}")
+    print(f"  Absolute reduction:           {bl_mean - sw_mean:+.4f}")
+    print(f"  Improvement on the means:     {macro_imp['pct']:+.2f}%   "
+          f"(macro-average)")
+    print(f"  Mean per-country improvement: {micro_pct:+.2f}%   "
+          f"(micro-average)")
+    print(f"  SWA wins (MIS lower):         {n_wins}/{bl_mis_f.size} countries")
     print("=" * 72)
 
 
@@ -352,7 +409,7 @@ def main():
 
     print(f"[SAVE] Figures -> {args.output_dir}")
 
-    print_console_summary(agg)
+    print_console_summary(agg, metric_df)
 
 
 if __name__ == "__main__":

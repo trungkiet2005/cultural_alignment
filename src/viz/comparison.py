@@ -6,11 +6,14 @@ import matplotlib.pyplot as plt
 
 
 def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
-    """fig8: side-by-side bars (JSD / Pearson r / MAE) — Vanilla vs SWA-MPPI."""
+    """fig8: side-by-side bars — Vanilla vs SWA-MPPI.
+
+    Includes MIS (paper-aligned headline metric) plus JSD / Pearson r / MAE.
+    """
     countries = [s["country"] for s in swa_summaries]
-    metrics = ["jsd", "pearson_r", "mae"]
-    metric_labels = ["JSD \u2193", "Pearson r \u2191", "MAE \u2193"]
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5.5))
+    metrics = ["mis", "jsd", "pearson_r", "mae"]
+    metric_labels = ["MIS \u2193 (paper)", "JSD \u2193", "Pearson r \u2191", "MAE \u2193"]
+    fig, axes = plt.subplots(1, 4, figsize=(22, 5.5))
     x = np.arange(len(countries)); width = 0.35
     for ax, metric, label in zip(axes, metrics, metric_labels):
         swa_vals = [s["alignment"].get(metric, np.nan) for s in swa_summaries]
@@ -32,6 +35,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
     """Publication-quality comparison table: Vanilla LLM vs SWA-MPPI v3."""
 
     metrics = [
+        ("MIS \u2193",       "mis",          ".4f", True),   # paper-aligned headline
         ("JSD \u2193",       "jsd",          ".4f", True),
         ("Pearson r \u2191", "pearson_r",    ".4f", False),
         ("Cosine \u2191",    "cosine_sim",   ".4f", False),
@@ -44,7 +48,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
     for label, _, _, _ in metrics:
         short = label.split()[0]
         columns += [f"Van. {short}", f"SWA {short}", f"\u0394 {short}"]
-    columns.append("Improv. JSD%")
+    columns.append("Improv. MIS%")
 
     rows = []
     for s in all_summaries:
@@ -59,10 +63,11 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
             row.append(f"{v_val:{fmt}}")
             row.append(f"{s_val:{fmt}}")
             row.append(f"{delta:+{fmt}}")
-        v_jsd = van_a.get("jsd", np.nan)
-        s_jsd = swa_a.get("jsd", np.nan)
-        if v_jsd and not np.isnan(v_jsd) and v_jsd > 0:
-            improv = (v_jsd - s_jsd) / v_jsd * 100
+        # Headline improvement: paper-aligned MIS (lower is better).
+        v_mis = van_a.get("mis", np.nan)
+        s_mis = swa_a.get("mis", np.nan)
+        if v_mis and not np.isnan(v_mis) and v_mis > 0:
+            improv = (v_mis - s_mis) / v_mis * 100
             row.append(f"{improv:+.1f}%")
         else:
             row.append("\u2014")
@@ -85,13 +90,13 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
         mean_row.append(f"{mv:{fmt}}")
         mean_row.append(f"{ms:{fmt}}")
         mean_row.append(f"{md:+{fmt}}")
-    v_jsds = [s.get("baseline_alignment", vanilla_metrics.get(s["country"], {})).get("jsd", np.nan)
+    v_miss = [s.get("baseline_alignment", vanilla_metrics.get(s["country"], {})).get("mis", np.nan)
               for s in all_summaries]
-    s_jsds = [s["alignment"].get("jsd", np.nan) for s in all_summaries]
-    v_jsds = [x for x in v_jsds if not np.isnan(x)]
-    s_jsds = [x for x in s_jsds if not np.isnan(x)]
-    if v_jsds and s_jsds:
-        mean_improv = (np.mean(v_jsds) - np.mean(s_jsds)) / np.mean(v_jsds) * 100
+    s_miss = [s["alignment"].get("mis", np.nan) for s in all_summaries]
+    v_miss = [x for x in v_miss if not np.isnan(x)]
+    s_miss = [x for x in s_miss if not np.isnan(x)]
+    if v_miss and s_miss:
+        mean_improv = (np.mean(v_miss) - np.mean(s_miss)) / np.mean(v_miss) * 100
         mean_row.append(f"{mean_improv:+.1f}%")
     else:
         mean_row.append("\u2014")
@@ -177,8 +182,11 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
         for _ in metrics:
             sub_parts += ["Van.", "SWA", "$\\Delta$"]
         sub_parts.append("Improv.\\%")
-        f.write("\\cmidrule(lr){2-4}\\cmidrule(lr){5-7}\\cmidrule(lr){8-10}"
-                "\\cmidrule(lr){11-13}\\cmidrule(lr){14-16}\\cmidrule(lr){17-19}\n")
+        # Build cmidrules dynamically: each metric occupies 3 columns starting at col 2.
+        cmidrules = "".join(
+            f"\\cmidrule(lr){{{2 + 3*i}-{4 + 3*i}}}" for i in range(len(metrics))
+        )
+        f.write(cmidrules + "\n")
         f.write(" & ".join(sub_parts) + " \\\\\n")
         f.write("\\midrule\n")
         for row in rows[:-1]:

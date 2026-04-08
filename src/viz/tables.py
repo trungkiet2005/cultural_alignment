@@ -29,14 +29,15 @@ def plot_results_table(all_summaries, output_dir, mode="baseline"):
 
 
 def _plot_baseline_results_table(all_summaries, output_dir):
-    """7-column baseline results table."""
-    columns = ["Country", "JSD", "Cosine", "Pearson r", "Spearman \u03c1",
-                "MAE", "RMSE"]
+    """8-column baseline results table (MIS as paper-aligned headline metric)."""
+    columns = ["Country", "MIS \u2193", "JSD", "Cosine", "Pearson r",
+               "Spearman \u03c1", "MAE", "RMSE"]
     rows = []
     for s in all_summaries:
         a = s["alignment"]
         rows.append([
             s["country"],
+            f"{a.get('mis', np.nan):.4f}",
             f"{a.get('jsd', np.nan):.4f}",
             f"{a.get('cosine_sim', np.nan):.4f}",
             f"{a.get('pearson_r', np.nan):.4f}",
@@ -46,7 +47,7 @@ def _plot_baseline_results_table(all_summaries, output_dir):
         ])
 
     # Mean row
-    numeric_cols = [1, 2, 3, 4, 5, 6]
+    numeric_cols = list(range(1, len(columns)))
     mean_row = ["Mean"] + ["\u2014"] * (len(columns) - 1)
     for ci in numeric_cols:
         vals = []
@@ -68,14 +69,15 @@ def _plot_baseline_results_table(all_summaries, output_dir):
 
 
 def _plot_swa_results_table(all_summaries, output_dir):
-    """SWA-MPPI results table."""
-    columns = ["Country", "JSD", "Cosine", "Pearson r", "Spearman \u03c1",
-                "MAE", "RMSE", "Flip %", "Latency (ms)"]
+    """SWA-MPPI results table (MIS as paper-aligned headline metric)."""
+    columns = ["Country", "MIS \u2193", "JSD", "Cosine", "Pearson r",
+               "Spearman \u03c1", "MAE", "RMSE", "Flip %", "Latency (ms)"]
     rows = []
     for s in all_summaries:
         a = s["alignment"]
         rows.append([
             s["country"],
+            f"{a.get('mis', np.nan):.4f}",
             f"{a.get('jsd', np.nan):.4f}",
             f"{a.get('cosine_sim', np.nan):.4f}",
             f"{a.get('pearson_r', np.nan):.4f}",
@@ -86,8 +88,8 @@ def _plot_swa_results_table(all_summaries, output_dir):
             f"{s['mean_latency_ms']:.1f}",
         ])
 
-    # Mean row
-    numeric_cols = [1, 2, 3, 4, 5, 6, 8]
+    # Mean row — skip column 8 ("Flip %", percent-formatted) for the numeric average.
+    numeric_cols = [1, 2, 3, 4, 5, 6, 7, 9]
     mean_row = ["Mean"] + ["\u2014"] * (len(columns) - 1)
     for ci in numeric_cols:
         vals = []

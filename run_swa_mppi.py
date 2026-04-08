@@ -49,6 +49,7 @@ from src.viz import (
 def print_final_statistics(all_summaries, config):
     """Print comprehensive SWA-MPPI statistics for paper."""
     n_countries = len(all_summaries)
+    all_mis = [s["alignment"].get("mis", np.nan) for s in all_summaries]
     all_jsd = [s["alignment"].get("jsd", np.nan) for s in all_summaries]
     all_cosine = [s["alignment"].get("cosine_sim", np.nan) for s in all_summaries]
     all_pearson = [s["alignment"].get("pearson_r", np.nan) for s in all_summaries]
@@ -60,6 +61,7 @@ def print_final_statistics(all_summaries, config):
     print(f"\n{'='*70}")
     print(f"  SWA-MPPI v3 AGGREGATE RESULTS (N={n_countries} countries)")
     print(f"{'='*70}")
+    print(f"  MIS (paper, L2):          {np.nanmean(all_mis):.4f} \u00b1 {np.nanstd(all_mis):.4f}   [0=perfect, \u221a6\u22482.45=worst]")
     print(f"  Jensen-Shannon Distance:  {np.nanmean(all_jsd):.4f} \u00b1 {np.nanstd(all_jsd):.4f}")
     print(f"  Cosine Similarity:        {np.nanmean(all_cosine):.4f} \u00b1 {np.nanstd(all_cosine):.4f}")
     print(f"  Pearson Correlation:      {np.nanmean(all_pearson):.4f} \u00b1 {np.nanstd(all_pearson):.4f}")
