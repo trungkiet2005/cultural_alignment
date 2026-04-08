@@ -98,9 +98,9 @@ COUNTRY_LANG: Dict[str, str] = {
     # WVS Wave 7 replacements
     "CAN": "en",     # English (Canada is bilingual; majority of WVS-CAN respondents English)
     "CHL": "es",     # Spanish
-    "TWN": "zh",     # Chinese (Traditional, but i18n zh frame uses simplified — minor caveat)
+    "TWN": "zh_tw",  # Traditional Chinese (Taiwan) — distinct from simplified ``zh`` (China)
     "MAR": "ar",     # Arabic (Moroccan dialect; MSA i18n is acceptable)
-    "IRN": "en",     # Persian/Farsi not yet in i18n — falls back to English (caveat)
+    "IRN": "fa",     # Persian (Farsi)
     # Legacy entries (for back-compat with manual personas)
     "SAU": "ar", "FRA": "fr", "POL": "pl", "ZAF": "en", "SWE": "sv",
 }

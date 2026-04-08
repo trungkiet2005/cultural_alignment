@@ -51,15 +51,15 @@ def verbalize_group_lang(char_list: List[str], lang: str = "en") -> str:
             if lang == "en":
                 article = "an" if singular[0] in "aeiou" else "a"
                 parts.append(f"{article} {singular}")
-            elif lang in ("zh", "ja", "ko", "ar", "vi", "hi"):
-                parts.append(f"1名{singular}" if lang in ("zh", "ja", "ko") else f"{cnt} {singular}")
+            elif lang in ("zh", "zh_tw", "ja", "ko", "ar", "vi", "hi"):
+                parts.append(f"1名{singular}" if lang in ("zh", "zh_tw", "ja", "ko") else f"{cnt} {singular}")
             else:
                 parts.append(f"1 {singular}")
         else:
             parts.append(f"{cnt} {plural}")
     # Language-specific conjunctions (list_separator, final_conjunction)
     _CONJUNCTIONS = {
-        "zh": ("、", "和"), "ja": ("、", "と"), "ko": ("、", "그리고 "),
+        "zh": ("、", "和"), "zh_tw": ("、", "和"), "ja": ("、", "と"), "ko": ("、", "그리고 "),
         "de": (", ", " und "), "fr": (", ", " et "), "pt": (", ", " e "),
         "ar": ("، ", " و"), "vi": (", ", " và "), "hi": (", ", " और "),
         "ru": (", ", " и "), "es": (", ", " y "),
@@ -68,6 +68,7 @@ def verbalize_group_lang(char_list: List[str], lang: str = "en") -> str:
         "tr": (", ", " ve "),     # Turkish
         "uk": (", ", " та "),     # Ukrainian
         "ur": ("، ", " اور "),    # Urdu
+        "fa": ("، ", " و "),      # Persian
         "pl": (", ", " i "),      # Polish (kept for legacy POL)
         "sv": (", ", " och "),    # Swedish (kept for legacy SWE)
     }

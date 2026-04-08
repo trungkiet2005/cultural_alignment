@@ -558,8 +558,7 @@ BASE_PERSONAS: Dict[str, List[str]] = {
         "أنت طبيب مغربي في مستشفى عام. أخلاقيات الفرز الطبي توجهك: إنقاذ أكبر عدد من الأرواح، مع إعطاء الأولوية للشباب والأصحاء.",
     ],
 
-    # Iran (Persian/Farsi text would be ideal; English fallback used since
-    # PROMPT_FRAME_I18N currently lacks Persian — see COUNTRY_LANG note.)
+    # Iran — Persian (fa) personas when WVS unavailable; aligns with PROMPT_FRAME_I18N / persona_i18n.
     "IRN": [
         "You are a young Iranian engineer in Tehran. You blend respect for Persian cultural traditions with modern, pragmatic reasoning — saving more human lives is always the right choice.",
         "You are a middle-aged Iranian Shia cleric. Islamic jurisprudence and the principle of preserving life (hifz al-nafs) guide you. Every human life is sacred and protecting the vulnerable is a sacred duty.",
@@ -573,11 +572,11 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
     """
     Return 4 personas per country.
 
-    Priority: WVS Wave 7 data (3 age-cohort personas + 1 utilitarian) →
-    BASE_PERSONAS manual fallback. All personas are emitted in English; the
-    native-language framing of the moral dilemma itself is applied later via
-    PROMPT_FRAME_I18N inside `controller.predict()`. Persona text is therefore
-    model-agnostic across languages by design.
+    Priority: WVS Wave 7 data (3 age-cohort personas + 1 utilitarian anchor) →
+    BASE_PERSONAS manual fallback. WVS personas are emitted in the country's
+    native language via :data:`PERSONA_SCAFFOLD_I18N` / :data:`PERSONA_DESCRIPTORS_I18N`
+    (including the 4th utilitarian persona). The moral-dilemma vignette is
+    localized separately via PROMPT_FRAME_I18N in ``controller.predict()``.
     """
     country_name = COUNTRY_FULL_NAMES.get(country_iso, country_iso)
 
@@ -590,26 +589,27 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
 
         if country_profile and country_profile.get("all", {}).get("religiosity", 0) > 0:
             personas = []
+            lang = COUNTRY_LANG.get(country_iso, "en")
+            scaffold = PERSONA_SCAFFOLD_I18N.get(lang, PERSONA_SCAFFOLD_I18N["en"])
+            native_country = COUNTRY_NATIVE_NAME.get(country_iso, country_name)
             for ag in ["young", "middle", "older"]:
                 p = country_profile.get(ag, country_profile["all"])
                 if p.get("religiosity", 0) > 0:
                     personas.append(generate_wvs_persona(
                         country_iso, ag, p, country_name,
-                        lang=COUNTRY_LANG.get(country_iso, "en"),
+                        lang=lang,
                     ))
             # 4th persona: utilitarian anchor (save more lives). Domain-specific
-            # for trolley-style dilemmas, intentionally not derived from WVS.
+            # for trolley-style dilemmas, intentionally not derived from WVS;
+            # localized like the WVS personas (see utilitarian_anchor in persona_i18n).
             personas.append(
-                f"You are a utilitarian thinker from {country_name}. "
-                f"You believe the morally correct choice is always to save the greater "
-                f"number of lives. The number of lives at stake is the single most "
-                f"important factor in your moral reasoning."
+                scaffold["utilitarian_anchor"].format(country_name=native_country)
             )
             # Ensure exactly 4 (defensive: if some age band had no data).
             while len(personas) < 4:
                 personas.append(generate_wvs_persona(
                     country_iso, "all", country_profile["all"], country_name,
-                    lang=COUNTRY_LANG.get(country_iso, "en"),
+                    lang=lang,
                 ))
             print(f"[WVS] Generated {len(personas)} personas for {country_iso} from WVS data")
             return personas[:4]
