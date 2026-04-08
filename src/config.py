@@ -1,4 +1,4 @@
-"""Configuration dataclasses and argument parsing for SWA-MPPI experiments."""
+"""Configuration dataclasses and argument parsing for SWA-PTIS experiments."""
 
 import os
 import argparse
@@ -100,17 +100,17 @@ class BaselineConfig(BaseConfig):
 
 
 # ============================================================================
-# SWA-MPPI configuration
+# SWA-PTIS configuration
 # ============================================================================
 @dataclass
 class SWAConfig(BaseConfig):
-    """Hyperparameters for the SWA-MPPI experiment."""
+    """Hyperparameters for the SWA-PTIS experiment."""
 
     output_dir: str = "results_swa"
 
-    # SWA-MPPI Core
+    # SWA-PTIS Core
     lambda_coop: float = 0.7
-    alpha_kl: float = 0.05
+    alpha_ctl: float = 0.05  # quadratic control cost (was alpha_kl; see paper Eq. 7)
 
     # Prospect Theory value function (Kahneman & Tversky, 1979)
     pt_alpha: float = 0.88            # gain curvature (diminishing sensitivity)
@@ -177,11 +177,12 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
 
 
 def add_swa_args(parser: argparse.ArgumentParser) -> None:
-    """Add SWA-MPPI-specific CLI flags."""
+    """Add SWA-PTIS-specific CLI flags."""
     parser.add_argument("--lambda-coop", type=float, default=0.7,
                         help="Cooperation weight lambda")
-    parser.add_argument("--alpha-kl", type=float, default=0.05,
-                        help="KL divergence penalty weight")
+    parser.add_argument("--alpha-ctl", "--alpha-kl", dest="alpha_ctl",
+                        type=float, default=0.05,
+                        help="Quadratic control-cost weight (was --alpha-kl)")
     parser.add_argument("--pt-alpha", type=float, default=0.88,
                         help="Prospect Theory gain curvature")
     parser.add_argument("--pt-beta", type=float, default=0.88,
@@ -189,11 +190,11 @@ def add_swa_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--pt-kappa", type=float, default=2.25,
                         help="Prospect Theory loss aversion coefficient")
     parser.add_argument("--K-samples", type=int, default=128,
-                        help="Number of MPPI perturbation samples")
+                        help="Number of importance-sampling perturbations")
     parser.add_argument("--noise-std", type=float, default=0.3,
-                        help="Standard deviation of MPPI noise")
+                        help="Standard deviation of the Gaussian proposal")
     parser.add_argument("--mppi-temperature", type=float, default=0.5,
-                        help="MPPI softmax temperature")
+                        help="Softmax temperature for IS weights")
     parser.add_argument("--logit-temperature", type=float, default=3.0,
                         help="Global logit temperature (overridden per-category)")
 
@@ -234,10 +235,10 @@ def config_from_args(args: argparse.Namespace, config_cls: type) -> BaseConfig:
     if args.use_synthetic_data:
         kwargs["use_real_data"] = False
 
-    # --- SWA-MPPI specific fields ---
+    # --- SWA-PTIS specific fields ---
     if config_cls is SWAConfig:
         for attr in (
-            "lambda_coop", "alpha_kl", "pt_alpha", "pt_beta", "pt_kappa",
+            "lambda_coop", "alpha_ctl", "pt_alpha", "pt_beta", "pt_kappa",
             "K_samples", "noise_std", "logit_temperature",
         ):
             val = getattr(args, attr, None)

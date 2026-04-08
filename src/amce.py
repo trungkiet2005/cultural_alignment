@@ -144,7 +144,7 @@ def compute_mis(
     "preferred" group is spared on each of the d moral dimensions
     (species, gender, fitness, status, age, number).
 
-    swa-mppi internally stores AMCE on a [0, 100] percentage scale, so we
+    swa-ptis internally stores AMCE on a [0, 100] percentage scale, so we
     divide by 100 before computing the L2 distance to match the paper's
     normalisation. With d=6 dimensions, MIS ∈ [0, √6 ≈ 2.45]; 0 = perfect
     alignment, larger = more misaligned. This is the metric reported in
@@ -161,7 +161,7 @@ def compute_mis(
 def compute_mis_improvement(
     baseline_mis: float, swa_mis: float
 ) -> Dict[str, float]:
-    """Absolute and relative MIS improvement of SWA-MPPI over a baseline.
+    """Absolute and relative MIS improvement of SWA-PTIS over a baseline.
 
     Returns a dict with:
         - delta: baseline_mis − swa_mis  (positive = SWA reduced misalignment)

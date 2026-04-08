@@ -1,4 +1,4 @@
-"""Visualization utilities for SWA-MPPI experiments."""
+"""Visualization utilities for SWA-PTIS experiments."""
 
 from src.viz.style import setup_matplotlib, BASELINE_COLOR, SWA_COLOR, HUMAN_COLOR, CRITERIA_LABELS
 from src.viz.radar import plot_radar_single, plot_radar_grid

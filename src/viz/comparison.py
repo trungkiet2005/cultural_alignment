@@ -1,4 +1,4 @@
-"""Baseline vs SWA-MPPI comparison plots (1:1 port from main.py)."""
+"""Baseline vs SWA-PTIS comparison plots (1:1 port from main.py)."""
 
 import os
 import numpy as np
@@ -19,7 +19,7 @@ def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
         swa_vals = [s["alignment"].get(metric, np.nan) for s in swa_summaries]
         vanilla_vals = [vanilla_metrics.get(c, {}).get(metric, np.nan) for c in countries]
         ax.bar(x - width / 2, vanilla_vals, width, label='Vanilla LLM', color='#BDBDBD', edgecolor='white')
-        ax.bar(x + width / 2, swa_vals, width, label='SWA-MPPI v3', color='#2196F3', edgecolor='white')
+        ax.bar(x + width / 2, swa_vals, width, label='SWA-PTIS v3', color='#2196F3', edgecolor='white')
         ax.set_xlabel("Country", fontsize=11); ax.set_ylabel(label, fontsize=11)
         ax.set_title(label, fontsize=13, fontweight='bold')
         ax.set_xticks(x); ax.set_xticklabels(countries, rotation=45, ha='right')
@@ -32,7 +32,7 @@ def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
 
 
 def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
-    """Publication-quality comparison table: Vanilla LLM vs SWA-MPPI v3."""
+    """Publication-quality comparison table: Vanilla LLM vs SWA-PTIS v3."""
 
     metrics = [
         ("MIS \u2193",       "mis",          ".4f", True),   # paper-aligned headline
@@ -156,7 +156,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
                 except (ValueError, IndexError):
                     pass
 
-    ax.set_title("Table: Vanilla LLM vs SWA-MPPI v3 \u2014 Cross-Cultural Alignment Comparison",
+    ax.set_title("Table: Vanilla LLM vs SWA-PTIS v3 \u2014 Cross-Cultural Alignment Comparison",
                  fontsize=14, fontweight='bold', pad=20)
     path = os.path.join(output_dir, "fig_comparison_table.pdf")
     plt.savefig(path, bbox_inches='tight')
@@ -168,7 +168,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
     latex_path = os.path.join(output_dir, "table_comparison.tex")
     with open(latex_path, 'w') as f:
         f.write("\\begin{table*}[t]\n\\centering\n")
-        f.write("\\caption{Vanilla LLM vs SWA-MPPI v3: Cross-Cultural Alignment Comparison}\n")
+        f.write("\\caption{Vanilla LLM vs SWA-PTIS v3: Cross-Cultural Alignment Comparison}\n")
         f.write("\\label{tab:comparison}\n\\scriptsize\n")
         col_spec = "l" + "rrr" * len(metrics) + "r"
         f.write("\\begin{tabular}{" + col_spec + "}\n")

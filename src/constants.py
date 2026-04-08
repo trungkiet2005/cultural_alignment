@@ -1,4 +1,4 @@
-"""Shared constants for the SWA-MPPI framework."""
+"""Shared constants for the SWA-PTIS framework."""
 
 from typing import Dict, List, Set, Tuple
 

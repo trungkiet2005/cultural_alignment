@@ -1,4 +1,4 @@
-"""WVS-based persona generation for SWA-MPPI cultural agents.
+"""WVS-based persona generation for SWA-PTIS cultural agents.
 
 Cultural variables follow the 10-variable scheme of Greco et al. (2025,
 "Culturally Grounded Personas in Large Language Models"), which derives
@@ -604,7 +604,7 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
             # ("save more lives, count outcomes only") that contrasts with
             # the WVS-derived cultural agents. Length is matched to P1-P3
             # so all four agents contribute roughly the same context to the
-            # MPPI prefix budget. Localized via UTILITARIAN_PERSONA_I18N.
+            # SWA-PTIS prefix budget. Localized via UTILITARIAN_PERSONA_I18N.
             utilitarian_template = UTILITARIAN_PERSONA_I18N.get(
                 lang, UTILITARIAN_PERSONA_I18N["en"]
             )

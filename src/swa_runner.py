@@ -1,4 +1,4 @@
-"""SWA-MPPI experiment runner for per-country evaluation."""
+"""SWA-PTIS experiment runner for per-country evaluation."""
 
 import gc
 import time
@@ -38,7 +38,7 @@ def run_country_experiment(
         tokenizer=tokenizer,
         personas=personas,
         lambda_coop=cfg.lambda_coop,
-        alpha_kl=cfg.alpha_kl,
+        alpha_ctl=cfg.alpha_ctl,
         K_samples=cfg.K_samples,
         noise_std=cfg.noise_std,
         temperature=cfg.temperature,

@@ -1,9 +1,24 @@
 """ImplicitSWAController: SWA-PTIS engine for cultural value negotiation.
 
 SWA-PTIS = Socially-Weighted Alignment with Prospect-Theory Importance Sampling.
-The algorithm applies a single-step KL-regularised importance-sampling update
-(which is the 1-step, 1-dimensional degeneration of MPPI) with a cooperative
-Prospect-Theory utility function aggregated over N culturally-grounded persona agents.
+
+The algorithm applies a single-step, scalar, KL-regularised importance-sampling
+update with a cooperative Prospect-Theory utility aggregated over N culturally
+grounded persona agents. See `src/controller.py::_is_solve_decision` for the
+math; it corresponds exactly to Eqs. (5)-(10) of the paper.
+
+Math summary:
+  Per-agent gain (logit-gap units, bounded, no unit mismatch, no explosion):
+      g_{i,k} = |delta_base - delta_i| - |delta_tilde_k - delta_i|
+  Consensus-target gain:
+      g_cons_k = |delta_base - delta_bar| - |delta_tilde_k - delta_bar|
+  Collective utility (mean-of-v, NOT v-of-mean -- preserves loss aversion):
+      U(eps_k) = (1 - lambda_coop) * mean_i v(g_{i,k})
+               +       lambda_coop  * v(g_cons_k)
+               -       alpha_ctl    * eps_k^2 / (2 * sigma^2)
+  Softmax weights / IS update:
+      w_k = softmax(U(eps_k) / eta)
+      delta_star = sum_k w_k * eps_k
 """
 
 import time
@@ -21,22 +36,26 @@ from src.model import ChatTemplateHelper
 
 
 # ============================================================================
-# CORE SWA-MPPI ENGINE (v3 — All Fixes Integrated)
+# CORE SWA-PTIS ENGINE (v4 — corrected math, all MPPI framing removed)
 # ============================================================================
 class ImplicitSWAController:
     """
     SWA-PTIS: Socially-Weighted Alignment with Prospect-Theory Importance Sampling.
 
-    Applies a KL-regularised importance-sampling update in logit space.
-    At a single decision step over a scalar decision gap δ, the MPPI
-    free-energy framework degenerates to importance sampling with a
-    KL-divergence regulariser — mathematically equivalent to KL-IS.
+    Applies a single-step KL-regularised importance-sampling update in logit
+    space with a cooperative Prospect-Theory utility. This is a standard
+    self-normalised importance sampler with a Boltzmann policy target; it is
+    NOT path-integral MPPI and does not inherit MPPI's multi-step derivation.
 
     Features:
       - Per-category logit temperature (T_cat) applied per predict() call
-      - Importance-sampling update runs unconditionally; self-attenuates when
-        persona rewards agree (delta_star → 0 as r_i variance → 0)
-      - Prospect-Theory value function for nonlinear loss-averse utility
+      - Importance-sampling update runs unconditionally; self-attenuates at
+        consensus (delta_star -> 0 as all delta_i -> delta_base)
+      - Prospect-Theory value function applied PER-PERSONA before averaging,
+        so loss aversion is preserved (no Jensen violation)
+      - Per-agent gain g_i = |delta_base - delta_i| - |delta_tilde - delta_i|
+        lives in logit-gap units (same as delta) — no sigma^2 amplification,
+        no logit-gap-squared unit mismatch
       - Logit-level positional debiasing (two-pass A↔B swap)
     """
 
@@ -46,7 +65,7 @@ class ImplicitSWAController:
         tokenizer,
         personas: List[str],
         lambda_coop: float = 0.7,
-        alpha_kl: float = 0.05,
+        alpha_ctl: float = 0.05,  # quadratic control cost strength (was alpha_kl)
         K_samples: int = 128,
         noise_std: float = 0.3,
         temperature: float = 0.5,
@@ -64,7 +83,7 @@ class ImplicitSWAController:
         self.N = len(personas)
         self.assistant_lang = assistant_lang
         self.lambda_coop = lambda_coop
-        self.alpha_kl = alpha_kl
+        self.alpha_ctl = alpha_ctl
         self.pt_alpha = pt_alpha
         self.pt_beta = pt_beta
         self.pt_kappa = pt_kappa
@@ -250,64 +269,85 @@ class ImplicitSWAController:
         )
 
     @torch.no_grad()
-    def _mppi_solve_decision(
+    def _is_solve_decision(
         self,
         delta_consensus: torch.Tensor,
-        r_agents: torch.Tensor,
+        delta_agents: torch.Tensor,
         z_base: torch.Tensor,
         sigma: Optional[float] = None,
     ) -> torch.Tensor:
-        """KL-regularised importance-sampling update (1-step IS / degenerate MPPI).
+        """Prospect-Theory weighted importance-sampling update (paper Eqs. 5-10).
 
         Args:
-            delta_consensus: mean T_cat-scaled decision gap across personas.
-            r_agents: per-agent rewards r_i = delta_i - delta_base (shape N).
+            delta_consensus: mean T_cat-scaled decision gap across personas (scalar).
+            delta_agents: per-persona decision gaps delta_i (shape [N]).
             z_base: base-model logits for [A, B] tokens (shape 1×2, T_cat-scaled).
-            sigma: noise std to use; defaults to self.noise_std (fixed) or
-                   the adaptive per-scenario value passed from _predict_single_pass.
+            sigma: noise std to use; defaults to the adaptive inter-agent spread
+                   computed upstream in _adaptive_noise_std.
+
+        Math:
+            g_{i,k} = |delta_base - delta_i| - |delta_tilde_k - delta_i|     (per-agent gain)
+            g_cons_k = |delta_base - delta_bar| - |delta_tilde_k - delta_bar|  (consensus gain)
+            U(eps_k) = (1 - lambda_coop) * mean_i v(g_{i,k})
+                     +       lambda_coop  * v(g_cons_k)
+                     -       alpha_ctl    * eps_k^2 / (2 sigma^2)
+            w_k       = softmax(U / eta)
+            delta_star= sum_k w_k * eps_k
+
+        Key corrections vs. the v3 formulation:
+            * Gain lives in logit-gap units (not logit-gap^2); no sigma^2 division
+              and no explosion when personas agree.
+            * v() is applied per-persona BEFORE averaging -> loss aversion is
+              preserved (fixes the previous Jensen violation).
+            * The alpha_ctl * eps^2/(2 sigma^2) term is identified honestly as a
+              quadratic control cost (= -log p(eps)), NOT a per-sample log
+              importance ratio. That claim was algebraically wrong.
         """
         sigma = sigma if sigma is not None else self.noise_std
-        # delta_base: scalar base decision gap (T_cat-scaled), same space as delta_consensus.
-        delta_base_scalar = z_base[0, 1] - z_base[0, 0]
+        delta_base_scalar = (z_base[0, 1] - z_base[0, 0])  # scalar (T_cat-scaled)
 
+        # Sample K perturbations from N(0, sigma^2)
         epsilon = torch.randn(self.K, device=self.device) * sigma
-        delta_pert = delta_consensus + epsilon
+        delta_tilde = delta_consensus + epsilon                         # shape (K,)
 
-        # Agreement score: r_i * (delta_pert - delta_base).
-        # Both factors are in the same relative space:
-        #   r_i = delta_i - delta_base  (persona's desired shift from base)
-        #   delta_pert - delta_base = mean(r_agents) + epsilon  (candidate's total
-        #     displacement from base, including the stochastic perturbation)
-        # The product is positive when the perturbation moves in the direction
-        # persona i wishes to move, and negative otherwise — a correct signed
-        # agreement score in units of logit-gap².
-        delta_rel = delta_pert - delta_base_scalar  # shape (K,)
+        # Distance from base to each persona's target (scalars).
+        # Shape: (N,)
+        dist_base_to_i = (delta_base_scalar - delta_agents).abs()
 
-        # KL penalty = per-sample log importance ratio log(p/q) for
-        # p = N(0, σ²), q = N(δ*, σ²). Scales as ε²/(2σ²).
-        kl_penalty = 0.5 * (epsilon ** 2) / (sigma ** 2 + 1e-8)
+        # Distance from every candidate delta_tilde_k to every persona i.
+        # Shape: (K, N).  delta_tilde: (K,) -> (K,1); delta_agents: (N,) -> (1,N).
+        dist_cand_to_i = (delta_tilde.unsqueeze(1) - delta_agents.unsqueeze(0)).abs()
 
-        # Normalise the agreement score by σ² so the PT input is dimensionless.
-        # Both r_i and delta_rel are in logit-gap units (scale ~ σ), so their
-        # product is in logit-gap² units (scale ~ σ²). Dividing by σ² yields a
-        # dimensionless signal-to-noise ratio that is comparable across model
-        # families and logit-temperature settings (see Eq. eq:agreement in paper).
-        sigma2 = sigma ** 2 + 1e-8
+        # Per-agent gain g_{i,k} = |base - delta_i| - |cand_k - delta_i|   shape (K, N)
+        g_per_agent = dist_base_to_i.unsqueeze(0) - dist_cand_to_i
 
-        U_total = torch.zeros(self.K, device=self.device)
-        for i in range(self.N):
-            r_i = r_agents[i].item()
-            r_others = (r_agents.sum() - r_agents[i]) / max(1, self.N - 1)
-            u_private = self._prospect_value(r_i * delta_rel / sigma2)
-            u_social = self._prospect_value(r_others.item() * delta_rel / sigma2)
-            u_i = (1 - self.lambda_coop) * u_private + self.lambda_coop * u_social
-            U_total += u_i
-        U_total /= self.N
-        U_total -= self.alpha_kl * kl_penalty
+        # Apply v() PER AGENT then mean over personas -> preserves loss aversion.
+        v_per_agent = self._prospect_value(g_per_agent)                 # (K, N)
+        mean_v_individual = v_per_agent.mean(dim=1)                     # (K,)
 
+        # Consensus-target gain:
+        #   delta_bar = mean_i delta_i  (same as delta_consensus)
+        #   g_cons_k = |base - delta_bar| - |cand_k - delta_bar|
+        delta_bar = delta_consensus
+        g_cons = (delta_base_scalar - delta_bar).abs() - (delta_tilde - delta_bar).abs()
+        v_consensus = self._prospect_value(g_cons)                      # (K,)
+
+        # Quadratic control cost = -log p(eps_k) up to constant.
+        # Honest interpretation: trust-region penalty on |eps|. NOT log(p/q).
+        control_cost = 0.5 * (epsilon ** 2) / (sigma ** 2 + 1e-8)        # (K,)
+
+        # Collective utility, paper Eq. (7).
+        U_total = (
+            (1.0 - self.lambda_coop) * mean_v_individual
+            + self.lambda_coop * v_consensus
+            - self.alpha_ctl * control_cost  # paper Eq. (7): quadratic control cost
+        )
+
+        # Softmax-weighted importance sampling estimate of the optimal shift.
         weights = F.softmax(U_total / self.beta, dim=0)
         delta_star = torch.sum(weights * epsilon)
         return delta_star
+
 
     @torch.no_grad()
     def _swap_positional_labels(self, user_query: str, lang: str) -> Tuple[str, bool]:
@@ -371,19 +411,21 @@ class ImplicitSWAController:
 
         z_base, z_agents = self._evaluate_all_agents(query_ids, lang, logit_temp=logit_temp)
         r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
+        delta_agents = z_agents[:, 1] - z_agents[:, 0]  # per-persona logit gaps
 
         # Adaptive σ: scale noise to the empirical inter-agent logit spread so
         # the perturbation magnitude is commensurate with actual disagreement,
         # rather than fixed across all models and categories.
         sigma = self._adaptive_noise_std(z_agents)
 
-        # KL-IS update runs unconditionally; self-attenuates when r_agents ≈ 0.
-        delta_star = self._mppi_solve_decision(delta_consensus, r_agents, z_base, sigma=sigma)
+        # IS update runs unconditionally; self-attenuates at consensus because
+        # every g_{i,k} becomes a loss when all personas collapse to delta_base.
+        delta_star = self._is_solve_decision(delta_consensus, delta_agents, z_base, sigma=sigma)
         delta_opt = delta_consensus + delta_star
 
         consensus_sign = (delta_consensus > 0).item()
         opt_sign = (delta_opt > 0).item() if hasattr(delta_opt, 'item') else (delta_opt > 0)
-        mppi_flipped = consensus_sign != opt_sign
+        mppi_flipped = consensus_sign != opt_sign  # diagnostic name kept for logs
 
         p_right = torch.sigmoid(delta_opt / self.decision_temperature).item()
 
@@ -418,7 +460,7 @@ class ImplicitSWAController:
         lang: str = "en",
     ) -> Dict:
         """
-        Run SWA-MPPI prediction with positional debiasing.
+        Run SWA-PTIS prediction with positional debiasing.
 
         Runs TWO passes — original and A/B-swapped — to cancel out
         the model's intrinsic token bias toward option A or option B.

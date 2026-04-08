@@ -2253,7 +2253,7 @@ COUNTRY_NATIVE_NAME: Dict[str, str] = {
 # utilitarian who weighs outcomes purely by total welfare and number of
 # lives saved, with no cultural conditioning. Length is matched to the
 # WVS-derived P1-P3 (~150-180 words) so all four agents contribute roughly
-# the same amount of context to the MPPI prefix budget.
+# the same amount of context to the SWA-PTIS prefix budget.
 #
 # Each entry is a single string with one ``{country_name}`` placeholder.
 UTILITARIAN_PERSONA_I18N: Dict[str, str] = {

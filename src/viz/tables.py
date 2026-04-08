@@ -1,4 +1,4 @@
-"""Results table visualizations (baseline and SWA-MPPI variants)."""
+"""Results table visualizations (baseline and SWA-PTIS variants)."""
 
 import os
 
@@ -20,7 +20,7 @@ def plot_results_table(all_summaries, output_dir, mode="baseline"):
         Directory to write output files.
     mode : str
         ``"baseline"`` for 7-column vanilla LLM table,
-        ``"swa"`` for SWA-MPPI table (adds Flip %, Latency).
+        ``"swa"`` for SWA-PTIS table (adds Flip %, Latency).
     """
     if mode == "swa":
         _plot_swa_results_table(all_summaries, output_dir)
@@ -69,7 +69,7 @@ def _plot_baseline_results_table(all_summaries, output_dir):
 
 
 def _plot_swa_results_table(all_summaries, output_dir):
-    """SWA-MPPI results table (MIS as paper-aligned headline metric)."""
+    """SWA-PTIS results table (MIS as paper-aligned headline metric)."""
     columns = ["Country", "MIS \u2193", "JSD", "Cosine", "Pearson r",
                "Spearman \u03c1", "MAE", "RMSE", "Flip %", "Latency (ms)"]
     rows = []
@@ -103,13 +103,13 @@ def _plot_swa_results_table(all_summaries, output_dir):
 
     header_color = SWA_COLOR
     mean_bg = '#E3F2FD'
-    title = "Table 1: SWA-MPPI v3 Cross-Cultural Alignment Results"
+    title = "Table 1: SWA-PTIS v3 Cross-Cultural Alignment Results"
     label = "tab:results"
 
     _render_table_figure(rows, columns, header_color, mean_bg, title, output_dir,
                          fig_width=20)
     _render_table_latex(rows, columns,
-                        "SWA-MPPI v3 Cross-Cultural Alignment Results",
+                        "SWA-PTIS v3 Cross-Cultural Alignment Results",
                         label, output_dir)
 
 

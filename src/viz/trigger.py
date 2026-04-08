@@ -1,4 +1,4 @@
-"""Decision gap visualizations (SWA-MPPI specific)."""
+"""Decision gap visualizations (SWA-PTIS specific)."""
 
 import os
 
@@ -36,7 +36,7 @@ def plot_decision_gap_analysis(all_summaries, config, output_dir):
         ax2.scatter(vars_arr[:n], dz_arr[:n], alpha=0.3, s=15, color=color_map[i], label=s["country"])
     ax2.set_xlabel("Inter-Agent Variance", fontsize=11)
     ax2.set_ylabel("MPPI Correction Magnitude", fontsize=11)
-    ax2.set_title("(b) When Does MPPI Push Hard?", fontsize=12, fontweight='bold')
+    ax2.set_title("(b) When Does IS Push Hard?", fontsize=12, fontweight='bold')
     ax2.legend(fontsize=8, ncol=2, loc='upper left'); ax2.set_xscale('log')
 
     ax3 = axes[2]
@@ -46,7 +46,7 @@ def plot_decision_gap_analysis(all_summaries, config, output_dir):
     for i, name in enumerate(countries):
         ax3.annotate(name, (mean_dz[i], pearson_rs[i]),
                      xytext=(5, 5), textcoords='offset points', fontsize=9)
-    ax3.set_xlabel("Mean MPPI Intervention Strength", fontsize=11)
+    ax3.set_xlabel("Mean IS Intervention Strength", fontsize=11)
     ax3.set_ylabel("Pearson r (Alignment)", fontsize=11)
     ax3.set_title("(c) Intervention Strength vs Alignment", fontsize=12, fontweight='bold')
 

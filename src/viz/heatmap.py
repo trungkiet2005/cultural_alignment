@@ -1,4 +1,4 @@
-"""Alignment heatmap visualization (SWA-MPPI specific)."""
+"""Alignment heatmap visualization (SWA-PTIS specific)."""
 
 import os
 
@@ -26,7 +26,7 @@ def plot_alignment_heatmap(all_summaries, output_dir):
     ax1.set_xticklabels(countries, rotation=45, ha="right", fontsize=10)
     ax1.set_yticklabels(countries, fontsize=10)
     ax1.set_xlabel("Human Target Country", fontsize=12)
-    ax1.set_ylabel("SWA-MPPI Model (Persona Country)", fontsize=12)
+    ax1.set_ylabel("SWA-PTIS Model (Persona Country)", fontsize=12)
     ax1.set_title("(a) Cross-Cultural JSD Matrix", fontsize=13, fontweight='bold')
     for i in range(n):
         for j in range(n):
