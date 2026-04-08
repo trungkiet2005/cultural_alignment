@@ -13,7 +13,12 @@ from src.config import SWAConfig
 from src.constants import COUNTRY_LANG
 from src.i18n import PROMPT_FRAME_I18N
 from src.controller import ImplicitSWAController
-from src.amce import compute_amce_from_preferences, load_human_amce, compute_alignment_metrics
+from src.amce import (
+    compute_amce_from_preferences,
+    compute_utilitarianism_slope,
+    load_human_amce,
+    compute_alignment_metrics,
+)
 
 
 def run_country_experiment(
@@ -136,8 +141,14 @@ def run_country_experiment(
 
     results_df = pd.DataFrame(results)
 
-    # Corrected AMCE
+    # Primary metric: mean preference rate per category (MultiTP convention).
     model_amce = compute_amce_from_preferences(results_df)
+
+    # Supplementary diagnostic: OLS slope on the Utilitarianism scenarios.
+    # This is NOT used in the JSD/MIS metrics (they need MPRs to match the
+    # human ground-truth format), but it isolates the slope from the MPR
+    # intercept confound discussed in the paper.
+    util_slope = compute_utilitarianism_slope(results_df)
 
     human_amce = load_human_amce(cfg.human_amce_path, country_iso)
     alignment = compute_alignment_metrics(model_amce, human_amce)
@@ -155,6 +166,7 @@ def run_country_experiment(
         "model_amce": model_amce,
         "human_amce": human_amce,
         "alignment": alignment,
+        "utilitarianism_slope": util_slope,
         "diagnostics": diagnostics,
     }
 
@@ -170,8 +182,13 @@ def run_country_experiment(
         print(f"  Pearson r:         {alignment['pearson_r']:.4f} (p={alignment['pearson_p']:.4f})")
         print(f"  Cosine sim:        {alignment['cosine_sim']:.4f}")
         print(f"  MAE:               {alignment['mae']:.2f}")
-    print(f"  Model AMCE: { {k: f'{v:.1f}' for k, v in model_amce.items()} }")
-    print(f"  Human AMCE: { {k: f'{v:.1f}' for k, v in human_amce.items()} }")
+    print(f"  Model MPR : { {k: f'{v:.1f}' for k, v in model_amce.items()} }")
+    print(f"  Human MPR : { {k: f'{v:.1f}' for k, v in human_amce.items()} }")
+    if util_slope.get("n_obs", 0) >= 3:
+        print(f"  Util slope: b_hat={util_slope['slope_hat']:+.4f} "
+              f"(se={util_slope['slope_se']:.4f}, "
+              f"intercept a_hat={util_slope['intercept_hat']:.3f}, "
+              f"n={util_slope['n_obs']})  [diagnostic, NOT in JSD]")
 
     del controller
     torch.cuda.empty_cache()

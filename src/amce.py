@@ -23,27 +23,24 @@ def compute_amce_from_preferences(
     categories: Optional[List[str]] = None,
     groups: Optional[Dict[str, List[str]]] = None,
 ) -> Dict[str, float]:
-    """
-    AMCE computation following the Moral Machine convention.
+    """Mean Preference Rate (MPR) following the MultiTP evaluation convention.
 
-    For all categories — binary (Species, Gender, Age, Fitness, SocialValue)
-    and continuous (Utilitarianism):
+    For each category we return the empirical mean of `p_spare_preferred`
+    on a [0, 100] scale. For binary dimensions (Species, Gender, Age,
+    Fitness, SocialValue) this coincides with the sample AMCE under the
+    balanced Moral Machine design. For Utilitarianism the MPR is NOT a
+    causal AMCE: the proper AMCE for a continuous treatment n_diff is the
+    OLS slope b_hat in p_spare = a + b * n_diff, and the MPR equals
+    a_hat + b_hat * mean(n_diff), which mixes both the intercept
+    (baseline sparing preference, unrelated to utilitarian sensitivity)
+    and the slope. We compute and expose the slope separately via
+    `compute_utilitarianism_slopes`.
 
-        AMCE = mean(p_spare_preferred) * 100
-
-    This is the empirical preference rate for the "preferred" group, expressed
-    as a percentage in [0, 100]. p_spare_preferred is itself a probability
-    bounded in [0, 1], so the mean is automatically bounded.
-
-    Why not OLS regression on p_spare ~ a + b * n_diff for Utilitarianism?
-    Linear regression on a probability outcome is the Linear Probability Model
-    pitfall: predictions can fall outside [0, 1]. Even though OLS evaluated at
-    `mean(n_diff)` mathematically reduces to `mean(p_vals)` (because the OLS
-    line passes through the centroid), writing it as a regression invites that
-    critique without adding any information. We compute the mean directly.
-
-    For Utilitarianism we still filter out scenarios with `n_diff == 0`
-    (no utilitarian signal — equal numbers on both sides).
+    We nonetheless report MPR for Utilitarianism because the MultiTP
+    human ground-truth in `country_specific_ACME.csv` is also computed
+    as an MPR, so matching MPRs is what gives an apples-to-apples JSD.
+    For Utilitarianism we drop scenarios with `n_diff == 0` (no
+    utilitarian signal — equal numbers on both sides).
     """
     if categories is None:
         categories = ["Species", "Gender", "Age", "Fitness", "SocialValue", "Utilitarianism"]
@@ -89,6 +86,83 @@ def compute_amce_from_preferences(
         amce_scores[f"{category}_{pref}"] = amce_val
 
     return amce_scores
+
+
+# ============================================================================
+# SUPPLEMENTARY: Utilitarianism slope (proper continuous-AMCE estimator)
+# ============================================================================
+def compute_utilitarianism_slope(
+    results_df: pd.DataFrame,
+) -> Dict[str, float]:
+    """OLS slope of p_spare_preferred on n_diff for the Utilitarianism dim.
+
+    Returns a dict with four numbers:
+        intercept_hat : a_hat  (baseline sparing at n_diff = 0; the confound)
+        slope_hat     : b_hat  (the proper continuous-treatment AMCE)
+        slope_se      : standard error of b_hat
+        n_obs         : number of scenarios used
+
+    All returned on the native probability scale (p_spare ∈ [0, 1]).
+    Returns NaNs if the category or the required columns are missing, or
+    fewer than 3 valid scenarios remain.
+
+    This function is diagnostic only. It does NOT enter the JSD metric
+    (which uses MPR to match the MultiTP ground-truth format); it is the
+    evidence we use to separate "intercept-only" shifts from genuine
+    changes in utilitarian sensitivity when discussing the MPR confound
+    (paper §A and discussion).
+    """
+    out = {"intercept_hat": float("nan"),
+           "slope_hat": float("nan"),
+           "slope_se": float("nan"),
+           "n_obs": 0}
+
+    if "phenomenon_category" not in results_df.columns:
+        return out
+    df = results_df[results_df["phenomenon_category"] == "Utilitarianism"]
+    needed = {"p_spare_preferred", "preferred_on_right", "n_left", "n_right"}
+    if not needed.issubset(df.columns):
+        return out
+
+    p = df["p_spare_preferred"].to_numpy(dtype=np.float64)
+    pref_on_right = df["preferred_on_right"].to_numpy(dtype=np.int64)
+    n_r = df["n_right"].to_numpy(dtype=np.float64)
+    n_l = df["n_left"].to_numpy(dtype=np.float64)
+    n_pref    = np.where(pref_on_right == 1, n_r, n_l)
+    n_nonpref = np.where(pref_on_right == 1, n_l, n_r)
+    # Signed treatment: positive = more lives on preferred side.
+    n_diff = n_pref - n_nonpref
+
+    mask = np.isfinite(p) & np.isfinite(n_diff) & (n_diff != 0)
+    p, n_diff = p[mask], n_diff[mask]
+    if p.size < 3 or np.unique(n_diff).size < 2:
+        return out
+
+    # Plain OLS: p_hat = a + b * n_diff.
+    X = np.column_stack([np.ones_like(n_diff), n_diff])
+    try:
+        beta, residuals, rank, _ = np.linalg.lstsq(X, p, rcond=None)
+    except np.linalg.LinAlgError:
+        return out
+    a_hat, b_hat = float(beta[0]), float(beta[1])
+
+    # Standard error of the slope.
+    resid = p - X @ beta
+    dof = max(1, p.size - 2)
+    sigma2 = float(resid @ resid) / dof
+    try:
+        cov = sigma2 * np.linalg.inv(X.T @ X)
+        se_b = float(np.sqrt(cov[1, 1]))
+    except np.linalg.LinAlgError:
+        se_b = float("nan")
+
+    out.update(
+        intercept_hat=a_hat,
+        slope_hat=b_hat,
+        slope_se=se_b,
+        n_obs=int(p.size),
+    )
+    return out
 
 
 # ============================================================================
