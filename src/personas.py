@@ -40,6 +40,13 @@ from collections import defaultdict
 from typing import Dict, List, Set, Tuple
 
 from src.constants import COUNTRY_FULL_NAMES, COUNTRY_LANG
+from src.persona_i18n import (
+    PERSONA_DESCRIPTORS_I18N,
+    PERSONA_TEMPLATES_I18N,
+    PERSONA_SCAFFOLD_I18N,
+    COUNTRY_NATIVE_NAME,
+    validate_i18n_completeness,
+)
 
 
 # (q_codes, human_label, expected_range, direction)
@@ -187,89 +194,16 @@ def load_wvs_profiles(wvs_csv_path: str, target_countries: List[str]) -> Dict[st
 # ---------------------------------------------------------------------------
 # Categorical descriptors per cultural variable
 # ---------------------------------------------------------------------------
-# For each dimension we keep a 4-way categorical mapping (high / mid-high /
-# mid-low / low) along the *positive pole* of the variable as defined in
-# WVS_DIMS. The "positive pole" is determined by the ``direction`` field:
-# +1 means raw value already monotonically increases with the positive pole,
-# -1 means we flip it.
-#
-# Cuts are quartiles in [0, 1] of the dimension's expected range. They are
-# intentionally simple and uniform; per-dimension calibration would be more
-# accurate but is left as a downstream tweak.
-#
-# Each entry is a list of 4 strings ordered from "highest positive pole" to
-# "lowest positive pole".
-#
-# Each descriptor is an adjectival / participial phrase that fits naturally
-# after "you are" in second-person voice; sentence templates below pair
-# them with verbs that match the subject "you". This avoids the broken
-# third-person grammar that occurs when the descriptor itself contains a
-# conjugated verb (e.g. "strongly emphasises"). For dimensions whose
-# descriptor needs a different verb than "are" (e.g. trust → "have"),
-# the sentence template supplies that verb.
-DIM_DESCRIPTORS: Dict[str, List[str]] = {
-    "religiosity": [
-        "deeply religious",
-        "moderately religious",
-        "somewhat secular",
-        "highly secular",
-    ],
-    "child_rearing": [
-        # Positive pole = secular "independence/imagination" (Greco et al.).
-        "firmly oriented toward independence and imagination",
-        "leaning toward independence and imagination",
-        "leaning toward obedience and religious faith",
-        "firmly oriented toward obedience and religious faith",
-    ],
-    "moral_acceptability": [
-        "very permissive on contested moral issues such as abortion, divorce and homosexuality",
-        "moderately permissive on contested moral issues",
-        "morally conservative on contested issues",
-        "strictly opposed to such contested moral acts",
-    ],
-    "social_trust": [
-        "very high trust in other people",
-        "moderate trust in other people",
-        "a guarded attitude toward strangers",
-        "deep distrust of other people",
-    ],
-    "political_participation": [
-        "an active political participant who signs petitions, joins boycotts and takes part in lawful demonstrations",
-        "an occasional political participant",
-        "a passive political participant",
-        "politically disengaged",
-    ],
-    "national_pride": [
-        "intensely proud of your country",
-        "moderately proud of your country",
-        "lukewarm about national pride",
-        "not proud of your country",
-    ],
-    "happiness": [
-        "very happy with your life",
-        "rather happy with your life",
-        "not very happy with your life",
-        "unhappy with your life",
-    ],
-    "gender_equality": [
-        "strongly egalitarian on gender roles",
-        "moderately egalitarian on gender roles",
-        "somewhat traditional on gender roles",
-        "strongly traditional on gender roles",
-    ],
-    "materialism_orientation": [
-        "strongly post-materialist, prioritising freedom, voice and self-expression",
-        "leaning post-materialist",
-        "leaning materialist, prioritising economic and physical security",
-        "strongly materialist, prioritising economic and physical security",
-    ],
-    "tolerance_diversity": [
-        "highly tolerant of outgroups such as immigrants, minorities and people with different lifestyles",
-        "moderately tolerant of outgroups",
-        "somewhat intolerant of outgroups",
-        "strongly intolerant of outgroups",
-    ],
-}
+# Descriptors for each dimension are now sourced from
+# :mod:`src.persona_i18n`, which ships pre-translated strings for 18
+# languages. The English baseline is exposed here under DIM_DESCRIPTORS for
+# backwards compatibility with any caller that imports it directly.
+DIM_DESCRIPTORS: Dict[str, List[str]] = PERSONA_DESCRIPTORS_I18N["en"]
+
+# Validate at import time that every language in persona_i18n has all
+# 10 dimensions defined. Raises if a translation file is incomplete —
+# better to fail at import than to silently emit a wrong-language persona.
+validate_i18n_completeness(list(WVS_DIMS.keys()))
 
 
 def _normalised_score(dim_name: str, value: float) -> float:
@@ -292,7 +226,7 @@ def _normalised_score(dim_name: str, value: float) -> float:
     return raw
 
 
-def describe_value(dim_name: str, value: float) -> str:
+def describe_value(dim_name: str, value: float, lang: str = "en") -> str:
     """Convert a WVS dimension mean into a natural-language descriptor.
 
     Quartile cuts on the *positive-pole-normalised* score:
@@ -300,11 +234,16 @@ def describe_value(dim_name: str, value: float) -> str:
         score ≥ 0.50 → descriptor[1]
         score ≥ 0.25 → descriptor[2]
         score <  0.25 → descriptor[3]   (strong negative)
+
+    ``lang`` selects the language version of the descriptor from
+    :data:`PERSONA_DESCRIPTORS_I18N`. Falls back to English if the
+    requested language is missing.
     """
     score = _normalised_score(dim_name, value)
     if score < 0:
         return ""
-    descriptors = DIM_DESCRIPTORS.get(dim_name)
+    lang_dict = PERSONA_DESCRIPTORS_I18N.get(lang, PERSONA_DESCRIPTORS_I18N["en"])
+    descriptors = lang_dict.get(dim_name)
     if not descriptors:
         return ""
     if score >= 0.75: return descriptors[0]
@@ -313,34 +252,10 @@ def describe_value(dim_name: str, value: float) -> str:
     return descriptors[3]
 
 
-# Sentence templates for the cultural mapping section. Each template takes
-# the descriptor returned by ``describe_value`` and weaves it into a
-# first-person line that grounds the persona's behaviour in the variable.
-# Following Greco et al. (2025), each cultural variable contributes its
-# own explicit sentence so that the moral worldview is structured rather
-# than a flat trait list.
-DIM_SENTENCE_TEMPLATES: Dict[str, str] = {
-    "religiosity":
-        "On matters of faith you are {desc}.",
-    "child_rearing":
-        "On raising children you are {desc}.",
-    "moral_acceptability":
-        "On contested moral choices you are {desc}.",
-    "social_trust":
-        "In your dealings with strangers you have {desc}.",
-    "political_participation":
-        "Civically you are {desc}.",
-    "national_pride":
-        "You are {desc}.",
-    "happiness":
-        "Overall you are {desc}.",
-    "gender_equality":
-        "On the role of women in society you are {desc}.",
-    "materialism_orientation":
-        "In what you prioritise in life you are {desc}.",
-    "tolerance_diversity":
-        "Toward people unlike yourself you are {desc}.",
-}
+# Backwards-compatible English alias of the i18n sentence templates.
+# Callers that import DIM_SENTENCE_TEMPLATES directly continue to see the
+# English version; the rest of the file uses ``PERSONA_TEMPLATES_I18N[lang]``.
+DIM_SENTENCE_TEMPLATES: Dict[str, str] = PERSONA_TEMPLATES_I18N["en"]
 
 
 def generate_wvs_persona(country_iso: str, age_group: str,
@@ -356,19 +271,27 @@ def generate_wvs_persona(country_iso: str, age_group: str,
            skipped.
         3. **Closing line** — explicit anchor that the persona reasons
            about moral dilemmas through these values.
-    """
-    age_desc = {
-        "young": ("young adult", "in your 20s and early 30s"),
-        "middle": ("middle-aged adult", "in your 40s or 50s"),
-        "older": ("senior citizen", "over 60 years old"),
-        "all":   ("adult citizen", ""),
-    }
-    role, age_range = age_desc.get(age_group, ("adult citizen", ""))
 
-    header = (
-        f"You are a {role} from {country_name}"
-        f"{', ' + age_range if age_range else ''}. "
-        f"Your worldview is shaped by the cultural values prevalent in your community."
+    All three parts are emitted in ``lang`` using
+    :data:`PERSONA_SCAFFOLD_I18N`, :data:`PERSONA_TEMPLATES_I18N` and
+    :data:`PERSONA_DESCRIPTORS_I18N`. ``country_name`` is replaced by the
+    native-language form from :data:`COUNTRY_NATIVE_NAME` when available.
+    Falls back to English if the requested language has no entry.
+    """
+    # Pick the language scaffold (header / closing / age labels). Fallback
+    # to English keeps the function defensive against unknown lang codes.
+    scaffold = PERSONA_SCAFFOLD_I18N.get(lang, PERSONA_SCAFFOLD_I18N["en"])
+    templates = PERSONA_TEMPLATES_I18N.get(lang, PERSONA_TEMPLATES_I18N["en"])
+
+    role, age_range = scaffold["ages"].get(age_group, scaffold["ages"]["all"])
+
+    # Native-language country name (e.g. "中国" for CHN/zh, "Việt Nam" for VNM/vi).
+    native_country = COUNTRY_NATIVE_NAME.get(country_iso, country_name)
+
+    header = scaffold["header"].format(
+        role=role,
+        country_name=native_country,
+        age_range=age_range,
     )
 
     # Build the cultural-variable mapping in the canonical paper order.
@@ -377,24 +300,25 @@ def generate_wvs_persona(country_iso: str, age_group: str,
         val = profile.get(dim_name, 0.0)
         if val <= 0:
             continue
-        desc = describe_value(dim_name, val)
+        desc = describe_value(dim_name, val, lang=lang)
         if not desc:
             continue
-        template = DIM_SENTENCE_TEMPLATES.get(dim_name)
+        template = templates.get(dim_name)
         if not template:
             continue
         mapping_lines.append(template.format(desc=desc))
 
-    closing = (
-        "When you face a moral dilemma, you weigh the choices through this set of values "
-        "and answer in a way that is consistent with the worldview above."
-    )
+    closing = scaffold["closing"]
 
     if not mapping_lines:
         # Defensive: if no WVS dimension loaded for this profile, fall back
         # to a minimal but non-degenerate header (caller should ideally use
         # BASE_PERSONAS instead).
-        return f"{header} {closing}"
+        return scaffold["fallback_minimal"].format(
+            role=role,
+            country_name=native_country,
+            age_range=age_range,
+        )
 
     return header + " " + " ".join(mapping_lines) + " " + closing
 
