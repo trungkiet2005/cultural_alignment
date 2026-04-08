@@ -117,15 +117,21 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         pad_id = tokenizer.eos_token_id
 
     def _pad_batch(seqs):
-        lens = [s.size(0) for s in seqs]
-        max_len = max(lens)
+        """Right-pad batch, return (ids, lengths). NO attention_mask.
+
+        Unsloth's patched attention for Gemma2 / GPT-OSS mishandles 2D masks
+        under Transformers >=5.2. With causal attention + right-pad, logits at
+        the last real token position depend only on real tokens, so no mask
+        is required — we gather at `lengths[i] - 1` instead of `-1`.
+        """
+        lens = torch.tensor([s.size(0) for s in seqs],
+                            dtype=torch.long, device=device)
+        max_len = int(lens.max().item())
         ids = torch.full((len(seqs), max_len), pad_id,
                          dtype=seqs[0].dtype, device=device)
-        attn = torch.zeros((len(seqs), max_len), dtype=torch.long, device=device)
         for j, s in enumerate(seqs):
-            ids[j, max_len - lens[j]:] = s
-            attn[j, max_len - lens[j]:] = 1
-        return ids, attn
+            ids[j, : s.size(0)] = s
+        return ids, lens
 
     def _auto_batch_size():
         """Empirically pick the largest batch that fits in 80% of free VRAM."""
@@ -141,9 +147,9 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         while bs <= min(1024, len(sorted_seqs)):
             try:
                 torch.cuda.empty_cache()
-                ids, attn = _pad_batch(sorted_seqs[:bs])
+                ids, _lens = _pad_batch(sorted_seqs[:bs])
                 with torch.no_grad():
-                    _ = model(input_ids=ids, attention_mask=attn, use_cache=False)
+                    _ = model(input_ids=ids, use_cache=False)
                 free_after, _ = torch.cuda.mem_get_info(device)
                 used = free_before - free_after
                 if used > budget:
@@ -175,11 +181,12 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
                       desc=f"Vanilla [{country}]"):
         chunk = rows_data[start:start + batch_size]
         seqs = [t[1][0] for t in chunk]                 # 1D tensors
-        # Left-pad so the last token (where we read logits) is always position -1
-        input_ids, attn = _pad_batch(seqs)
+        # Right-pad and gather at the last real token position for each row.
+        input_ids, lens = _pad_batch(seqs)
         with torch.no_grad():
-            out = model(input_ids=input_ids, attention_mask=attn, use_cache=False)
-            last = out.logits[:, -1, :]
+            out = model(input_ids=input_ids, use_cache=False)
+            batch_idx = torch.arange(input_ids.size(0), device=device)
+            last = out.logits[batch_idx, lens - 1, :]
             pair = torch.stack([last[:, a_id], last[:, b_id]], dim=-1)
             probs = F.softmax(pair / temperature, dim=-1).float().cpu().numpy()
 

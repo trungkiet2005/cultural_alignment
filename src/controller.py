@@ -170,22 +170,27 @@ class ImplicitSWAController:
 
         all_prefixes = [self.base_prefix_ids] + self.persona_prefix_ids
         seqs = [torch.cat([p, query_ids], dim=1) for p in all_prefixes]
-        max_len = max(s.shape[1] for s in seqs)
+        lengths = torch.tensor(
+            [s.shape[1] for s in seqs], dtype=torch.long, device=self.device,
+        )
+        max_len = int(lengths.max().item())
 
-        batch_ids, batch_mask = [], []
-        for s in seqs:
-            pad_len = max_len - s.shape[1]
-            batch_ids.append(F.pad(s, (pad_len, 0), value=self.pad_id))
-            batch_mask.append(F.pad(
-                torch.ones(1, s.shape[1], dtype=torch.long, device=self.device),
-                (pad_len, 0), value=0,
-            ))
+        # Right-pad (not left-pad) and DO NOT pass attention_mask. Unsloth's
+        # patched attention for Gemma2 / GPT-OSS mishandles 2D masks under
+        # Transformers >=5.2 (Gemma2: broadcast bug in slow_attention_softcapping;
+        # GPT-OSS: IndexError in inplace_eager_attention_forward). With causal
+        # attention + right-pad, logits at `lengths[i] - 1` depend only on real
+        # tokens 0..len-1, so no mask is required.
+        batch_ids = torch.full(
+            (len(seqs), max_len), self.pad_id,
+            dtype=seqs[0].dtype, device=self.device,
+        )
+        for i, s in enumerate(seqs):
+            batch_ids[i, : s.shape[1]] = s[0]
 
-        batch_ids = torch.cat(batch_ids, dim=0)
-        batch_mask = torch.cat(batch_mask, dim=0)
-
-        out = self.model(input_ids=batch_ids, attention_mask=batch_mask, use_cache=False)
-        logits = out.logits[:, -1, :]
+        out = self.model(input_ids=batch_ids, use_cache=False)
+        batch_idx = torch.arange(len(seqs), device=self.device)
+        logits = out.logits[batch_idx, lengths - 1, :]
 
         # Index 0 -> "A" token, index 1 -> "B" token (per-language correct ids).
         z_decision = logits[:, [a_id, b_id]] / logit_temp
