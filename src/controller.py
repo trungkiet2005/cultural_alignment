@@ -286,47 +286,58 @@ class ImplicitSWAController:
             delta_tilde_k = delta_bar + eps_k,    eps_k ~ N(0, sigma^2)
             g_{i,k}   = |delta_base - delta_i| - |delta_tilde_k - delta_i|
             g_cons_k  = |delta_base - delta_bar| - |delta_tilde_k - delta_bar|
-            U(eps_k)  = (1 - lambda_coop) * mean_i v(g_{i,k})
-                      +       lambda_coop  * v(g_cons_k)
+            # sigma-normalised gain (dimensionless; cancels T_cat scale):
+            tilde{g}_{i,k}  = g_{i,k}  / sigma
+            tilde{g}_cons_k = g_cons_k / sigma
+            U(eps_k)  = (1 - lambda_coop) * mean_i v(tilde{g}_{i,k})
+                      +       lambda_coop  * v(tilde{g}_cons_k)
             w_k       = softmax(U / eta)
             delta_star= sum_k w_k * eps_k
 
-        Design invariants (all checked numerically in the paper):
-            * g_i lives in logit-gap units (same as delta_i, delta_base);
-              no unit mismatch and no sigma^2 amplification.
+        Design invariants:
+            * g_i is in logit-gap units; dividing by sigma (already floored
+              at sigma_0 = self.noise_std) makes the PT input dimensionless
+              AND cross-dimensionally comparable. Because sigma captures
+              the local logit-temperature scale via the inter-persona
+              spread, dividing by sigma cancels the T_cat scaling that
+              would otherwise give low-T_cat dimensions more PT utility
+              magnitude in the aggregate. Bounded: |tilde{g}_{i,k}| <=
+              |eps_k|/sigma, which with eps_k ~ N(0, sigma^2) is O(1) and
+              does NOT explode (sigma is floored at sigma_0 > 0).
             * v() is applied per persona BEFORE averaging, so Jensen's
               inequality preserves the kappa=2.25 loss-aversion asymmetry
               at the social level.
             * Self-attenuation at consensus: if all delta_i -> delta_base
-              then g_{i,k} -> -|eps_k| <= 0 for every i, so every candidate
-              incurs a loss and the softmax concentrates on |eps_k| ~ 0,
-              yielding delta_star -> 0.
-            * NO quadratic control cost term. The proposal p = N(0, sigma^2)
-              already regularises large perturbations via its own density;
-              adding -c eps^2/(2 sigma^2) to U would merely shrink the
-              effective proposal variance to sigma^2 / (1 + c/eta), which
-              is equivalent to tuning sigma directly and not a separate
-              KL regulariser. The previous draft conflated the two.
+              then g_{i,k} -> -|eps_k| and tilde{g}_{i,k} -> -|eps_k|/sigma
+              is O(1) and <= 0 for every i; every candidate incurs a loss
+              and the softmax concentrates on |eps_k| ~ 0.
+            * NO quadratic control cost term (see controller module
+              docstring / paper Appendix C for the derivation).
         """
         # Sample K perturbations from N(0, sigma^2)
         epsilon = torch.randn(self.K, device=self.device) * sigma
         delta_bar = delta_agents.mean()
         delta_tilde = delta_bar + epsilon                                # (K,)
 
-        # Per-agent gain: distances broadcast over (K, N).
+        # Per-agent gain in raw logit-gap units.
         dist_base_to_i = (delta_base_scalar - delta_agents).abs()        # (N,)
         dist_cand_to_i = (delta_tilde.unsqueeze(1)
                           - delta_agents.unsqueeze(0)).abs()             # (K, N)
         g_per_agent = dist_base_to_i.unsqueeze(0) - dist_cand_to_i       # (K, N)
 
-        # Apply v() PER AGENT, then mean -> preserves loss aversion.
-        v_per_agent = self._prospect_value(g_per_agent)                  # (K, N)
+        # Dimensionality fix: divide the PT input by sigma (already floored
+        # at sigma_0) so the utility is dimensionless and cross-dimensionally
+        # comparable. sigma_0 > 0 prevents division-by-zero.
+        g_per_agent_tilde = g_per_agent / sigma
+
+        # Apply v() PER AGENT on the sigma-normalised gain, then mean.
+        v_per_agent = self._prospect_value(g_per_agent_tilde)            # (K, N)
         mean_v_individual = v_per_agent.mean(dim=1)                      # (K,)
 
-        # Consensus-target PT utility (single scalar gain fed to v()).
+        # Consensus-target PT utility, same sigma normalisation.
         g_cons = (delta_base_scalar - delta_bar).abs() \
                  - (delta_tilde - delta_bar).abs()                       # (K,)
-        v_consensus = self._prospect_value(g_cons)                       # (K,)
+        v_consensus = self._prospect_value(g_cons / sigma)               # (K,)
 
         # Collective utility (paper Eq. 7; no control-cost term).
         U_total = ((1.0 - self.lambda_coop) * mean_v_individual
