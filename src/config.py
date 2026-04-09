@@ -110,7 +110,7 @@ class SWAConfig(BaseConfig):
 
     # SWA-PTIS Core
     lambda_coop: float = 0.7
-    alpha_ctl: float = 0.05  # quadratic control cost (was alpha_kl; see paper Eq. 7)
+    alpha_ctl: float = 0.0   # deprecated: removed in paper §3.4; kept for backward-compatible config loading only
 
     # Prospect Theory value function (Kahneman & Tversky, 1979)
     pt_alpha: float = 0.88            # gain curvature (diminishing sensitivity)
@@ -181,8 +181,8 @@ def add_swa_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--lambda-coop", type=float, default=0.7,
                         help="Cooperation weight lambda")
     parser.add_argument("--alpha-ctl", "--alpha-kl", dest="alpha_ctl",
-                        type=float, default=0.05,
-                        help="Quadratic control-cost weight (was --alpha-kl)")
+                        type=float, default=0.0,
+                        help="Deprecated: has no effect (removed in paper §3.4; see controller.py)")
     parser.add_argument("--pt-alpha", type=float, default=0.88,
                         help="Prospect Theory gain curvature")
     parser.add_argument("--pt-beta", type=float, default=0.88,

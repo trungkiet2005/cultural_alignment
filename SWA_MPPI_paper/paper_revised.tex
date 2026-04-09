@@ -254,16 +254,22 @@ under Jensen--Shannon Divergence.
 \label{sec:method:personas}
 
 For each country $c$, SWA-PTIS constructs $N=4$ persona agents from WVS Wave~7
-individual-level microdata~\citep{haerpfer2022wvs}. We extract 8 value dimensions
-from specific WVS items: \emph{gender egalitarianism} (Q58P, Q59P, Q60P),
-\emph{religious importance} (Q6P), \emph{interpersonal trust} (Q43P),
-\emph{moral permissiveness} (Q50, Q52P, Q54P), \emph{work centrality} (Q5P),
-\emph{family importance} (Q1P), \emph{personal autonomy} (Q39P), and
-\emph{meritocratic orientation} (Q40P). For each country, respondents are
-segmented into three age cohorts using birth year and survey year:
-\emph{young} (18--35), \emph{middle-aged} (36--55), and \emph{older} ($>$55).
-Dimension means are computed per cohort and converted into natural-language
-descriptors via fixed thresholds (Appendix~\ref{app:personas}).
+individual-level microdata~\citep{haerpfer2022wvs}. We extract 10 value
+dimensions from specific WVS Wave~7 items (``inverted'' file where polarised
+items carry the \texttt{P} suffix): \emph{religiosity}~(Q6P),
+\emph{child-rearing values}~(Q17P), \emph{moral acceptability}~(Q177--Q182),
+\emph{social trust}~(Q57P), \emph{political participation}~(Q199P,\,Q200P),
+\emph{national pride}~(Q254P), \emph{happiness}~(Q46P),
+\emph{gender equality}~(Q29P, Q30P, Q31P, Q33P),
+\emph{materialism orientation}~(Q152,\,Q153), and
+\emph{tolerance for diversity}~(Q19P--Q23P).
+For each country, respondents are segmented into three age cohorts using
+birth year (Q261) and survey year (A\_YEAR): \emph{young} (18--35),
+\emph{middle-aged} (36--55), and \emph{older} ($>$55). Respondents with
+birth year outside 1900--2010 or survey year before 2015 are excluded.
+Dimension means are normalised to $[0,1]$ along the positive pole and
+converted into natural-language descriptors via quartile cuts
+(Appendix~\ref{app:personas}).
 A fourth, country-invariant \emph{utilitarian agent} maximises lives saved.
 Each persona is a natural-language system prompt:
 
@@ -656,7 +662,11 @@ lists all hyperparameters (validation details in Appendix~\ref{app:hyperparams})
 \begin{table}[t]
 \caption{SWA-PTIS hyperparameters. PT parameters from \citet{kahneman1979prospect};
 others validated on a held-out synthetic set with author proxy labels
-(Appendix~\ref{app:hyperparams}).}
+(Appendix~\ref{app:hyperparams}). $T_{\text{global}}$ is a global logit-temperature
+fallback (\texttt{config.logit\_temperature}); it is overridden per-category by
+$T_{\text{cat}}$ for all six MultiTP dimensions and is never active in practice.
+$\eta$ is the IS softmax temperature (\texttt{--mppi-temperature} in code,
+stored as \texttt{self.beta}).}
 \label{tab:hyperparams}
 \centering\small
 \begin{tabular}{llll}
@@ -671,8 +681,10 @@ Proposal-$\sigma$ floor & $\sigma_0$ & 0.3 & Validation \\
 Effective-sample-size threshold & $\rho_{\text{eff}}$ & 0.10 & Design \\
 PT curvature & $\alpha{=}\beta$ & 0.88 & \citet{kahneman1979prospect} \\
 PT loss aversion & $\kappa$ & 2.25 & \citet{kahneman1979prospect} \\
+IS softmax temperature & $\eta$ & 0.5 & Validation \\
 Decision temp. & $T_{\text{dec}}$ & 0.5 & Validation \\
 $T_{\text{cat}}$ (Species / Gender / Others) & & 4.0 / 3.5 / 1.5 & Category \\
+Global logit-temp.\ fallback & $T_{\text{global}}$ & 3.0 & (inactive) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1309,27 +1321,47 @@ making our estimation valid and reproducible.
 
 \subsection{Example Personas}
 
-The young-adult persona for the \textbf{United States}:
+Personas are generated from WVS Wave~7 cohort means using the 10-dimension
+descriptor system (Table~\ref{tab:wvs_thresholds}). Each persona has three
+parts: (i)~a role header, (ii)~one sentence per WVS dimension that has data,
+(iii)~a closing anchor. Below are illustrative English outputs.
+
+The young-adult persona for the \textbf{United States} (generated from Q6P,
+Q17P, Q177--Q182, Q57P, Q199P/Q200P, Q254P, Q46P, Q29P--Q33P, Q152/Q153,
+Q19P--Q23P cohort means):
 \begin{quote}
 \small\itshape
-You are a young adult (18--35) from the United States of America. Based on survey
-data, people in your age group in the USA typically value: strong gender equality
-(score: 8.2/10), low religious centrality in moral decisions (score: 3.1/10), high
-personal autonomy (score: 7.8/10), high meritocratic orientation (score: 7.5/10),
-moderate family importance (score: 6.4/10), and moderate interpersonal trust
-(score: 5.3/10). When making moral judgments, you tend to emphasise individual
-rights and equal treatment, and weigh personal achievement and rule-following.
+You are a young adult (18--35) from the United States of America.
+Your sense of religiosity is somewhat secular.
+Your child-rearing values are firmly oriented toward independence and imagination.
+You are moderately permissive on contested moral issues such as abortion, divorce
+and homosexuality.
+You have moderate trust in other people.
+You are an occasional political participant.
+You are moderately proud of your country.
+You are rather happy with your life.
+You are strongly egalitarian on gender roles.
+You are leaning post-materialist, prioritising freedom, voice and self-expression.
+You are highly tolerant of outgroups such as immigrants, minorities and people
+with different lifestyles.
+When making moral judgments you reflect these cultural values.
 \end{quote}
 
 The older-adult persona for \textbf{Vietnam}:
 \begin{quote}
 \small\itshape
-You are an older adult (55+) from Vietnam. Based on survey data, people in your age
-group in Vietnam typically value: moderate gender equality (score: 5.1/10), high
-religious and moral traditionalism (score: 7.2/10), strong family importance
-(score: 9.4/10), moderate personal autonomy (score: 4.8/10), and low interpersonal
-trust toward strangers (score: 3.2/10). When making moral judgments, you tend to
-emphasise collective welfare, family obligations, and hierarchical social roles.
+You are an older adult (55+) from Vi\d{\ecircumflex}t Nam.
+Your sense of religiosity is moderately religious.
+Your child-rearing values are leaning toward obedience and religious faith.
+You are morally conservative on contested issues.
+You have a guarded attitude toward strangers.
+You are a passive political participant.
+You are intensely proud of your country.
+You are rather happy with your life.
+You are somewhat traditional on gender roles.
+You are leaning materialist, prioritising economic and physical security.
+You are somewhat intolerant of outgroups.
+When making moral judgments you reflect these cultural values.
 \end{quote}
 
 The utilitarian persona (country-invariant): \textit{``You are a strict utilitarian.
@@ -1341,13 +1373,25 @@ characteristics of the individuals involved.''}
 
 We process WVS Wave~7 individual-level microdata as follows:
 \begin{enumerate}
-  \item \textbf{Variable extraction:} For each respondent, we extract 8 value
-    dimension scores from specific WVS items: gender egalitarianism (mean of
-    Q58P, Q59P, Q60P), religious importance (Q6P), interpersonal trust (Q43P),
-    moral permissiveness (mean of Q50, Q52P, Q54P), work centrality (Q5P),
-    family importance (Q1P), personal autonomy (Q39P), meritocratic orientation
-    (Q40P). All items use inverted scales where higher = more
-    progressive/positive.
+  \item \textbf{Variable extraction:} For each respondent, we extract 10 value
+    dimension scores from the WVS-7 ``inverted'' file (higher raw value
+    $=$ more of the positive pole where the item suffix \texttt{P} is
+    present): \emph{religiosity}~(Q6P, 1--4, direction~$+1$);
+    \emph{child-rearing values}~(Q17P, binary 0/1, direction~$-1$ so higher
+    normalised score $=$ more independence/imagination);
+    \emph{moral acceptability}~(mean of Q177--Q182, 1--10, direction~$+1$);
+    \emph{social trust}~(Q57P, 1--2, direction~$+1$);
+    \emph{political participation}~(mean of Q199P, Q200P, 1--3,
+    direction~$+1$); \emph{national pride}~(Q254P, 1--4, direction~$+1$);
+    \emph{happiness}~(Q46P, 1--4, direction~$+1$);
+    \emph{gender equality}~(mean of Q29P, Q30P, Q31P, Q33P, 1--4,
+    direction~$-1$ so higher normalised score $=$ more egalitarian);
+    \emph{materialism orientation}~(mean of Q152, Q153, Inglehart battery,
+    1--3, direction~$+1$; higher $=$ post-materialist);
+    \emph{tolerance for diversity}~(mean of Q19P--Q23P, binary 0/1
+    undesirable-neighbour mention rates, direction~$-1$ so higher normalised
+    $=$ more tolerant). Negative WVS codes ($<0$) are treated as missing;
+    binary 0/1 items retain their raw semantics (0\,=\,not mentioned).
   \item \textbf{Age cohort assignment:} Using birth year (Q261) and survey year
     (A\_YEAR), we compute age and assign to: \emph{young} ($<$36),
     \emph{middle} (36--55), \emph{older} ($>$55). Respondents with birth year
@@ -1365,49 +1409,78 @@ We process WVS Wave~7 individual-level microdata as follows:
 \end{enumerate}
 
 \begin{table}[h]\centering\small
-\caption{Complete WVS-dimension-to-descriptor threshold table used by the
-persona generator. For most dimensions the threshold operates on the
-\emph{ratio} of the dimension mean to the WVS scale maximum (4.0); the
-exception is moral permissiveness, which operates on the raw 1--10 mean
-because its underlying items use a different scale. The \emph{family
-importance} dimension is degenerate (universally high across all 15
-countries) and is mapped to a single descriptor.}
+\caption{WVS-dimension-to-descriptor mapping used by the persona generator
+(source: \texttt{src/personas.py::WVS\_DIMS} and \texttt{src/persona\_i18n.py}).
+Each dimension mean is normalised to $[0,1]$ along the positive pole;
+a quartile cut assigns one of four descriptors ($\geq$0.75 / $\geq$0.50 /
+$\geq$0.25 / $<$0.25). Direction $-1$ means the raw WVS coding goes
+high${\to}$negative pole, so the normalised score is $1 -$ raw;
+direction $+1$ keeps the raw ordering. Negative WVS codes are treated as
+missing; binary 0/1 items retain raw semantics.}
 \label{tab:wvs_thresholds}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lll}\toprule
-Dimension (input) & Cut-off & Descriptor \\\midrule
-\multirow{4}{*}{Religiosity (ratio)}
- & $>0.85$ & deeply religious \\
- & $>0.70$ & moderately religious \\
- & $>0.55$ & somewhat secular \\
- & else & highly secular \\\midrule
-\multirow{4}{*}{Gender egalitarianism (ratio)}
- & $>0.85$ & strongly gender-egalitarian \\
- & $>0.75$ & moderately gender-egalitarian \\
- & $>0.65$ & somewhat traditional on gender \\
- & else & traditional on gender roles \\\midrule
-\multirow{3}{*}{Interpersonal trust (ratio)}
- & $>0.55$ & high interpersonal trust \\
- & $>0.45$ & moderate trust \\
- & else & low interpersonal trust \\\midrule
-\multirow{4}{*}{Moral permissiveness (raw 1--10)}
- & $>3.5$ & morally permissive \\
- & $>3.0$ & moderately permissive \\
- & $>2.5$ & morally conservative \\
- & else & morally strict \\\midrule
-\multirow{3}{*}{Personal autonomy (ratio)}
- & $>0.90$ & strongly values personal autonomy \\
- & $>0.80$ & values personal autonomy \\
- & else & moderate on personal autonomy \\\midrule
-\multirow{3}{*}{Meritocratic orientation (ratio)}
- & $>0.95$ & strongly meritocratic \\
- & $>0.85$ & meritocratic \\
- & else & egalitarian on income \\\midrule
-\multirow{3}{*}{Work centrality (ratio)}
- & $>0.90$ & work is central to identity \\
- & $>0.80$ & values work highly \\
- & else & moderate work orientation \\\midrule
-Family importance & (any) & family is paramount \\\bottomrule
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{p{2.8cm}p{3.6cm}cc}\toprule
+Dimension & WVS items (range; dir.) & Score & Descriptor \\\midrule
+\multirow{4}{2.8cm}{Religiosity}
+ & \multirow{4}{3.6cm}{Q6P (1--4; $+1$)}
+ & $\geq$0.75 & deeply religious \\
+ & & $\geq$0.50 & moderately religious \\
+ & & $\geq$0.25 & somewhat secular \\
+ & & $<$0.25    & highly secular \\\midrule
+\multirow{4}{2.8cm}{Child-rearing values}
+ & \multirow{4}{3.6cm}{Q17P (0--1; $-1$)}
+ & $\geq$0.75 & firmly independent / imaginative \\
+ & & $\geq$0.50 & leaning independent / imaginative \\
+ & & $\geq$0.25 & leaning obedient / faith-oriented \\
+ & & $<$0.25    & firmly obedient / faith-oriented \\\midrule
+\multirow{4}{2.8cm}{Moral acceptability}
+ & \multirow{4}{3.6cm}{Q177--Q182 (1--10; $+1$)}
+ & $\geq$0.75 & very permissive on contested moral issues \\
+ & & $\geq$0.50 & moderately permissive \\
+ & & $\geq$0.25 & morally conservative \\
+ & & $<$0.25    & strictly opposed to contested moral acts \\\midrule
+\multirow{4}{2.8cm}{Social trust}
+ & \multirow{4}{3.6cm}{Q57P (1--2; $+1$)}
+ & $\geq$0.75 & very high trust in other people \\
+ & & $\geq$0.50 & moderate trust in other people \\
+ & & $\geq$0.25 & guarded attitude toward strangers \\
+ & & $<$0.25    & deep distrust of other people \\\midrule
+\multirow{4}{2.8cm}{Political participation}
+ & \multirow{4}{3.6cm}{Q199P, Q200P (1--3; $+1$)}
+ & $\geq$0.75 & active (petitions, boycotts, demos) \\
+ & & $\geq$0.50 & occasional political participant \\
+ & & $\geq$0.25 & passive political participant \\
+ & & $<$0.25    & politically disengaged \\\midrule
+\multirow{4}{2.8cm}{National pride}
+ & \multirow{4}{3.6cm}{Q254P (1--4; $+1$)}
+ & $\geq$0.75 & intensely proud of country \\
+ & & $\geq$0.50 & moderately proud of country \\
+ & & $\geq$0.25 & lukewarm about national pride \\
+ & & $<$0.25    & not proud of country \\\midrule
+\multirow{4}{2.8cm}{Happiness}
+ & \multirow{4}{3.6cm}{Q46P (1--4; $+1$)}
+ & $\geq$0.75 & very happy with life \\
+ & & $\geq$0.50 & rather happy with life \\
+ & & $\geq$0.25 & not very happy with life \\
+ & & $<$0.25    & unhappy with life \\\midrule
+\multirow{4}{2.8cm}{Gender equality}
+ & \multirow{4}{3.6cm}{Q29P,Q30P,Q31P,Q33P (1--4; $-1$)}
+ & $\geq$0.75 & strongly egalitarian on gender roles \\
+ & & $\geq$0.50 & moderately egalitarian on gender roles \\
+ & & $\geq$0.25 & somewhat traditional on gender roles \\
+ & & $<$0.25    & strongly traditional on gender roles \\\midrule
+\multirow{4}{2.8cm}{Materialism orientation}
+ & \multirow{4}{3.6cm}{Q152, Q153 (1--3; $+1$)}
+ & $\geq$0.75 & strongly post-materialist (freedom, voice) \\
+ & & $\geq$0.50 & leaning post-materialist \\
+ & & $\geq$0.25 & leaning materialist (econ.\ security) \\
+ & & $<$0.25    & strongly materialist (econ.\ security) \\\midrule
+\multirow{4}{2.8cm}{Tolerance for diversity}
+ & \multirow{4}{3.6cm}{Q19P--Q23P (0--1; $-1$)}
+ & $\geq$0.75 & highly tolerant of outgroups \\
+ & & $\geq$0.50 & moderately tolerant of outgroups \\
+ & & $\geq$0.25 & somewhat intolerant of outgroups \\
+ & & $<$0.25    & strongly intolerant of outgroups \\\bottomrule
 \end{tabular}
 \end{table}
 
@@ -1417,19 +1490,23 @@ Family importance & (any) & family is paramount \\\bottomrule
 The linkage between WVS value dimensions and trolley moral dimensions operates
 through two mechanisms.
 
-\emph{Direct thematic overlap:} WVS \emph{gender egalitarianism} maps onto the
-Gender dimension (societies scoring higher show weaker female-sparing
-preferences~\citep{awad2018moral}); \emph{religious importance} correlates with
-Species (human exceptionalism); \emph{meritocratic orientation} relates to Social
-Value and Fitness.
+\emph{Direct thematic overlap:} WVS \emph{gender equality} (Q29P--Q33P) maps onto
+the Gender dimension (societies scoring higher on egalitarianism show weaker
+female-sparing preferences~\citep{awad2018moral}); \emph{religiosity} (Q6P)
+correlates with
+Species (human exceptionalism); \emph{materialism orientation} (Q152, Q153)
+relates to Social Value and Fitness (post-materialists show greater equality-of-outcome preferences).
 
-\emph{Indirect modulation:} Dimensions like \emph{personal autonomy},
-\emph{interpersonal trust}, and \emph{family importance} modulate the moral
-\emph{frame}-e.g., high-autonomy personas favour utilitarian calculi, while
-high-family-importance personas weight relational roles (affecting Age and Social
-Value). Crucially, SWA-PTIS does not require exact causal mapping: the ensemble
-generates diversity in logit-space gaps, and the PT-weighted IS update selects
-the correction that maximises collective PT utility. A rigorous per-dimension causal analysis (e.g., regressing WVS
+\emph{Indirect modulation:} Dimensions like \emph{social trust} (Q57P),
+\emph{political participation} (Q199P, Q200P), \emph{happiness} (Q46P),
+\emph{child-rearing values} (Q17P), and \emph{tolerance for diversity}
+(Q19P--Q23P) modulate the moral \emph{frame}---e.g., high-social-trust and
+politically active personas favour utilitarian calculi, while
+child-rearing-obedience personas weight relational roles (affecting Age and
+Social Value dimensions). Crucially, SWA-PTIS does not require exact causal
+mapping: the ensemble generates diversity in logit-space gaps, and the
+PT-weighted IS update selects the correction that maximises collective PT
+utility. A rigorous per-dimension causal analysis (e.g., regressing WVS
 attributes against AMCE shifts) would further strengthen this argument.
 
 \section{Derivation of the Prospect-Theory Weighted Importance-Sampling Update}
