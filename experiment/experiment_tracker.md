@@ -8,6 +8,82 @@
 
 ---
 
+## 🔬 EXP-04 — Model-Adaptive Grand Fusion (LATEST)
+
+**Script**: `experiment/exp04_model_adaptive_fusion.py`  
+**Date**: 2026-04-09 | **Run**: Kaggle H100  
+**Innovations**: Per-model profiles + Contrastive Persona Decoding + Dim-Adaptive PT +
+Stratified Hierarchical Prior + Confidence Gating + ESS-Adaptive Anchor Reg  
+**Model profiles**:
+- Qwen: SV personas (5 agents), lambda_coop=0.60
+- Gemma: strict ESS (rho_eff=0.15), sigma=0.25
+- Mistral: English personas, sigma=0.8, K=512
+
+### Raw MIS Table
+
+| Model | Country | Vanilla MIS | Method MIS | Improv % |
+|:------|:-------:|------------:|-----------:|---------:|
+| **Qwen2.5-7B** | USA | 0.4559 | **0.2915** | **+36.1%** |
+| **Qwen2.5-7B** | CHN | 0.4646 | 0.3893 | **+16.2%** |
+| **Qwen2.5-7B** | JPN | 0.4208 | 0.4144 | +1.5% |
+| **Qwen2.5-7B** | DEU | 0.4398 | 0.4329 | +1.6% |
+| **Qwen2.5-7B** | BRA | 0.5111 | 0.4734 | +7.4% |
+| **Gemma-2-9B** | USA | 0.4647 | 0.5493 | **-18.2%** |
+| **Gemma-2-9B** | CHN | 0.3679 | 0.4035 | -9.7% |
+| **Gemma-2-9B** | JPN | 0.4530 | 0.5031 | -11.1% |
+| **Gemma-2-9B** | DEU | 0.4170 | 0.3523 | **+15.5%** |
+| **Gemma-2-9B** | BRA | 0.4490 | 0.3845 | **+14.4%** |
+| **Mistral-7B** | USA | 0.5706 | 0.5457 | +4.4% |
+| **Mistral-7B** | CHN | 0.4569 | 0.4509 | +1.3% |
+| **Mistral-7B** | JPN | 0.3429 | **0.2647** | **+22.8%** |
+| **Mistral-7B** | DEU | 0.4909 | 0.4574 | +6.8% |
+| **Mistral-7B** | BRA | 0.4144 | 0.4416 | -6.6% |
+
+### Per-Model Summary
+
+| Model | Mean MIS | Wins | vs EXP-09 DM | Verdict |
+|:------|:--------:|:----:|:------------:|:--------|
+| **Qwen** | **0.4003** | 5/5 | 0.3653 (worse) | SV personas help USA (+36%) but hurt JPN/DEU |
+| **Gemma** | 0.4385 | 2/5 | 0.4003 (worse) | Strict ESS not enough; still over-corrects USA/CHN/JPN |
+| **Mistral** | **0.4321** | 4/5 | 0.4282 (similar) | English personas + wider sigma help — JPN 0.2647 is best-ever Mistral |
+| **GLOBAL** | **0.4236** | 11/15 | 0.3975 (worse) | Did NOT beat EXP-09 |
+
+### Diagnosis: Why EXP-04 < EXP-09
+
+1. **Qwen JPN/DEU regression**: SV personas (merit/professional ethics) helped USA dramatically
+   (0.2915!) but are poorly calibrated for JPN/DEU. The Japanese/German SV personas may not
+   express meritocratic values as strongly as the English ones. JPN went from 0.2802 (EXP-01 DM)
+   to 0.4144 — a massive 47% regression.
+
+2. **Gemma fundamentally resists SWA**: Strict ESS (rho_eff=0.15) + tighter sigma (0.25) still
+   produces over-correction in USA/CHN/JPN. The problem is that Gemma's instruction-following
+   makes personas TOO effective — the anchor diverges too far from base. Need a fundamentally
+   different approach for Gemma (e.g., contrastive decoding WITHOUT PT-IS, or direct base-model
+   regularization).
+
+3. **Contrastive + SV personas interaction**: Adding both world-average personas AND SV personas
+   to the pool may create conflicting signals. The world personas are moderate, SV personas are
+   meritocratic, WVS personas are egalitarian — the 3-way pull may destabilize the anchor.
+
+### Key Records Set by EXP-04
+
+| Record | Value | Model | Country | Notes |
+|:-------|:-----:|:-----:|:-------:|:------|
+| Best Qwen USA | **0.2915** | Qwen | USA | SV personas + contrastive, best single cell for USA |
+| Best Mistral JPN | **0.2647** | Mistral | JPN | English personas breakthrough, best-ever Mistral |
+| Best Mistral win rate | **4/5** | Mistral | all | First time Mistral wins majority of countries |
+
+### Next Steps
+
+1. **Fix Qwen regression**: Run EXP-02 (dim-adaptive PT only, no SV personas) to isolate
+   whether the PT fix alone helps without persona interference
+2. **Fix Gemma**: Try vanilla Gemma + contrastive decoding only (no PT-IS) as a Gemma-specific
+   pathway — the over-correction is an IS problem, not a persona problem
+3. **Combine best cells**: Cherry-pick: EXP-04 for Qwen-USA + Mistral-JPN, EXP-09 for
+   Gemma and remaining Qwen countries → simulated best-of-both
+
+---
+
 ## 🔬 EXP-01 — Baseline SWA-PTIS (3-model sweep, 5 countries)
 
 **Script**: `experiment/kaggle_experiment.py`  
@@ -232,20 +308,35 @@ Combined fix (EXP-07) should eliminate all 3 failure modes simultaneously:
 
 ## EXPERIMENT ROADMAP
 
-| EXP | Name | Status | Key Innovation | Target Fix | Paper § |
-|:----|:-----|:------:|:---------------|:-----------|:---------|
-| 01 | Baseline SWA-PTIS | ✅ DONE | Paper pipeline | — | §4+5 |
-| 02 | 8-Agent Expanded Personas | 🟡 READY | Urban/rural split | More coverage | §3.2 |
-| 03 | SocialValue-Targeted Personas | 🟡 READY | Social-utility agents | SocialValue -34 err | §3.2 |
-| 04 | Mistral Cross-Lingual Override | 🟡 READY | English personas + sigma_floor=0.8 | Mistral collapse | §3.3 |
-| 05 | ESS-Adaptive Anchor Regularization | 🟡 READY | KL-penalized anchor | Gemma over-correction | §3.4 |
-| **06** | **Adaptive Sigma (Entropy-Calibrated)** | ✅ **CREATED** | **σ = σ_prior × H/H_ref** | Qwen-32B failure | **§3.5 NEW** |
-| **07** | **WVS Augmentation (Hofstede Neighbors)** | ✅ **CREATED** | **Kernel-smoothed WVS** | SAU/BRA sparse | **§3.2 ext** |
-| **08** | **Category-Routed Expert Personas (MoE-IS)** | ✅ **CREATED** | **MoE per-dim personas** | All dim errors | **§3.2+5 NEW** |
-| **09** | **Hierarchical IS (Country Prior)** | ✅ **CREATED** | **Two-level Bayes IS** | Pearson r variance | **§3.3 ext** |
-| 10 | Full Best-Config Grid Sweep | 🟡 PLANNED | EXP-06+08+09 combined | All | §4+5 |
+### experiment/ folder (new experiments)
 
-**Priority order for Kaggle**: EXP-08 → EXP-06 → EXP-09 → EXP-07 → EXP-10
+| EXP | Name | Status | Key Innovation | Mean MIS | Beat EXP-09? |
+|:----|:-----|:------:|:---------------|:--------:|:------------:|
+| 01-SHIS | Stratified Hier IS + Confidence Gating | ✅ DONE | Category-stratified prior + CG + anchor reg | 0.4156 | NO |
+| 02 | Dim-Adaptive PT + Stratified Prior | 🟡 READY | Per-dim kappa/sigma (SV kappa=1.25) | — | — |
+| 03 | Contrastive Persona + Dim-PT + Stratified | 🟡 READY | World-avg subtraction + all EXP-02 | — | — |
+| **04** | **Model-Adaptive Grand Fusion** | ✅ **DONE** | **Per-model profiles + all innovations** | **0.4236** | **NO** |
+
+### experiment_DM/ folder (reference experiments)
+
+| EXP | Name | Status | Mean MIS | Notes |
+|:----|:-----|:------:|:--------:|:------|
+| 01 | Baseline SWA-PTIS | ✅ DONE | 0.4269 | Paper baseline |
+| 05 | Anchor Regularization | ✅ DONE | 0.4174 | Gemma fix |
+| **09** | **Hierarchical IS** | ✅ **DONE** | **0.3975** | **CURRENT BEST** |
+
+### Leaderboard (Mean MIS ↓, all 3 models × 5 countries)
+
+| Rank | Method | Mean MIS | Source |
+|:----:|:-------|:--------:|:-------|
+| **1** | **EXP-09 Hierarchical IS** | **0.3975** | experiment_DM |
+| 2 | EXP-05 Anchor Reg | 0.4174 | experiment_DM |
+| 3 | EXP-04 Grand Fusion | 0.4236 | experiment/ |
+| 4 | EXP-01 SHIS-CG | 0.4156 | experiment/ |
+| 5 | EXP-01 Baseline SWA | 0.4269 | experiment_DM |
+
+**Priority for next Kaggle run**: EXP-02 (dim-adaptive PT) — isolates the kappa fix
+without SV persona interference that hurt Qwen JPN/DEU in EXP-04
 
 ---
 
