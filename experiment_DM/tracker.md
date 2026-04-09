@@ -4,7 +4,7 @@
 > Each script is **self-contained** and Kaggle-ready (auto-bootstrap + pip-install).  
 > Read the `Motivation` docstring at the top of each file for full design rationale.
 >
-> **Run order on Kaggle H100**: EXP-07 → EXP-06 (routing) → EXP-03 → EXP-05 → EXP-04  
+> **Run order on Kaggle H100**: **EXP-10 (fusion)** → EXP-13 (meta) → EXP-11 (dim-PT) → EXP-12 (contrastive) → EXP-07  
 > **Primary metric**: MIS = L2 misalignment vs human AMCE ↓. Secondary: JSD ↓, Pearson r ↑.  
 > **Completed runs**: EXP-01 ✅ (2026-04-09) | EXP-02 ✅ (2026-04-09) | EXP-07a ✅ (2026-04-09) | EXP-09 ✅ (2026-04-09)
 
@@ -24,6 +24,10 @@
 | `exp07_wvs_augmentation.py` | EXP-07a | ✅ DONE | Hofstede-neighbor persona augmentation (sparse WVS) | Sparse WVS coverage |
 | `exp08_category_routing.py` | EXP-08 | 🟡 READY | Extended category routing (8 panels) | Precision routing |
 | `exp09_hierarchical_is.py` | EXP-09 | ✅ DONE | Hierarchical IS with country prior (EMA + annealing) | IS variance / stability |
+| `exp10_grand_fusion.py` | EXP-10 | 🟡 READY | **Grand Fusion: EXP-03 + EXP-05 + EXP-09 combined** | ALL (orthogonal fix stack) |
+| `exp11_dimension_adaptive_pt.py` | EXP-11 | 🟡 READY | **Dimension-specific κ/σ (heterogeneous PT)** | SocialValue κ↓, Species κ↑ |
+| `exp12_contrastive_persona.py` | EXP-12 | 🟡 READY | **Contrastive Persona Decoding (world-avg subtraction)** | Egalitarian anchor bias |
+| `exp13_model_adaptive_meta.py` | EXP-13 | 🟡 READY | **Model-adaptive meta-controller (auto-config per family)** | Model-specific failures |
 
 ---
 
