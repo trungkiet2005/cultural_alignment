@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Read(//tmp/**)",
-      "Read(//c/Users/huynh/.claude/projects/d--AI-RESEARCH-moral-machine-cultural-alignment/**)"
+      "Read(//c/Users/huynh/.claude/projects/d--AI-RESEARCH-moral-machine-cultural-alignment/**)",
+      "Bash(ls -lah /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)"
     ]
   }
 }
