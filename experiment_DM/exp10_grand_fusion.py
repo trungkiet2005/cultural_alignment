@@ -571,7 +571,7 @@ def _run_swa_for_model(model, tokenizer, model_name) -> List[dict]:
                 err       = dim_data.get("error", model_val - human_val)
                 print(f"  │  {dim_key:<25s}  human={human_val:6.1f}  model={model_val:6.1f}  err={err:+6.1f}pp")
             print(f"  └── MIS={summary['alignment']['mis']:.4f}  JSD={summary['alignment']['jsd']:.4f}  "
-                  f"r={summary['alignment']['pearson']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
+                  f"r={summary['alignment']['pearson_r']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
                   f"Flip={summary['flip_rate']:.1%}")
             print(f"      α_reg={mean_alpha_reg:.3f}  anchor_div={mean_anchor_div:.3f}  "
                   f"δ_country={prior_stats['delta_country']:.4f}  α_h={prior_stats['alpha_h']:.3f}")
@@ -625,7 +625,7 @@ def main():
         short = model_name.split("/")[-1][:20]
         mis_mean = m_df["align_mis"].mean()
         jsd_mean = m_df["align_jsd"].mean()
-        r_mean   = m_df["align_pearson"].mean()
+        r_mean   = m_df["align_pearson_r"].mean()
         mae_mean = m_df["align_mae"].mean()
         flip_mean = m_df["flip_rate"].mean()
         alpha_reg_mean = m_df["mean_alpha_reg"].mean() if "mean_alpha_reg" in m_df.columns else float("nan")
@@ -660,10 +660,17 @@ def main():
     for _, row in cmp_df.iterrows():
         short = row["model"].split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
         print(f"| {short} | {row['country']} | {row['align_mis']:.4f} | "
-              f"{row['align_jsd']:.4f} | {row['align_pearson']:+.3f} | "
+              f"{row['align_jsd']:.4f} | {row['align_pearson_r']:+.3f} | "
               f"{row['align_mae']:.2f} | {row['flip_rate']:.1%} | "
               f"{row.get('mean_alpha_reg', float('nan')):.3f} | "
               f"{row.get('final_delta_country', float('nan')):.4f} |")
+
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
 
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 

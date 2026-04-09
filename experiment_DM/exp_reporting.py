@@ -244,6 +244,198 @@ def flatten_per_dim_alignment(
     return rows
 
 
+
+# ── EXP-01 Vanilla Baseline MIS (hardcoded from tracker, stable reference) ──
+VANILLA_MIS: Dict[Tuple[str, str], float] = {
+    # (model_key, country) → vanilla MIS
+    ("qwen", "USA"): 0.4559, ("qwen", "CHN"): 0.4646, ("qwen", "JPN"): 0.4208,
+    ("qwen", "DEU"): 0.4398, ("qwen", "BRA"): 0.5111,
+    ("gemma", "USA"): 0.4647, ("gemma", "CHN"): 0.3679, ("gemma", "JPN"): 0.4530,
+    ("gemma", "DEU"): 0.4170, ("gemma", "BRA"): 0.4490,
+    ("mistral", "USA"): 0.5706, ("mistral", "CHN"): 0.4569, ("mistral", "JPN"): 0.3429,
+    ("mistral", "DEU"): 0.4909, ("mistral", "BRA"): 0.4144,
+}
+
+EXP01_SWA_MIS: Dict[Tuple[str, str], float] = {
+    ("qwen", "USA"): 0.3677, ("qwen", "CHN"): 0.4078, ("qwen", "JPN"): 0.2802,
+    ("qwen", "DEU"): 0.3424, ("qwen", "BRA"): 0.4025,
+    ("gemma", "USA"): 0.6038, ("gemma", "CHN"): 0.4536, ("gemma", "JPN"): 0.4667,
+    ("gemma", "DEU"): 0.3289, ("gemma", "BRA"): 0.3655,
+    ("mistral", "USA"): 0.5984, ("mistral", "CHN"): 0.5067, ("mistral", "JPN"): 0.3502,
+    ("mistral", "DEU"): 0.4942, ("mistral", "BRA"): 0.4362,
+}
+
+
+def _model_key(model_name: str) -> str:
+    low = model_name.lower()
+    if "qwen" in low: return "qwen"
+    if "gemma" in low: return "gemma"
+    if "mistral" in low: return "mistral"
+    if "llama" in low: return "llama"
+    return "unknown"
+
+
+def print_tracker_ready_report(
+    cmp_df: pd.DataFrame,
+    *,
+    exp_id: str,
+    per_dim_csv_path: Optional[str] = None,
+) -> None:
+    """
+    Print a comprehensive tracker-ready report with ALL info needed for
+    copy-pasting into tracker.md. Includes:
+      1. Full metrics table (MIS, JSD, Pearson r, MAE, Flip%)
+      2. Vanilla comparison with Δ and ✅/❌ markers
+      3. EXP-01 SWA comparison with Δ and ✅/❌ markers
+      4. Per-model summary (Win Rate, Macro Δ%, Micro Δ%)
+      5. Per-dimension worst errors (from CSV if available)
+    """
+    if cmp_df is None or cmp_df.empty:
+        print(f"\n[{exp_id}] No data for tracker report.")
+        return
+
+    sep = "─" * 80
+
+    # ════════════════════════════════════════════════════════════════
+    # 1. FULL METRICS TABLE (paper-ready)
+    # ════════════════════════════════════════════════════════════════
+    print(f"\n\n{'█'*80}")
+    print(f"  {exp_id} — TRACKER-READY REPORT (copy everything below)")
+    print(f"{'█'*80}")
+
+    print(f"\n#### {exp_id} Full Metrics\n")
+    print(f"| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |")
+    print(f"|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|")
+    for _, row in cmp_df.sort_values(["model", "country"]).iterrows():
+        short = row["model"].split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
+        print(f"| {short} | {row['country']} | {row['align_mis']:.4f} | "
+              f"{row['align_jsd']:.4f} | {row.get('align_pearson_r', float('nan')):+.3f} | "
+              f"{row.get('align_mae', float('nan')):.2f} | {row['flip_rate']:.1%} |")
+
+    # ════════════════════════════════════════════════════════════════
+    # 2. VANILLA COMPARISON (Δ + win markers)
+    # ════════════════════════════════════════════════════════════════
+    print(f"\n{sep}")
+    print(f"#### {exp_id} vs Vanilla (MIS)\n")
+    print(f"| Model | Country | Vanilla MIS | {exp_id} MIS | Δ | Improv% | Win? |")
+    print(f"|:------|:-------:|:-----------:|:{'─'*len(exp_id)}---:|:-:|:-------:|:----:|")
+
+    model_names = cmp_df["model"].unique()
+    for model_name in sorted(model_names):
+        m_df = cmp_df[cmp_df["model"] == model_name]
+        mk = _model_key(model_name)
+        short = model_name.split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
+        wins, total = 0, 0
+        vanilla_vals, exp_vals = [], []
+        for _, row in m_df.sort_values("country").iterrows():
+            country = row["country"]
+            v = VANILLA_MIS.get((mk, country), float("nan"))
+            e = row["align_mis"]
+            delta = v - e
+            improv = (delta / v * 100) if v > 0 else float("nan")
+            win = delta > 0
+            wins += int(win)
+            total += 1
+            vanilla_vals.append(v)
+            exp_vals.append(e)
+            mark = "✅" if win else "❌"
+            print(f"| {short} | {country} | {v:.4f} | {e:.4f} | "
+                  f"{'+' if delta>=0 else ''}{delta:.4f} | "
+                  f"**{'+' if improv>=0 else ''}{improv:.2f}%** | {mark} |")
+
+        if vanilla_vals:
+            mean_v = sum(vanilla_vals) / len(vanilla_vals)
+            mean_e = sum(exp_vals) / len(exp_vals)
+            macro_d = mean_v - mean_e
+            macro_p = (macro_d / mean_v * 100) if mean_v > 0 else 0
+            print(f"\n- **{short}** Win Rate: **{wins}/{total}** | "
+                  f"Vanilla={mean_v:.4f} → {exp_id}={mean_e:.4f} | "
+                  f"Macro Δ: **{'+' if macro_p>=0 else ''}{macro_p:.2f}%**")
+
+    # ════════════════════════════════════════════════════════════════
+    # 3. EXP-01 SWA COMPARISON (Δ + win markers)
+    # ════════════════════════════════════════════════════════════════
+    print(f"\n{sep}")
+    print(f"#### {exp_id} vs EXP-01 SWA-PTIS (MIS)\n")
+    print(f"| Model | Country | EXP-01 MIS | {exp_id} MIS | Δ | Improv% | Win? |")
+    print(f"|:------|:-------:|:----------:|:{'─'*len(exp_id)}---:|:-:|:-------:|:----:|")
+
+    for model_name in sorted(model_names):
+        m_df = cmp_df[cmp_df["model"] == model_name]
+        mk = _model_key(model_name)
+        short = model_name.split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
+        wins, total = 0, 0
+        ref_vals, exp_vals = [], []
+        for _, row in m_df.sort_values("country").iterrows():
+            country = row["country"]
+            r = EXP01_SWA_MIS.get((mk, country), float("nan"))
+            e = row["align_mis"]
+            delta = r - e
+            improv = (delta / r * 100) if r > 0 else float("nan")
+            win = delta > 0
+            wins += int(win)
+            total += 1
+            ref_vals.append(r)
+            exp_vals.append(e)
+            mark = "✅" if win else "❌"
+            print(f"| {short} | {country} | {r:.4f} | {e:.4f} | "
+                  f"{'+' if delta>=0 else ''}{delta:.4f} | "
+                  f"{'+' if improv>=0 else ''}{improv:.2f}% | {mark} |")
+
+        if ref_vals:
+            mean_r = sum(ref_vals) / len(ref_vals)
+            mean_e = sum(exp_vals) / len(exp_vals)
+            macro_d = mean_r - mean_e
+            macro_p = (macro_d / mean_r * 100) if mean_r > 0 else 0
+            print(f"\n- **{short}** Win Rate: **{wins}/{total}** | "
+                  f"EXP-01={mean_r:.4f} → {exp_id}={mean_e:.4f} | "
+                  f"Macro Δ: **{'+' if macro_p>=0 else ''}{macro_p:.2f}%**")
+
+    # ════════════════════════════════════════════════════════════════
+    # 4. OVERALL LEADERBOARD ENTRY
+    # ════════════════════════════════════════════════════════════════
+    print(f"\n{sep}")
+    print(f"#### {exp_id} Leaderboard Entry\n")
+    overall_mis = cmp_df["align_mis"].mean()
+    overall_jsd = cmp_df["align_jsd"].mean()
+    overall_r   = cmp_df.get("align_pearson_r", pd.Series(dtype=float)).mean()
+    overall_mae = cmp_df.get("align_mae", pd.Series(dtype=float)).mean()
+    overall_flip = cmp_df["flip_rate"].mean()
+    n_models    = cmp_df["model"].nunique()
+    n_countries = cmp_df["country"].nunique()
+    print(f"| Rank | Method | Coverage | Mean MIS ↓ | Notes |")
+    print(f"|:---:|:-------|:--------:|-----------:|:------|")
+    print(f"| ? | **{exp_id}** | {n_models} models × {n_countries} countries | "
+          f"**{overall_mis:.4f}** | MIS↓ JSD={overall_jsd:.4f} r={overall_r:+.3f} |")
+
+    # ════════════════════════════════════════════════════════════════
+    # 5. PER-DIMENSION WORST ERRORS (from CSV if available)
+    # ════════════════════════════════════════════════════════════════
+    if per_dim_csv_path:
+        try:
+            dim_df = pd.read_csv(per_dim_csv_path)
+            if not dim_df.empty and "abs_err" in dim_df.columns:
+                print(f"\n{sep}")
+                print(f"#### {exp_id} Per-Dimension Worst Errors\n")
+                print(f"| Model | Country | Worst Dim | Human | Model | |err| (pp) |")
+                print(f"|:------|:-------:|:----------|:-----:|:-----:|:---------:|")
+
+                # Get worst dimension per (model, country)
+                for (model, country), grp in dim_df.groupby(["model", "country"]):
+                    worst = grp.loc[grp["abs_err"].idxmax()]
+                    short = str(model).split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
+                    print(f"| {short} | {country} | {worst['dimension']} | "
+                          f"{worst.get('human', float('nan')):.1f} | "
+                          f"{worst.get('model_mpr', float('nan')):.1f} | "
+                          f"**{worst['abs_err']:.1f}** |")
+        except Exception as e:
+            print(f"\n  [per-dim] Could not load {per_dim_csv_path}: {e}")
+
+    print(f"\n{'█'*80}")
+    print(f"  END {exp_id} TRACKER-READY REPORT")
+    print(f"{'█'*80}")
+
+
 def append_rows_csv(path: str, rows: Iterable[dict]) -> None:
     """Append rows to a CSV (create if not exists)."""
     rows = list(rows)

@@ -578,7 +578,7 @@ def _run_swa_for_model(model, tokenizer, model_name) -> List[dict]:
                 err       = dim_data.get("error", model_val - human_val)
                 print(f"  │  {dim_key:<25s}  human={human_val:6.1f}  model={model_val:6.1f}  err={err:+6.1f}pp")
             print(f"  └── MIS={summary['alignment']['mis']:.4f}  JSD={summary['alignment']['jsd']:.4f}  "
-                  f"r={summary['alignment']['pearson']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
+                  f"r={summary['alignment']['pearson_r']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
                   f"Flip={summary['flip_rate']:.1%}")
             print(f"      [{profile.family}] α_reg={mean_alpha_reg:.3f}  ESS={mean_ess:.3f}")
 
@@ -636,11 +636,11 @@ def main():
         print(f"\n  {family.upper()} (SV={profile.use_social_utility_personas}, "
               f"AnchorReg={profile.use_anchor_reg}, EN={profile.force_english_personas})")
         print(f"    Mean MIS={f_df['align_mis'].mean():.4f}  JSD={f_df['align_jsd'].mean():.4f}  "
-              f"r={f_df['align_pearson'].mean():+.3f}  MAE={f_df['align_mae'].mean():.2f}  "
+              f"r={f_df['align_pearson_r'].mean():+.3f}  MAE={f_df['align_mae'].mean():.2f}  "
               f"Flip={f_df['flip_rate'].mean():.1%}")
         # Per-country breakdown
         for _, row in f_df.iterrows():
-            print(f"    {row['country']}: MIS={row['align_mis']:.4f}  r={row['align_pearson']:+.3f}")
+            print(f"    {row['country']}: MIS={row['align_mis']:.4f}  r={row['align_pearson_r']:+.3f}")
 
     overall_mis = cmp_df["align_mis"].mean()
     print(f"\n  OVERALL MEAN MIS = {overall_mis:.4f}  (EXP-01 baseline: 0.4269, EXP-09 best: 0.3975)")
@@ -670,7 +670,7 @@ def main():
         family = row["model_family"]
         config_str = f"SV={row.get('use_sv_personas', '?')},AR={row.get('use_anchor_reg', '?')},EN={row.get('force_english', '?')}"
         print(f"| {short} | {family} | {row['country']} | {row['align_mis']:.4f} | "
-              f"{row['align_jsd']:.4f} | {row['align_pearson']:+.3f} | "
+              f"{row['align_jsd']:.4f} | {row['align_pearson_r']:+.3f} | "
               f"{row['align_mae']:.2f} | {row['flip_rate']:.1%} | {config_str} |")
 
     # ── Ablation: which model-specific fix helped most? ──
@@ -680,6 +680,13 @@ def main():
     print(f"  Qwen:   SV-personas (EXP-03) + Anchor-reg (EXP-05) → fixes SocialValue + anchor bias")
     print(f"  Gemma:  Strict anchor-reg (ρ=0.15) + tighter σ₀=0.25 → prevents over-correction")
     print(f"  Mistral: English personas + σ₀=0.8 + K=512 → fixes tokenizer variance collapse")
+
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
 
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 

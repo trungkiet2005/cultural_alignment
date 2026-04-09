@@ -411,7 +411,7 @@ def _run_swa_for_model(model, tokenizer, model_name) -> List[dict]:
                       f"err={err:+6.1f}pp  (κ={pt['kappa']:.2f}, σ×{pt['sigma_scale']:.1f}, "
                       f"n={kst.get('count', '?')}, ESS={kst.get('mean_ess', float('nan')):.3f})")
             print(f"  └── MIS={summary['alignment']['mis']:.4f}  JSD={summary['alignment']['jsd']:.4f}  "
-                  f"r={summary['alignment']['pearson']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
+                  f"r={summary['alignment']['pearson_r']:.3f}  MAE={summary['alignment']['mae']:.2f}  "
                   f"Flip={summary['flip_rate']:.1%}")
 
         torch.cuda.empty_cache(); gc.collect()
@@ -466,7 +466,7 @@ def main():
         short = model_name.split("/")[-1][:20]
         print(f"  {short:<20s}  MIS={m_df['align_mis'].mean():.4f}  "
               f"JSD={m_df['align_jsd'].mean():.4f}  "
-              f"r={m_df['align_pearson'].mean():+.3f}  "
+              f"r={m_df['align_pearson_r'].mean():+.3f}  "
               f"MAE={m_df['align_mae'].mean():.2f}  "
               f"Flip={m_df['flip_rate'].mean():.1%}")
 
@@ -496,7 +496,7 @@ def main():
     for _, row in cmp_df.iterrows():
         short = row["model"].split("/")[-1].split("-Instruct")[0].split("-instruct")[0]
         print(f"| {short} | {row['country']} | {row['align_mis']:.4f} | "
-              f"{row['align_jsd']:.4f} | {row['align_pearson']:+.3f} | "
+              f"{row['align_jsd']:.4f} | {row['align_pearson_r']:+.3f} | "
               f"{row['align_mae']:.2f} | {row['flip_rate']:.1%} |")
 
     # ── Dimension-specific κ sensitivity analysis ──
@@ -516,6 +516,13 @@ def main():
     for dim, params in sorted(DIMENSION_PT_PARAMS.items()):
         print(f"  | {dim:<18s} | {params['kappa']:.2f} | {params['sigma_scale']:.1f}x | "
               f"{rationales.get(dim, '')} |")
+
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
 
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
