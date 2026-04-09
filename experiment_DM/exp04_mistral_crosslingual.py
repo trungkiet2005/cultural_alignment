@@ -107,6 +107,15 @@ except Exception:
 import torch.nn.functional as F
 import pandas as pd
 
+from experiment_DM.exp_reporting import (
+    CompareSpec,
+    append_rows_csv,
+    flatten_per_dim_alignment,
+    print_alignment_table,
+    print_metric_comparison,
+    try_load_reference_comparison,
+)
+
 from src.config import SWAConfig, resolve_output_dir
 from src.constants import COUNTRY_LANG, COUNTRY_FULL_NAMES
 from src.model import setup_seeds, load_model
@@ -461,9 +470,19 @@ def _run_swa_for_model(model, tokenizer, model_name: str) -> List[dict]:
 
         results_df, summary = run_country_experiment(model, tokenizer, country, personas, scen, cfg)
         results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
+        method_name = f"{EXP_ID}_crosslingual" if is_mistral else f"{EXP_ID}_std"
+        append_rows_csv(
+            str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+            flatten_per_dim_alignment(
+                summary.get("per_dimension_alignment", {}),
+                model=model_name,
+                method=method_name,
+                country=country,
+            ),
+        )
         rows.append({
             "model":            model_name,
-            "method":           f"{EXP_ID}_crosslingual" if is_mistral else f"{EXP_ID}_std",
+            "method":           method_name,
             "country":          country,
             **{f"align_{k}": v for k, v in summary["alignment"].items()},
             "flip_rate":        summary["flip_rate"],
@@ -508,8 +527,32 @@ def main() -> None:
 
     cmp_df = pd.DataFrame(all_rows)
     cmp_df.to_csv(Path(CMP_ROOT) / "comparison.csv", index=False)
-    print(f"\n[{EXP_ID}] DONE. Key metric: variance per country (target > 0.3), Pearson r (target > 0).")
-    print(cmp_df.to_string())
+    print_alignment_table(cmp_df, title=f"{EXP_ID} RESULTS — {EXP_NAME}")
+
+    ref = try_load_reference_comparison()
+    if ref is not None:
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — MIS",
+            spec=CompareSpec(
+                metric_col="align_mis",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_crosslingual",
+            ),
+        )
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — JSD",
+            spec=CompareSpec(
+                metric_col="align_jsd",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_crosslingual",
+            ),
+        )
+
+    print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
 
 if __name__ == "__main__":

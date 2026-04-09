@@ -114,6 +114,15 @@ except Exception:
 import torch.nn.functional as F
 import pandas as pd
 
+from experiment_DM.exp_reporting import (
+    CompareSpec,
+    append_rows_csv,
+    flatten_per_dim_alignment,
+    print_alignment_table,
+    print_metric_comparison,
+    try_load_reference_comparison,
+)
+
 from src.config import SWAConfig, BaselineConfig, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.model import setup_seeds, load_model
@@ -532,6 +541,15 @@ def _run_swa_for_model(model, tokenizer, model_name: str) -> List[dict]:
         results_df, summary = run_country_experiment(
             model, tokenizer, country, wvs_personas, scen, cfg)
         results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
+        append_rows_csv(
+            str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+            flatten_per_dim_alignment(
+                summary.get("per_dimension_alignment", {}),
+                model=model_name,
+                method=f"{EXP_ID}_best_config",
+                country=country,
+            ),
+        )
 
         # Diagnostics from results
         alpha_mean = float(results_df["alpha_reg"].mean()) if "alpha_reg" in results_df.columns else float("nan")
@@ -613,7 +631,30 @@ def main() -> None:
     cmp_df.to_csv(Path(CMP_ROOT) / "comparison.csv", index=False)
     print(f"\n[SAVE] FINAL → {CMP_ROOT}/comparison.csv  ({len(cmp_df)} rows)")
 
-    _print_summary(all_rows)
+    print_alignment_table(cmp_df, title=f"{EXP_ID} RESULTS — {EXP_NAME}")
+
+    ref = try_load_reference_comparison()
+    if ref is not None:
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — MIS",
+            spec=CompareSpec(
+                metric_col="align_mis",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_best_config",
+            ),
+        )
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — JSD",
+            spec=CompareSpec(
+                metric_col="align_jsd",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_best_config",
+            ),
+        )
 
     print(f"\n[{EXP_ID}] DONE. Artifacts under:")
     print(f"  swa     → {SWA_ROOT}")

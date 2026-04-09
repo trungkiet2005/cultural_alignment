@@ -142,6 +142,15 @@ except Exception:
 import torch.nn.functional as F
 import pandas as pd
 
+from experiment_DM.exp_reporting import (
+    CompareSpec,
+    append_rows_csv,
+    flatten_per_dim_alignment,
+    print_alignment_table,
+    print_metric_comparison,
+    try_load_reference_comparison,
+)
+
 from src.config import SWAConfig, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.model import setup_seeds, load_model
@@ -383,18 +392,28 @@ class Exp08CategoryRouterController(ImplicitSWAController):
     are passed. The EXP-08 innovation is in HOW the persona pool is selected.
     """
 
+    # injected by runner per (model,country)
+    _persona_pools: Dict[str, List[str]] = {}
+
     def _pt_value(self, x: torch.Tensor) -> torch.Tensor:
         a, b, k = self.pt_alpha, self.pt_beta, self.pt_kappa
         return torch.where(x >= 0, x.abs().pow(a), -k * x.abs().pow(b))
 
     @torch.no_grad()
     def predict(self, user_query, preferred_on_right=True, phenomenon_category="default", lang="en"):
+        # Route scenario to a persona pool based on text keywords
+        routed_cat = _route_category(user_query)
+        pool = self._persona_pools.get(routed_cat) or self._persona_pools.get("utilitarianism") or self.personas
+
+        original_personas = self.personas
+        self.personas = pool
         db1, da1, logit_temp = self._extract_logit_gaps(user_query, phenomenon_category, lang)
         swapped_query, swap_changed = self._swap_positional_labels(user_query, lang)
         if swap_changed:
             db2, da2, _ = self._extract_logit_gaps(swapped_query, phenomenon_category, lang)
         else:
             db2, da2 = db1, da1
+        self.personas = original_personas
 
         delta_base   = (db1 - db2) / 2.0 if swap_changed else db1
         delta_agents = (da1 - da2) / 2.0 if swap_changed else da1
@@ -428,9 +447,6 @@ class Exp08CategoryRouterController(ImplicitSWAController):
         p_right   = torch.sigmoid(delta_opt / self.decision_temperature).item()
         p_pref    = p_right if preferred_on_right else 1.0 - p_right
         variance  = float(delta_agents.var(unbiased=True).item()) if delta_agents.numel() > 1 else 0.0
-
-        # Record which category was routed
-        routed_cat = _route_category(user_query)
 
         return {
             "p_right": p_right, "p_left": 1.0 - p_right, "p_spare_preferred": p_pref,
@@ -501,39 +517,38 @@ def _run_swa_for_model(model, tokenizer, model_name) -> List[dict]:
         print(f"\n[{ci+1}/{len(cfg.target_countries)}] {EXP_ID} {model_name} | {country}")
         scen  = _load_country_scenarios(cfg, country)
 
-        # Build per-category expert persona pools for this country
-        category_persona_pools: Dict[str, List[str]] = {}
-        for dim_key in DIMENSION_KEYS:
-            category_persona_pools[dim_key] = _get_expert_personas_for_country(
-                country, WVS_DATA_PATH, dim_key)
+        # Build per-category expert persona pools for this country and inject into controller
+        category_persona_pools: Dict[str, List[str]] = {
+            dim_key: _get_expert_personas_for_country(country, WVS_DATA_PATH, dim_key)
+            for dim_key in DIMENSION_KEYS
+        }
+        Exp08CategoryRouterController._persona_pools = category_persona_pools
 
-        # Run a separate SWA pass per category, then merge
-        # (This is the cleanest way to inject category routing into the existing runner)
-        # Route each scenario to its expert pool
-        all_dim_results = {}
-        for dim_key in DIMENSION_KEYS:
-            dim_personas                   = category_persona_pools[dim_key]
-            results_df, summary            = run_country_experiment(
-                model, tokenizer, country, dim_personas, scen, cfg,
-                category_filter=dim_key  # only run scenarios matching this dim
-            )
-            all_dim_results[dim_key]       = (results_df, summary)
-            print(f"  {dim_key}: N={summary['n_scenarios']}, MIS={summary['alignment'].get('mis', 'N/A'):.4f}")
+        # One run; controller routes per-scenario
+        fallback_personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
+        results_df, summary = run_country_experiment(
+            model, tokenizer, country, fallback_personas, scen, cfg,
+        )
+        results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
 
-        # Merge all category results into one record
-        total_scenarios = sum(s["n_scenarios"] for _, s in all_dim_results.values())
-        combined_alignment: Dict[str, float] = {}
-        for metric in ["mis", "jsd", "pearson_r", "mae"]:
-            values = [s["alignment"].get(metric, 0) * s["n_scenarios"]
-                      for _, s in all_dim_results.values() if s["n_scenarios"] > 0]
-            ns = [s["n_scenarios"] for _, s in all_dim_results.values() if s["n_scenarios"] > 0]
-            combined_alignment[metric] = sum(values) / sum(ns) if sum(ns) > 0 else float("nan")
+        append_rows_csv(
+            str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+            flatten_per_dim_alignment(
+                summary.get("per_dimension_alignment", {}),
+                model=model_name,
+                method=f"{EXP_ID}_category_routing",
+                country=country,
+            ),
+        )
 
         rows.append({
             "model": model_name, "method": f"{EXP_ID}_category_routing",
-            "country": country, "n_scenarios": total_scenarios,
-            **{f"align_{k}": v for k, v in combined_alignment.items()},
-            **{f"dim_{dim}_n": all_dim_results[dim][1]["n_scenarios"] for dim in DIMENSION_KEYS},
+            "country": country,
+            **{f"align_{k}": v for k, v in summary["alignment"].items()},
+            "flip_rate": summary["flip_rate"],
+            "mean_latency_ms": summary["mean_latency_ms"],
+            "n_scenarios": summary["n_scenarios"],
+            "routing_active": True,
         })
         torch.cuda.empty_cache(); gc.collect()
     return rows
@@ -563,8 +578,32 @@ def main():
 
     cmp_df = pd.DataFrame(all_rows)
     cmp_df.to_csv(Path(CMP_ROOT) / "comparison.csv", index=False)
-    print(f"\n[{EXP_ID}] DONE. Key: per-dim expert routing should fix SocialValue gap.")
-    print(cmp_df.to_string())
+    print_alignment_table(cmp_df, title=f"{EXP_ID} RESULTS — {EXP_NAME}")
+
+    ref = try_load_reference_comparison()
+    if ref is not None:
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — MIS",
+            spec=CompareSpec(
+                metric_col="align_mis",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_category_routing",
+            ),
+        )
+        print_metric_comparison(
+            ref,
+            cmp_df,
+            title=f"{EXP_ID} vs EXP-01 (reference) — JSD",
+            spec=CompareSpec(
+                metric_col="align_jsd",
+                ref_method="swa_ptis",
+                cur_method=f"{EXP_ID}_category_routing",
+            ),
+        )
+
+    print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
 
 if __name__ == "__main__":
