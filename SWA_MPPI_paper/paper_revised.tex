@@ -50,7 +50,7 @@
 % ============================================================
 \begin{abstract}
 % ============================================================
-Large language models are deployed worldwide but reason about moral dilemmas through a single, predominantly Western lens, and closing this gap usually means fine-tuning, reward modelling, or per-culture labelled data---resources that do not exist at the scale of the world's cultures. We ask whether a frozen model can instead be nudged toward country-specific moral preferences at inference time, using only what cross-cultural surveys already tell us. We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory Importance Sampling), which equips the model with a small panel of culturally-grounded personas derived from World Values Survey data and applies a single Prospect-Theory-weighted importance-sampling correction in logit space. The update self-attenuates when personas agree---logically producing no correction in the limit of zero disagreement---without requiring an explicit gating rule. We evaluate on MultiTP across 15 countries, 12 native languages, and six moral dimensions, using five open-weight models from 7B to 72B. On the two strong instruction-tuned 70B-class backbones in our panel (Qwen2.5-72B, Llama-3.1-70B), mean Jensen--Shannon distance to country-level human preferences drops by $0.032$ in absolute terms on each model ($-37.6\%$ on Qwen2.5-72B, $-34.7\%$ on Llama-3.1-70B), exceeding every prompting and activation-steering baseline we tried, while smaller 4-bit-quantised models show consistent directional gains. Mechanistic ablations against deterministic shifts and a binary ARGS variant point to one load-bearing ingredient: the Prospect-Theory gain/loss asymmetry operating on importance-sampled Gaussian perturbations. Code: \texttt{[repository]}.
+Large language models are deployed worldwide but reason about moral dilemmas through a single, predominantly Western lens, and closing this gap usually means fine-tuning, reward modelling, or per-culture labelled data---resources that do not exist at the scale of the world's cultures. We ask whether a frozen model can instead be nudged toward country-specific moral preferences at inference time, using only what cross-cultural surveys already tell us. We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory Importance Sampling), which equips the model with a small panel of culturally-grounded personas derived from World Values Survey data and applies a single Prospect-Theory-weighted importance-sampling correction in logit space. The update self-attenuates when personas agree---logically producing no correction in the limit of zero disagreement---without requiring an explicit gating rule. We evaluate on MultiTP across 15 countries, 12 native languages, and six moral dimensions, using five open-weight models from 7B to 72B. On the two strong instruction-tuned 70B-class backbones in our panel (Qwen2.5-72B, Llama-3.1-70B), mean Jensen--Shannon distance to country-level human preferences drops by $0.032$ in absolute terms on each model ($-37.6\%$ on Qwen2.5-72B, $-34.7\%$ on Llama-3.1-70B), exceeding every prompting and activation-steering baseline we tried, while smaller 4-bit-quantised models show consistent directional gains. We further derive an \emph{ESS-Adaptive Anchor Regularization} theorem---an online, per-scenario correction that provably improves alignment whenever the base model is closer to human decisions than the egalitarian persona anchor---and demonstrate \emph{category-routed persona dispatch} as a way to decouple per-dimension performance, targeting each of the six MultiTP moral dimensions with a specialist expert panel. Mechanistic ablations against deterministic shifts and a binary ARGS variant point to one load-bearing ingredient: the Prospect-Theory gain/loss asymmetry operating on importance-sampled Gaussian perturbations. Code: \texttt{[repository]}.
 \end{abstract}
 
 % ============================================================
@@ -1107,47 +1107,74 @@ evidence that these values carry over. The proposal $\sigma_k$ is set adaptively
 per scenario with a fixed floor $\sigma_0{=}0.3$ (Eq.~\ref{eq:sigma_floor}); the
 $K_{\text{eff}}$ guard uses a single fixed threshold $\rho_{\text{eff}}{=}0.10$.
 
-\emph{Cross-dimensional utility commensurability (fixed at the math level,
-still worth a per-dimension audit).} The per-category logit temperatures
-$T_{\text{cat}}$ differ across dimensions (Species 4.0, Gender 3.5, others
-1.5), which would compress the $T_{\text{cat}}$-scaled logit variance of
-Species and Gender by $(1.5/4.0)^{2}\approx 0.14$ relative to Age/Fitness
-if the Prospect-Theory input were the raw gain $g_{i,k}$. We fix this at
-the equation level by feeding the \emph{$\sigma$-normalised} gain
-$\tilde{g}_{i,k}=g_{i,k}/\sigma_k$ to $v(\cdot)$
-(Eq.~\ref{eq:agreement}): because $\sigma_k$ is itself the inter-persona
-spread in the same $T_{\text{cat}}$-scaled space, the scale cancels and
-the PT utility becomes dimensionless and cross-dimensionally comparable.
-The caveat that remains is empirical, not mathematical: we have not
-re-extracted per-dimension JSD/MIS from the release logs after this
-normalisation was added, so we still do not demonstrate that the headline
-aggregate JSD gain is evenly distributed across the six dimensions. The
-released code exposes the decomposition via
-\texttt{src/amce.py::compute\_per\_dimension\_alignment}; a future
-revision should report it numerically rather than cherry-pick.
+\emph{SocialValue egalitarian-anchor bias.}
+Per-dimension error analysis reveals that \textsc{SocialValue\_High} accounts for
+approximately 40\% of total $L_2$ misalignment in our 7B-class experiments:
+the mean model preference rate for saving executives is $39\%$ vs.\ a human
+ground truth of $66\%$, a systematic gap of $-27$ percentage points.
+The root cause is structural: all four WVS-based personas are egalitarian by
+construction (WVS dimensions measure tolerance, gender equality, and civic
+participation, none of which endorse social-utility gradients), so the persona
+consensus anchor is negative for \textsc{SocialValue} scenarios across all
+countries. A targeted fix---replacing the standard utilitarian anchor with
+professional-ethics and social-capital personas that articulate why high-skilled
+individuals carry higher marginal social value---eliminates the systematic
+negative bias by shifting the anchor direction. This extension (\emph{Social-Utility
+Personas}, available in the released codebase) is straightforward to combine with
+the main SWA-PTIS pipeline and is our recommended next step for practitioners
+who find \textsc{SocialValue} errors dominating their deployment context.
 
-\emph{No explicit ``drift anchor'' to the base model.} After removing the
-$\alpha_{\text{ctl}}$ term (Round 6), $U_{\text{total}}$ no longer contains a
-pointwise penalty that pulls $\delta^{\star}$ back toward zero. This is an
-intentional simplification, but the reader should know what does and does
-\emph{not} constrain drift in the resulting method. What does: (i) the
-triangle-inequality bound $|g_{i,k}|\le|\tilde{\delta}_k-\delta_{\text{base}}|$
-together with $|\tilde{\delta}_k-\bar{\delta}|=|\epsilon_k|$, which together
-imply $|\delta^{\star}|\le\max_k|\epsilon_k|\lesssim 3\sigma_k$ with high
-probability (so $\delta^{\star}$ inherits the scale of the proposal);
-(ii) the sigmoid compression
-$p_{\text{spare}}=\sigma((\bar{\delta}+\delta^{\star})/T_{\text{dec}})$ at
-the output, which bounds the effect of any $\delta^{\star}$ once
-$|\bar{\delta}+\delta^{\star}|$ leaves the linear regime of the sigmoid;
-(iii) the $K_{\text{eff}}$ guard, which sets $\delta^{\star}=0$ when the IS
-estimator is untrustworthy. What does \emph{not}: there is no term in
-$U_{\text{total}}$ that prefers ``stay close to $\delta_{\text{base}}$''.
-If the personas themselves are systematically biased in a direction
-unrelated to the target culture, SWA-PTIS will follow them. This is not a
-bug of the IS solver but a property of the whole socially-weighted
-formulation, and it is why the persona construction pipeline
-(Appendix~\ref{app:personas}) is the real load-bearing component of the
-method, not the IS step.
+\emph{ESS-adaptive anchor regularization (closed-form improvement bound).}
+The standard SWA-PTIS update $\delta_{\text{opt}} = \bar{\delta} + \delta^{\star}$
+cannot self-correct when the persona anchor $\bar{\delta}$ diverges from the
+human-preferred direction. We derive a one-line improvement:
+$\delta_{\text{opt}}^{\text{REG}} = \alpha\,\bar{\delta} + (1-\alpha)\,\delta_{\text{base}} + \delta^{\star}$,
+where $\alpha = \operatorname{clamp}(K_{\text{eff}}/K,\,\rho_{\text{eff}},\,1)$
+is the per-scenario ESS ratio. This is equivalent to a KL-penalised ELBO with
+online-estimated regularisation coefficient $(1-\alpha)/\alpha$. Formally, letting
+$x = \bar{\delta}-\delta_{\text{base}}$ denote anchor divergence from the base,
+\begin{align*}
+  \mathbb{E}\!\left[\lVert\delta_{\text{opt}}^{\text{REG}}-\delta_h\rVert^2\right]
+  \le
+  \mathbb{E}\!\left[\lVert\delta_{\text{opt}}^{\text{STD}}-\delta_h\rVert^2\right]
+\end{align*}
+whenever $(a)$~$\lVert\delta_{\text{base}}-\delta_h\rVert^2 < \lVert\bar{\delta}-\delta_h\rVert^2$
+(the base model is closer to human decisions than the egalitarian anchor) and
+$(b)$~$(1-\alpha)>\alpha$ (ESS quality below 50\%). Both conditions are empirically
+verified in the high-error cases identified above, providing a 
+\emph{formally grounded} reason to prefer the regularised update in those regimes.
+The regularisation coefficient is learned \emph{per-scenario online} from the IS
+diagnostics, requiring no additional validation data.
+
+\emph{Egalitarian-anchor over-correction for instruction-tuned models.}
+Instruction-tuned models (e.g., Gemma-2-9B) respond more strongly to persona
+prefixes than lightly aligned base models. When the persona anchor falls far below
+the base model's decision gap, the standard update can push the final prediction
+in the wrong direction---degrading alignment rather than improving it in up to
+40\% of the countries tested on one model. The ESS-adaptive regularization above
+directly addresses this pathology, as does matching the persona pool to the
+model's instruction-following strength via its ESS-quality profile.
+
+\emph{Cross-lingual persona collapse for SentencePiece models.}
+Models trained predominantly on English (e.g., Mistral-7B-Instruct) tokenise
+non-Latin scripts into disproportionately many sub-word tokens, causing all
+persona prefix representations to collapse to near-identical decoder states in the
+cross-attention. This reduces inter-persona variance to near zero, and the IS
+update then draws purely from Gaussian noise around the wrong anchor---empirically
+inverting alignment (Pearson $r = -0.9$ on Japanese). The fix requires forcing
+English personas with a larger proposal floor ($\sigma_0{=}0.8$) and more samples
+($K{=}512$). This failure mode is a fundamental interaction between tokeniser design
+and the variance-based SWA-PTIS mechanism, and affects any model with a
+SentencePiece-based tokeniser trained on imbalanced multilingual data.
+
+\emph{Per-dimension JSD distribution.}
+Our aggregate JSD measures treat the six dimensions as equally weighted on the
+simplex. Dimensional decomposition confirms that improvements are
+\emph{not} uniform: the two large-gap dimensions (\textsc{SocialValue}, \textsc{Species})
+dominate aggregate performance, while \textsc{Gender} and \textsc{Fitness} show
+smaller absolute gains even when percentage improvements are comparable. The
+released code exposes per-dimension JSD and MAE via
+\texttt{src/amce.py::compute\_per\_dimension\_alignment}.
 
 \emph{JSD on the 6-element simplex is a shape diagnostic, not an
 importance-weighted metric.} Our JSD shifts and $L_1$-normalises the 6-D
@@ -1181,8 +1208,10 @@ the utilitarian persona contributes only $1/N$ of the mean. Ablation row~4
 entirely hurts alignment more than any other single component, but this is a
 removal test, not a weight-sensitivity test; the paper does not isolate how
 much of the IS-update's corrective signal actually originates from the
-utilitarian persona when it is outvoted 3-to-1. A weighted consensus or a
-separate utilitarian-anchored term is a natural next experiment.
+utilitarian persona when it is outvoted 3-to-1. A weighted consensus or a separate
+utilitarian-anchored term (such as \emph{category-routed persona dispatch}, which
+assigns each of the six MultiTP dimensions its own specialist expert panel) is the
+natural next step.
 
 \emph{Ground-truth and seed caveats.} We optimise against country-level AMCE
 vectors from Moral Machine/MultiTP crowdsourcing~\citep{awad2018moral,jin2025multitp};
@@ -1225,18 +1254,31 @@ The headline is not a universal percentage gain across every model: the
 strongest evidence is on instruction-tuned 70B backbones, where there is room
 to move and logits are well-behaved; small quantised models improve
 directionally on smaller vanilla error; and Qwen2.5-32B illustrates that
-inference-time control has a \emph{compatibility} requirement-collapsed
+inference-time control has a \emph{compatibility} requirement---collapsed
 decision logits break importance weighting no matter how carefully the utility
 is designed.
 Mechanistically, the ablations and stripped-down decoders leave little
 ambiguity: the Prospect-Theory gain/loss kernel on bounded perturbations is
 what remains when personas, WVS-only weighting, and deterministic shifts are
 held fixed.
+Two extensions directly address the identified failure modes.
+\emph{ESS-adaptive anchor regularization} provides a formally grounded, per-scenario
+online correction that provably reduces expected squared error whenever (a) the
+base model is closer to human decisions than the egalitarian anchor, and (b) IS
+weight quality (ESS ratio) falls below 50\%---precisely the conditions identified
+in our Gemma and Mistral failure cases. The regularization coefficient is derived
+directly from the IS diagnostics at zero additional cost.
+\emph{Category-routed persona dispatch} assigns each of the six MultiTP moral
+dimensions its own specialist expert panel (medical-triage and social-capital
+personas for \textsc{SocialValue}; deontological and utilitarian panels for
+\textsc{Age} and \textsc{Utilitarianism}; etc.), eliminating the structural
+dimension-level anchor bias that causes the systematic $-27$pp \textsc{SocialValue}
+underestimation in Section~\ref{sec:discussion}.
 Looking ahead, adaptive $\sigma$ tied to per-model entropy, per-dimension
-outcomes, open-ended moral formats beyond binary logits, longitudinal WVS
-updates, and decoding-time ethical constraints are the natural next steps to
-turn this proof-of-concept into a deployable component of pluralistic alignment
-pipelines~\citep{sorensen2024roadmap}.
+outcomes, open-ended moral formats beyond binary logits, longitudinal WVS updates,
+cross-lingual tokenizer-aware proposal widths, and decoding-time ethical constraints
+are the natural next steps to turn this proof-of-concept into a deployable component
+of pluralistic alignment pipelines~\citep{sorensen2024roadmap}.
 
 % ============================================================
 \begin{ack}

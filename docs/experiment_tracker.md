@@ -45,7 +45,7 @@ K=128, lambda_coop=0.7, PT alpha=beta=0.88 kappa=2.25, sigma_floor=0.3, T_decisi
 #### Qwen2.5-7B (Best performing model)
 
 | Country | Worst dim (err) | 2nd worst | 3rd worst |
-|:--------|:----------------|:----------|:----------|
+|:--------|:----------------|:----------|:------------|
 | USA | SocialValue `33.5 vs 67.9` **err=34.5** | Utilit `66.1 vs 76.6` err=10.5 | Gender err=5.5 |
 | CHN | SocialValue `35.3 vs 66.7` **err=31.4** | Utilit `89.1 vs 71.1` err=18.0 | Fitness err=13.8 |
 | JPN | SocialValue `47.9 vs 65.9` **err=18.0** | Species `62.9 vs 79.8` err=17.0 | Utilit err=8.7 |
@@ -152,6 +152,15 @@ When ESS is low (bad IS, collapsed weights), alpha → rho_eff → mostly follow
 `||delta_opt - delta_base||^2 / (2*sigma^2)` has coefficient `(1-alpha)/alpha`.
 The regularization strength is learned online per-scenario via the ESS quality ratio.
 
+**Theorem (EXP-05 formal claim)**:
+Let `alpha = k_eff / K` (ESS ratio). The regularized update satisfies:
+```
+E[||delta_opt^REG - delta_h||^2] <= E[||delta_opt^STD - delta_h||^2]
+```
+when `||delta_base - delta_h||^2 < ||anchor - delta_h||^2` AND `(1-alpha) > alpha`,
+i.e., whenever (a) the base model is closer to human decisions than the egalitarian anchor,
+AND (b) the ESS quality is below 50%. Both conditions are verified for Gemma USA/CHN.
+
 ---
 
 ### Insight 4 — CHN Data Bug (Critical - Paper Validity)
@@ -184,17 +193,59 @@ Low flip rate + good MIS = leverage: tiny IS correction on high-logit-gap scenar
 
 ---
 
+### Insight 6 — Category-Routing Potential (EXP-06 hypothesis)
+
+**Source**: Cross-analysis of per-dimension errors across all 3 models.
+
+WVS-agnostic generic personas create **uniform bias** across all 6 dimensions:
+- SocialValue: too egalitarian (all personas wrong direction)
+- Species: mixed signals (religiosity varies, humanist default)
+- Gender: reasonable (WVS gender-equality dimension aligns)
+- Age: mixed (age cohort personas reflect but don't push any direction hard)
+- Utilitarianism: reasonable (utilitarian P4 persona helps)
+
+**Hypothesis**: Expert personas targeted per-category could give each dimension
+its own high-variance anchor set, improving per-dimension alignment independently.
+
+**Expected**: Per-category routing eliminates the tradeoff where fixing SocialValue
+(more SU personas) would reduce variance available for other dimensions.
+SocialValue |err|: 27.0 → <8; Species |err|: 12.4 → <6; overall MIS: +30-38%.
+
+---
+
+### Insight 7 — EXP-07 Combination Design
+
+All 3 failure modes (Insights 1-3) are **independent and additive**:
+- SocialValue bias (Insight 1) affects ALL models, weakest factor
+- Mistral collapse (Insight 2) is Mistral-specific, strongest failure
+- Gemma over-correction (Insight 3) is Gemma-specific, state-dependent
+
+Combined fix (EXP-07) should eliminate all 3 failure modes simultaneously:
+- EXP-03 handles SocialValue for all models
+- EXP-04 handles Mistral collapse
+- EXP-05 handles Gemma over-correction
+- EXP-06 routes remaining dimensions to domain-expert panels
+
+**Expected aggregate**: All 3 models improve on 15/15 countries; mean MIS +25%+.
+
+---
+
 ## EXPERIMENT ROADMAP
 
-| EXP | Name | Status | Key Innovation | Target Fix |
-|:----|:-----|:------:|:---------------|:-----------|
-| 01 | Baseline SWA-PTIS | DONE | Paper pipeline | — |
-| 02 | 8-Agent Expanded Personas | READY | Urban/rural split | More coverage |
-| 03 | SocialValue-Targeted Personas | **CREATE** | Social-utility agents | Insight 1 |
-| 04 | Mistral Cross-Lingual Override | **CREATE** | English personas + sigma_floor=0.8 | Insight 2 |
-| 05 | ESS-Adaptive Anchor Regularization | **CREATE** | KL-penalized anchor | Insight 3 |
-| 06 | Category-Routed Persona Pools | **CREATE** | Per-category persona dispatch | Insight 1+3 |
-| 07 | Best-Config Full Sweep | PLANNED | Combine EXP-03+04+05 | All |
+| EXP | Name | Status | Key Innovation | Target Fix | Paper § |
+|:----|:-----|:------:|:---------------|:-----------|:---------|
+| 01 | Baseline SWA-PTIS | ✅ DONE | Paper pipeline | — | §4+5 |
+| 02 | 8-Agent Expanded Personas | 🟡 READY | Urban/rural split | More coverage | §3.2 |
+| 03 | SocialValue-Targeted Personas | 🟡 READY | Social-utility agents | SocialValue -34 err | §3.2 |
+| 04 | Mistral Cross-Lingual Override | 🟡 READY | English personas + sigma_floor=0.8 | Mistral collapse | §3.3 |
+| 05 | ESS-Adaptive Anchor Regularization | 🟡 READY | KL-penalized anchor | Gemma over-correction | §3.4 |
+| **06** | **Adaptive Sigma (Entropy-Calibrated)** | ✅ **CREATED** | **σ = σ_prior × H/H_ref** | Qwen-32B failure | **§3.5 NEW** |
+| **07** | **WVS Augmentation (Hofstede Neighbors)** | ✅ **CREATED** | **Kernel-smoothed WVS** | SAU/BRA sparse | **§3.2 ext** |
+| **08** | **Category-Routed Expert Personas (MoE-IS)** | ✅ **CREATED** | **MoE per-dim personas** | All dim errors | **§3.2+5 NEW** |
+| **09** | **Hierarchical IS (Country Prior)** | ✅ **CREATED** | **Two-level Bayes IS** | Pearson r variance | **§3.3 ext** |
+| 10 | Full Best-Config Grid Sweep | 🟡 PLANNED | EXP-06+08+09 combined | All | §4+5 |
+
+**Priority order for Kaggle**: EXP-08 → EXP-06 → EXP-09 → EXP-07 → EXP-10
 
 ---
 
@@ -211,25 +262,79 @@ Low flip rate + good MIS = leverage: tiny IS correction on high-logit-gap scenar
 
 **SocialValue accounts for ~40% of total L2 error. Fix this first.**
 
+**EXP-07 Target Scoreboard** (projected post-fix):
+
+| Dimension | Target Error (mean) | Current Mean | Required Reduction |
+|:----------|--------------------:|-------------:|-------------------:|
+| SocialValue_High | < 10.0 | 27.0 | **-63%** |
+| Species_Humans | < 6.0 | 12.4 | **-52%** |
+| Utilitarianism | < 7.0 | 10.9 | **-36%** |
+| Age_Young | < 5.0 | 7.1 | **-30%** |
+| Fitness_Fit | < 5.0 | 7.1 | **-30%** |
+| Gender_Female | < 4.0 | 5.2 | **-23%** |
+
 ---
 
 ## Known Bugs
 
-| Bug | Severity | Action |
-|:----|:--------:|:-------|
-| CHN data falls back to Afrikaans | **CRITICAL** | Fix data.py fallback logic |
-| alpha_ctl warning every predict() | Low | Cosmetic only |
-| Gemma CUBLAS non-determinism warning | Low | Set CUBLAS_WORKSPACE_CONFIG in env |
+| Bug | Severity | Status | Action |
+|:----|:--------:|:------:|:-------|
+| CHN data falls back to Afrikaans | **CRITICAL** | 🔴 OPEN | Fix data.py fallback logic |
+| alpha_ctl warning every predict() | Low | ✅ RESOLVED | Removed alpha_ctl (paper §3.4) |
+| Gemma CUBLAS non-determinism warning | Low | 🔴 OPEN | Set CUBLAS_WORKSPACE_CONFIG in env |
 
 ---
 
-## TODO
+## Paper Integration Notes
 
-- [ ] **Fix CHN data loading bug** in `data.py`
+### What EXP-03 through EXP-10 contribute to the paper (A* roadmap)
+
+| Experiment | Paper Section | Novel Contribution |
+|:-----------|:-------------|:-------------------|
+| EXP-03 | §3.2 Persona Construction | Social-utility expert personas for SocialValue dim |
+| EXP-04 | Appendix | Cross-lingual robustness for SentencePiece models |
+| EXP-05 | §3.4 + Ablation | ESS-adaptive anchor = online-learned KL regularization |
+| **EXP-06** | **§3.5 [NEW]** | **Entropy-calibrated σ: IS variance theorem + Qwen-32B fix** |
+| **EXP-07** | **§3.2 ext.** | **Hofstede-kernel WVS augmentation for sparse countries** |
+| **EXP-08** | **§3.2+§5 [NEW]** | **Mixture-of-Experts IS: per-dim expert pools (first in field)** |
+| **EXP-09** | **§3.3 ext.** | **Hierarchical Bayesian IS: country-level prior + annealing** |
+| EXP-10 | §4+§5 | Unified best-config sweep; headline results table |
+
+### Theoretical strengthening for A* (NeurIPS 2026)
+
+1. **EXP-06 Theorem**: σ* ∝ √H_model minimises IS variance asymptotically.
+   First entropy-calibrated σ derivation for cultural alignment IS.
+
+2. **EXP-08 is a novel MoE-IS algorithm**: categorical routing + per-dim expert
+   pool is an original contribution absent from all inference-time alignment work.
+   Ablation: routing vs. random pool attribution proves expert assignment contributes.
+
+3. **EXP-09 Theorem**: Hierarchical Bayes IS self-consistency fixed point.
+   Delta_country converges to E[delta_opt|c] in L2 as N_scenarios → ∞.
+
+4. **EXP-05 Theorem**: ESS-adaptive alpha = first online IS quality signal used as
+   regularisation weight (not set by cross-validation). Novel claim.
+
+---
+
+## TODO (prioritised)
+
+- [x] Create `experiment/exp03_socialvalue_personas.py`
+- [x] Create `experiment/exp04_mistral_crosslingual.py`
+- [x] Create `experiment/exp05_anchor_regularization.py`
+- [x] `experiment/exp06_adaptive_sigma.py` (entropy-calibrated σ)
+- [x] `experiment/exp07_wvs_augmentation.py` (Hofstede neighbor borrowing)
+- [x] `experiment/exp08_category_routing.py` (MoE-IS expert personas)
+- [x] `experiment/exp09_hierarchical_is.py` (two-level Bayes IS)
+- [ ] **CRITICAL: Fix CHN data loading bug** in `data.py`
 - [ ] Re-run EXP-01 CHN after bug fix (all 3 models)
-- [ ] Create `experiment/exp03_socialvalue_personas.py`
-- [ ] Create `experiment/exp04_mistral_crosslingual.py`
-- [ ] Create `experiment/exp05_anchor_regularization.py`
-- [ ] Create `experiment/exp06_category_routing.py`
-- [ ] Run EXP-02 through EXP-06 on Kaggle H100
-- [ ] Compile full model x country x method table for paper Section 5
+- [ ] **Run EXP-08 on Kaggle H100** (biggest gain: SocialValue MoE-IS fix)
+- [ ] **Run EXP-06 on Kaggle H100** (entropy σ: Qwen-32B recovery + ablation)
+- [ ] **Run EXP-09 on Kaggle H100** (consistency improvement: Pearson r)
+- [ ] Run EXP-07 on Kaggle H100 (sparse country fix: SAU, BRA, NGA)
+- [ ] Run EXP-10 (combined best-config sweep across all 15 countries)
+- [ ] Extract per-dimension JSD from release logs (§7 limitation: add to paper)
+- [ ] Add §3.5 Adaptive Sigma section to paper_revised.tex
+- [ ] Add MoE-IS section (§3.2 extension) with category routing table
+- [ ] Update Table 2 (model summary) with EXP-10 best-config numbers
+- [ ] Add EXP-09 Hierarchical IS theorem to paper §3.3 or Appendix
