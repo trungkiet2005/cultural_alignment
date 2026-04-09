@@ -6,7 +6,7 @@
 >
 > **Run order on Kaggle H100** (EXP-09-based priority): **EXP-19** → **EXP-18** → **EXP-17** → EXP-16 → EXP-15 → EXP-14 → EXP-10  
 > **Primary metric**: MIS = L2 misalignment vs human AMCE ↓. Secondary: JSD ↓, Pearson r ↑.  
-> **Completed runs**: EXP-01 ✅ (2026-04-09) | EXP-01-SHIS ✅ (2026-04-10) | EXP-02 ✅ (2026-04-09) | EXP-03 ✅ (2026-04-09) | EXP-04 ✅ (2026-04-09) | EXP-05 ✅ (2026-04-09) | EXP-06 ✅ (2026-04-10) | EXP-06b ✅ (2026-04-09) | EXP-07 ✅ (2026-04-10) | EXP-07a ✅ (2026-04-09) | EXP-08 ✅ (2026-04-10) | EXP-09 ✅ (2026-04-09) | EXP-10 ✅ (2026-04-10) | EXP-12 ✅ (2026-04-10) | EXP-13 ✅ (2026-04-10)
+> **Completed runs**: EXP-01 ✅ (2026-04-09) | EXP-01-SHIS ✅ (2026-04-10) | EXP-02 ✅ (2026-04-09) | EXP-03 ✅ (2026-04-09) | EXP-04 ✅ (2026-04-09) | EXP-05 ✅ (2026-04-09) | EXP-06 ✅ (2026-04-10) | EXP-06b ✅ (2026-04-09) | EXP-07 ✅ (2026-04-10) | EXP-07a ✅ (2026-04-09) | EXP-08 ✅ (2026-04-10) | EXP-09 ✅ (2026-04-09) | EXP-10 ✅ (2026-04-10) | EXP-12 ✅ (2026-04-10) | EXP-13 ✅ (2026-04-10) | EXP-14 ✅ (2026-04-10) | EXP-15 ✅ (2026-04-10) | EXP-16 ✅ (2026-04-10) | EXP-17 ✅ (2026-04-10) | EXP-18 ✅ (2026-04-10) | EXP-19 ✅ (2026-04-10) | EXP-20 ✅ (2026-04-10) | EXP-21 ✅ (2026-04-10) | EXP-22 ✅ (2026-04-10) | EXP-23 ✅ (2026-04-10) | EXP-24 ✅ (2026-04-10) | EXP-25 ✅ (2026-04-10)
 
 ---
 
@@ -29,18 +29,18 @@
 | `exp11_dimension_adaptive_pt.py` | EXP-11 | 🟡 READY | **Dimension-specific κ/σ (heterogeneous PT)** | SocialValue κ↓, Species κ↑ |
 | `exp12_contrastive_persona.py` | EXP-12 | ✅ DONE | **Contrastive Persona Decoding (world-avg subtraction)** | Egalitarian anchor bias |
 | `exp13_model_adaptive_meta.py` | EXP-13 | ✅ DONE | **Model-adaptive meta-controller (auto-config per family)** | Model-specific failures |
-| `exp14_adaptive_kappa.py` | EXP-14 | 🟡 READY | **Direction-Conditioned Adaptive κ (DCAL) + sign consistency** | Mistral anti-corr + flip% |
-| `exp15_persona_credibility.py` | EXP-15 | 🟡 READY | **Online Persona Credibility Reweighting (OPCR, per-category)** | SocialValue gap + Mistral bias |
-| `exp16_nesterov_is.py` | EXP-16 | 🟡 READY | **Nesterov IS + Progressive PT Sharpening (NMIS)** | IS convergence + flip% damping |
-| `exp17_dual_momentum.py` | EXP-17 | 🟡 READY | **Dual-Momentum Prior (fast β=0.20 + slow β=0.03, EXP-09 base)** | Flip% + Mistral early noise |
-| `exp18_ess_gated.py` | EXP-18 | 🟡 READY | **ESS-Quality-Gated Prior β_eff=β·ρ + anchor reg (EXP-09 base)** | Mistral collapse + anchor bias |
-| `exp19_per_dim_prior.py` | EXP-19 | 🟡 READY | **Per-Dimension Hierarchical Prior — 6 independent EMAs (EXP-09 base)** | SocialValue/Species dim errors |
-| `exp20_variance_adaptive_alpha.py` | EXP-20 | 🟡 READY | **Variance-Adaptive Alpha: α_h_eff = α_h_base·exp(-σ_roll/scale) (EXP-09 base)** | BRA + Mistral noisy prior |
-| `exp21_directional_noise.py` | EXP-21 | 🟡 READY | **Directional IS Noise: ε_k~N(μ_shift,σ²) + IS correction (EXP-09 base)** | IS sample efficiency + ESS |
-| `exp22_adaptive_sigma.py` | EXP-22 | 🟡 READY | **Adaptive IS Sigma from history: σ_eff=f(σ_agents, σ_hist) (EXP-09 base)** | ESS collapse + BRA/Mistral |
-| `exp23_category_coherence.py` | EXP-23 | 🟡 READY | **Category-Coherence Reg: blend IS output toward per-cat mean (EXP-09 base)** | Flip% + JSD intra-cat variance |
-| `exp24_dual_pass_bootstrap.py` | EXP-24 | 🟡 READY | **Dual-Pass Bootstrap IS: soft r=exp(-bootstrap_var/scale) (EXP-09 base, =K)** | Binary ESS guard + Mistral |
-| `exp25_sign_constrained.py` | EXP-25 | 🟡 READY | **Sign-Constrained EMA + Dampening: anti-aligned β·ANTI, damp=0.4 (EXP-09 base)** | Mistral anti-corr + Flip% |
+| `exp14_adaptive_kappa.py` | EXP-14 | ✅ DONE | **Direction-Conditioned Adaptive κ (DCAL) + sign consistency** | Mistral anti-corr + flip% |
+| `exp15_persona_credibility.py` | EXP-15 | ✅ DONE | **Online Persona Credibility Reweighting (OPCR, per-category)** | SocialValue gap + Mistral bias |
+| `exp16_nesterov_is.py` | EXP-16 | ✅ DONE | **Nesterov IS + Progressive PT Sharpening (NMIS)** | IS convergence + flip% damping |
+| `exp17_dual_momentum.py` | EXP-17 | ✅ DONE | **Dual-Momentum Prior (fast β=0.20 + slow β=0.03, EXP-09 base)** | Flip% + Mistral early noise |
+| `exp18_ess_gated.py` | EXP-18 | ✅ DONE | **ESS-Quality-Gated Prior β_eff=β·ρ + anchor reg (EXP-09 base)** | Mistral collapse + anchor bias |
+| `exp19_per_dim_prior.py` | EXP-19 | ✅ DONE | **Per-Dimension Hierarchical Prior — 6 independent EMAs (EXP-09 base)** | SocialValue/Species dim errors |
+| `exp20_variance_adaptive_alpha.py` | EXP-20 | ✅ DONE | **Variance-Adaptive Alpha: α_h_eff = α_h_base·exp(-σ_roll/scale) (EXP-09 base)** | BRA + Mistral noisy prior |
+| `exp21_directional_noise.py` | EXP-21 | ✅ DONE | **Directional IS Noise: ε_k~N(μ_shift,σ²) + IS correction (EXP-09 base)** | IS sample efficiency + ESS |
+| `exp22_adaptive_sigma.py` | EXP-22 | ✅ DONE | **Adaptive IS Sigma from history: σ_eff=f(σ_agents, σ_hist) (EXP-09 base)** | ESS collapse + BRA/Mistral |
+| `exp23_category_coherence.py` | EXP-23 | ✅ DONE | **Category-Coherence Reg: blend IS output toward per-cat mean (EXP-09 base)** | Flip% + JSD intra-cat variance |
+| `exp24_dual_pass_bootstrap.py` | EXP-24 | ✅ DONE | **Dual-Pass Bootstrap IS: soft r=exp(-bootstrap_var/scale) (EXP-09 base, =K)** | Binary ESS guard + Mistral |
+| `exp25_sign_constrained.py` | EXP-25 | ✅ DONE | **Sign-Constrained EMA + Dampening: anti-aligned β·ANTI, damp=0.4 (EXP-09 base)** | Mistral anti-corr + Flip% |
 
 ---
 
@@ -52,33 +52,33 @@ These are the **most important** tables for fast decision-making and for paper i
 
 | Rank | Method | Coverage | Mean MIS ↓ | Notes |
 |:---:|:-------|:--------:|-----------:|:------|
-| 1 | **EXP-09 Hierarchical IS** | 3 models × 5 countries | **0.3975** | Strong overall; Mistral still shows negative correlation risk in some countries |
-| 2 | **EXP-10 Grand fusion (03+05+09)** | 3 models × 5 countries | **0.3982** | Near-best MIS; strongest broad improvement vs EXP-01 on Gemma/Mistral, but very high Flip% and diagnostics NaN in anchor-reg fields |
-| 3 | **EXP-01-SHIS Stratified hierarchical IS** | 3 models × 5 countries | **0.4156** | Strong on Qwen (5/5 wins vs Vanilla), near-flat on Gemma/Mistral; still behind EXP-09 |
-| 4 | **EXP-05 Anchor regularization** | 3 models × 5 countries | **0.4174** | Big gain on Qwen (esp. JPN/DEU); Gemma improves vs EXP-01 on USA/CHN but still not “fixed” |
-| 5 | **EXP-13 Model-adaptive meta-controller** | 3 models × 5 countries | **0.4203** | Best known among fully model-aware methods; strong Gemma gains, Qwen mixed, Mistral still anti-correlated |
-| 6 | **EXP-06 Adaptive sigma (entropy-calibrated)** | 3 models × 5 countries | **0.4267** | Near-identical to EXP-01 overall; Qwen/Gemma small gains in parts, Mistral remains anti-correlated |
-| 7 | EXP-01 SWA-PTIS (4-agent) | 3 models × 5 countries | 0.4269 | Strong for Qwen; harms Gemma/Mistral in some countries |
-| 8 | EXP-06b Category routing | 3 models × 5 countries | 0.4269 | Practically identical to EXP-01 (no measurable gain) |
-| 9 | EXP-08 Category routing (8 panels) | 3 models × 5 countries | 0.4270 | Nearly identical to EXP-01 aggregate (no measurable gain from routing extension) |
-| 10 | EXP-02 Expanded personas (8-agent) | 3 models × 5 countries | 0.4304 | Improves Qwen; regresses Gemma/Mistral |
-| 11 | EXP-03 SocialValue personas | 3 models × 5 countries | 0.4413 | Strong gains on Qwen SocialValue (USA/CHN/JPN), but Gemma/Mistral remain problematic and anti-correlation persists in some countries |
-| 12 | EXP-04 Mistral cross-lingual | 1 model × 5 countries | 0.4463* | *Only Mistral was run (Qwen/Gemma unchanged vs EXP-01); mixed outcome (CHN/DEU/JPN improved, USA/BRA regressed) |
-| 13 | EXP-12 Contrastive persona decoding | 3 models × 5 countries | 0.4517 | Underperforms EXP-01 overall; helps Qwen selectively but regresses Gemma/Mistral |
-| 14 | EXP-07a WVS augmentation | 2 models × 5 countries | 0.4031* | *Not directly comparable (missing Mistral) |
-| 15 | EXP-07 Unified best-config (15-country) | 3 models × 15 countries | 0.4522* | *Full-sweep setting; despite stronger coverage, headline MIS is not better than EXP-09/05 on 5-country benchmark |
-| — | **EXP-14 Adaptive κ (DCAL)** | 3 models × 5 countries | **TBD** | Direction-conditioned κ: κ_low=1.5 (aligned), κ_high=3.5 (anti-aligned) |
-| — | **EXP-15 Persona Credibility (OPCR)** | 3 models × 5 countries | **TBD** | Online credibility EMA per (persona,category); anchor = Σ w_i·δ_i |
-| — | **EXP-16 Nesterov IS (NMIS)** | 3 models × 5 countries | **TBD** | NAG lookahead anchor + progressive κ annealing 1.80→2.80 |
-| — | **EXP-17 Dual-Momentum (DMHP)** | 3 models × 5 countries | **TBD** | Fast EMA (β=0.20) + slow EMA (β=0.03) blended prior on EXP-09 base |
-| — | **EXP-18 ESS-Gated Prior (EGPU)** | 3 models × 5 countries | **TBD** | β_eff=β·(k_eff/K) + EXP-05 anchor reg on EXP-09 base |
-| — | **EXP-19 Per-Dim Prior (PDHP)** | 3 models × 5 countries | **TBD** | 6 dim-specific EMAs; SV/Species priors independent on EXP-09 base |
-| — | **EXP-20 Variance-Adaptive Alpha (VAAA)** | 3 models × 5 countries | **TBD** | α_h_eff = α_h_base·confidence(roll_σ); fixes BRA noisy prior lock-in |
-| — | **EXP-21 Directional IS Noise (DISP)** | 3 models × 5 countries | **TBD** | ε_k~N(μ_shift,σ²) biased toward country prior; IS-corrected unbiased |
-| — | **EXP-22 Adaptive IS Sigma (AISH)** | 3 models × 5 countries | **TBD** | σ_eff=max(σ_agents, σ_hist·scale+σ₀); annealing explore→exploit |
-| — | **EXP-23 Category-Coherence (CCR)** | 3 models × 5 countries | **TBD** | Per-cat running mean blend; target Flip% < 10%, JSD ↓ |
-| — | **EXP-24 Dual-Pass Bootstrap (DPBR)** | 3 models × 5 countries | **TBD** | Soft bootstrap reliability r=exp(-Δ²/scale); same K=128 total compute |
-| — | **EXP-25 Sign-Constrained EMA (SCED)** | 3 models × 5 countries | **TBD** | Anti-aligned: β·BETA_ANTI + output damp=0.4; target Mistral r > 0 |
+| 1 | **EXP-23 Category-Coherence (CCR)** | 3 models × 5 countries | **0.3956** | New best MIS; strong macro gains vs Vanilla/EXP-01, but Flip% remains elevated and coherence diagnostics export NaN |
+| 2 | **EXP-24 Dual-Pass Bootstrap (DPBR)** | 3 models × 5 countries | **0.3969** | Previous best MIS; large Flip% reduction and broad wins vs Vanilla/EXP-01, but Mistral remains anti-correlated and reliability fields export NaN |
+| 3 | **EXP-09 Hierarchical IS** | 3 models × 5 countries | **0.3975** | Strong overall; Mistral still shows negative correlation risk in some countries |
+| 4 | **EXP-22 Adaptive IS Sigma (AISH)** | 3 models × 5 countries | **0.3977** | Near-tie with EXP-09/10; broad wins vs Vanilla (14/15 rows), but no clear gain vs EXP-09 and sigma diagnostics export still NaN |
+| 5 | **EXP-16 Nesterov IS (NMIS)** | 3 models × 5 countries | **0.3977** | Tied with EXP-22; broad wins vs Vanilla (14/15), strong gains vs EXP-01 on Gemma/Mistral, but Flip% still high and momentum/ESS diagnostics export NaN |
+| 6 | **EXP-17 Dual-Momentum (DMHP)** | 3 models × 5 countries | **0.3979** | Near-tie top cluster; broad gains vs Vanilla (14/15 wins) and strongest macro gains vs EXP-01 on Gemma/Mistral, but Flip% still high and Mistral r remains negative |
+| 7 | **EXP-21 Directional IS Noise (DISP)** | 3 models × 5 countries | **0.3981** | Near-tie with EXP-09/22/10; broad wins vs Vanilla (14/15 rows), but diagnostics for `mu_shift`/ESS export as NaN |
+| 8 | **EXP-10 Grand fusion (03+05+09)** | 3 models × 5 countries | **0.3982** | Near-best MIS; strongest broad improvement vs EXP-01 on Gemma/Mistral, but very high Flip% and diagnostics NaN in anchor-reg fields |
+| 9 | **EXP-14 Adaptive κ (DCAL)** | 3 models × 5 countries | **0.4009** | Strong gains vs EXP-01 on Gemma/Mistral and near-target MIS, but Mistral remains anti-correlated and κ/ESS diagnostics export NaN |
+| 10 | **EXP-25 Sign-Constrained EMA (SCED)** | 3 models × 5 countries | **0.4046** | Improves vs EXP-01 on Gemma/Mistral with strong anti-rate diagnostics, but Flip% explodes and Mistral remains anti-correlated |
+| 11 | **EXP-18 ESS-Gated Prior (EGPU)** | 3 models × 5 countries | **0.4047** | Strong gains vs Vanilla (13/15 wins, Mistral 5/5), but very high Flip% and ESS/beta diagnostics still export NaN |
+| 12 | **EXP-01-SHIS Stratified hierarchical IS** | 3 models × 5 countries | **0.4156** | Strong on Qwen (5/5 wins vs Vanilla), near-flat on Gemma/Mistral; still behind EXP-09 |
+| 13 | **EXP-19 Per-Dim Prior (PDHP)** | 3 models × 5 countries | **0.4163** | Better than EXP-01/06/08 and strong vs EXP-01 on Gemma/Mistral, but misses EXP-09/22/21 tier and Mistral remains anti-correlated |
+| 14 | **EXP-05 Anchor regularization** | 3 models × 5 countries | **0.4174** | Big gain on Qwen (esp. JPN/DEU); Gemma improves vs EXP-01 on USA/CHN but still not “fixed” |
+| 15 | **EXP-13 Model-adaptive meta-controller** | 3 models × 5 countries | **0.4203** | Best known among fully model-aware methods; strong Gemma gains, Qwen mixed, Mistral still anti-correlated |
+| 16 | **EXP-20 Variance-Adaptive Alpha (VAAA)** | 3 models × 5 countries | **0.4265** | Effectively near-EXP-01 behavior: very low Flip%, but no ESS/quality gains and strong regression vs Vanilla on Mistral |
+| 17 | **EXP-06 Adaptive sigma (entropy-calibrated)** | 3 models × 5 countries | **0.4267** | Near-identical to EXP-01 overall; Qwen/Gemma small gains in parts, Mistral remains anti-correlated |
+| 18 | EXP-01 SWA-PTIS (4-agent) | 3 models × 5 countries | 0.4269 | Strong for Qwen; harms Gemma/Mistral in some countries |
+| 19 | EXP-06b Category routing | 3 models × 5 countries | 0.4269 | Practically identical to EXP-01 (no measurable gain) |
+| 20 | EXP-08 Category routing (8 panels) | 3 models × 5 countries | 0.4270 | Nearly identical to EXP-01 aggregate (no measurable gain from routing extension) |
+| 21 | **EXP-15 Persona Credibility (OPCR)** | 3 models × 5 countries | **0.4277** | Low Flip% by construction (near-frozen outputs), but no net MIS gain vs EXP-01 and Mistral anti-correlation persists strongly |
+| 22 | EXP-02 Expanded personas (8-agent) | 3 models × 5 countries | 0.4304 | Improves Qwen; regresses Gemma/Mistral |
+| 23 | EXP-03 SocialValue personas | 3 models × 5 countries | 0.4413 | Strong gains on Qwen SocialValue (USA/CHN/JPN), but Gemma/Mistral remain problematic and anti-correlation persists in some countries |
+| 24 | EXP-04 Mistral cross-lingual | 1 model × 5 countries | 0.4463* | *Only Mistral was run (Qwen/Gemma unchanged vs EXP-01); mixed outcome (CHN/DEU/JPN improved, USA/BRA regressed) |
+| 25 | EXP-12 Contrastive persona decoding | 3 models × 5 countries | 0.4517 | Underperforms EXP-01 overall; helps Qwen selectively but regresses Gemma/Mistral |
+| 26 | EXP-07a WVS augmentation | 2 models × 5 countries | 0.4031* | *Not directly comparable (missing Mistral) |
+| 27 | EXP-07 Unified best-config (15-country) | 3 models × 15 countries | 0.4522* | *Full-sweep setting; despite stronger coverage, headline MIS is not better than EXP-09/05 on 5-country benchmark |
 
 > Mean MIS computed as the simple average over the reported (model,country) rows for that method.
 
@@ -1111,31 +1111,404 @@ Notation: `delta = MIS_exp01 - MIS_exp07a` so **positive delta = EXP-07a improve
 - **Mistral**: near-identical MIS to EXP-01 and still negative Pearson-r in all 5 countries.
 - **Conclusion**: model-adaptive tuning is useful, but current profile is still bottlenecked by Mistral-family instability.
 
+---
+
+### EXP-22 — Adaptive IS Sigma from Country History (AISH) (✅ Completed 2026-04-10)
+
+**Script**: `exp22_adaptive_sigma.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 hierarchical prior + history-adaptive sigma `σ_eff=max(σ_agents, σ_hist·scale+σ₀)` with safety collapse threshold.
+
+#### EXP-22 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.3977**
+- **Model means**: Qwen **0.3653**, Gemma **0.3997**, Mistral **0.4281**
+- **Reference comparison**: almost tied with EXP-09 (**0.3975**) and EXP-10 (**0.3982**); better than EXP-01/06/08/12/13.
+- **Vs Vanilla**: **14/15 wins** (only Gemma-USA regressed).
+- **Diagnostics note**: `σ_eff(avg)`, `σ_agents(avg)`, and `ESS(avg)` columns are `NaN` in this run output (export bug), while `sigma_hist` is present.
+
+#### EXP-22 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3538 | 0.0662 | +0.071 | 11.62 | 14.2% |
+| Qwen2.5-7B | CHN ⚠️ | 0.3530 | 0.0689 | +0.350 | 11.48 | 17.4% |
+| Qwen2.5-7B | DEU | 0.4272 | 0.0527 | +0.354 | 14.60 | 16.1% |
+| Qwen2.5-7B | JPN | 0.3388 | 0.0446 | +0.387 | 11.24 | 15.2% |
+| Qwen2.5-7B | USA | 0.3539 | 0.0511 | +0.683 | 12.19 | 17.4% |
+| Gemma-2-9B | BRA | 0.3442 | 0.0494 | +0.336 | 11.50 | 16.8% |
+| Gemma-2-9B | CHN ⚠️ | 0.3595 | 0.0492 | +0.787 | 12.82 | 13.2% |
+| Gemma-2-9B | DEU | 0.3650 | 0.0464 | +0.772 | 13.16 | 15.8% |
+| Gemma-2-9B | JPN | 0.4374 | 0.0555 | +0.358 | 15.46 | 13.9% |
+| Gemma-2-9B | USA | 0.4924 | 0.0557 | +0.675 | 18.33 | 11.3% |
+| Mistral-7B | BRA | 0.4137 | 0.0677 | -0.708 | 13.32 | 16.8% |
+| Mistral-7B | CHN ⚠️ | 0.4100 | 0.0837 | -0.614 | 16.26 | 17.4% |
+| Mistral-7B | DEU | 0.4639 | 0.0838 | -0.885 | 16.07 | 18.1% |
+| Mistral-7B | JPN | **0.3274** | 0.0603 | -0.644 | 12.30 | 16.1% |
+| Mistral-7B | USA | 0.5257 | 0.1029 | -0.568 | 19.73 | 14.5% |
+
+#### EXP-22 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +22.37% | +24.03% | +19.49% | +2.86% | +30.77% |
+| Gemma-2-9B | -5.97% | +2.28% | +3.44% | +12.47% | +23.34% |
+| Mistral-7B | +7.87% | +10.26% | +4.52% | +5.50% | +0.16% |
+
+#### EXP-22 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +3.75% | +13.45% | -20.91% | -24.77% | +12.10% |
+| Gemma-2-9B | +18.44% | +20.75% | +6.28% | -10.98% | +5.83% |
+| Mistral-7B | +12.15% | +19.08% | +6.51% | +6.14% | +5.15% |
+
+#### EXP-22 key takeaways
+
+- **Global ranking**: EXP-22 is currently **#2 overall** by mean MIS (0.3977), only 0.0002 behind EXP-09.
+- **Strong vs Vanilla**: broad robustness (14/15 wins) with especially large Qwen gains on BRA/CHN.
+- **Mixed vs EXP-01 on Qwen**: gains on USA/CHN/BRA but regressions on JPN/DEU, indicating history sigma can over-regularize already-good lanes.
+- **Gemma improves materially overall** (+9.92% vs EXP-01 macro), with only DEU regression.
+- **Mistral still anti-correlated** in all 5 countries (Pearson r < 0), so AISH alone does not solve the core directionality problem.
+
+---
+
+### EXP-21 — Directional IS Noise (DISP) (✅ Completed 2026-04-10)
+
+**Script**: `exp21_directional_noise.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 hierarchical prior + direction-shifted IS proposal `ε~N(μ_shift,σ²)` with IS correction.
+
+#### EXP-21 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.3981**
+- **Model means**: Qwen **0.3642**, Gemma **0.4014**, Mistral **0.4288**
+- **Reference comparison**: close to EXP-09 (0.3975), EXP-22 (0.3977), and EXP-10 (0.3982); better than EXP-01/06/08/12/13.
+- **Vs Vanilla**: **14/15 wins** (only Gemma-USA regressed).
+- **Diagnostics note**: `μ_shift(avg)` and `ESS(avg)` are `NaN` in this run output, so directional-proposal effectiveness diagnostics are not yet verifiable from exported aggregates.
+
+#### EXP-21 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3566 | 0.0671 | +0.046 | 11.66 | 13.2% |
+| Qwen2.5-7B | CHN ⚠️ | 0.3498 | 0.0683 | +0.358 | 11.29 | 18.4% |
+| Qwen2.5-7B | DEU | 0.4231 | 0.0519 | +0.375 | 14.48 | 15.8% |
+| Qwen2.5-7B | JPN | 0.3365 | 0.0440 | +0.407 | 11.20 | 14.2% |
+| Qwen2.5-7B | USA | 0.3551 | 0.0508 | +0.682 | 12.27 | 17.7% |
+| Gemma-2-9B | BRA | 0.3437 | 0.0491 | +0.340 | 11.48 | 17.1% |
+| Gemma-2-9B | CHN ⚠️ | 0.3593 | 0.0492 | +0.788 | 12.81 | 12.3% |
+| Gemma-2-9B | DEU | 0.3665 | 0.0463 | +0.768 | 13.22 | 15.2% |
+| Gemma-2-9B | JPN | 0.4441 | 0.0575 | +0.334 | 15.63 | 12.9% |
+| Gemma-2-9B | USA | 0.4937 | 0.0560 | +0.674 | 18.36 | 11.3% |
+| Mistral-7B | BRA | 0.4136 | 0.0676 | -0.709 | 13.33 | 15.2% |
+| Mistral-7B | CHN ⚠️ | 0.4117 | 0.0843 | -0.634 | 16.29 | 16.1% |
+| Mistral-7B | DEU | 0.4657 | 0.0849 | -0.897 | 16.16 | 16.5% |
+| Mistral-7B | JPN | **0.3272** | 0.0604 | -0.696 | 12.25 | 14.8% |
+| Mistral-7B | USA | 0.5257 | 0.1029 | -0.574 | 19.74 | 13.9% |
+
+#### EXP-21 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +22.12% | +24.72% | +20.02% | +3.80% | +30.22% |
+| Gemma-2-9B | -6.24% | +2.34% | +1.97% | +12.12% | +23.46% |
+| Mistral-7B | +7.87% | +9.89% | +4.57% | +5.14% | +0.19% |
+
+#### EXP-21 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +3.43% | +14.23% | -20.11% | -23.57% | +11.40% |
+| Gemma-2-9B | +18.24% | +20.79% | +4.85% | -11.42% | +5.97% |
+| Mistral-7B | +12.15% | +18.75% | +6.56% | +5.77% | +5.18% |
+
+#### EXP-21 key takeaways
+
+- **Global ranking**: EXP-21 is currently **#3 overall** by mean MIS (0.3981), very close to EXP-09/22/10.
+- **Strong vs Vanilla**: broad robustness (14/15 wins), especially strong gains on Qwen BRA/CHN.
+- **Mixed vs EXP-01 on Qwen**: wins on USA/CHN/BRA but regresses on JPN/DEU, similar pattern to EXP-22.
+- **Gemma and Mistral improve materially vs EXP-01** in macro average, but Mistral remains negative Pearson-r across all 5 countries.
+- **Core blocker**: `mu_shift` and ESS diagnostics export as NaN, so the claimed IS-efficiency gain of directional proposal still needs instrumentation fix before publishable claim.
+
+---
+
+### EXP-20 — Variance-Adaptive Alpha Annealing (VAAA) (✅ Completed 2026-04-10)
+
+**Script**: `exp20_variance_adaptive_alpha.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 prior mixing with confidence-modulated weight `alpha_h_eff = alpha_h_base * exp(-rolling_std/scale)`.
+
+#### EXP-20 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.4265**
+- **Model means**: Qwen **0.3603**, Gemma **0.4430**, Mistral **0.4762**
+- **Reference comparison**: near EXP-01/06/08 band, and clearly below EXP-09/22/21/10.
+- **Behavior note**: very low Flip% overall (often 0.3–2.6%), indicating strong conservative damping.
+- **Diagnostics note**: `mean_confidence` in final aggregate printed as `NaN`, but per-country logs show finite final `alpha_h_eff/confidence`.
+
+#### EXP-20 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.4025 | 0.0941 | +0.167 | 14.30 | 0.6% |
+| Qwen2.5-7B | CHN ⚠️ | 0.4078 | 0.0956 | +0.417 | 13.54 | 1.3% |
+| Qwen2.5-7B | DEU | 0.3426 | 0.0557 | +0.461 | 10.44 | 2.6% |
+| Qwen2.5-7B | JPN | 0.2812 | 0.0551 | +0.403 | 9.97 | 1.3% |
+| Qwen2.5-7B | USA | 0.3677 | 0.0759 | +0.639 | 9.75 | 1.9% |
+| Gemma-2-9B | BRA | 0.3641 | 0.0742 | +0.272 | 14.01 | 4.5% |
+| Gemma-2-9B | CHN ⚠️ | 0.4528 | 0.1031 | +0.777 | 14.65 | 1.3% |
+| Gemma-2-9B | DEU | 0.3288 | 0.0681 | +0.796 | 10.12 | 1.3% |
+| Gemma-2-9B | JPN | 0.4663 | 0.0792 | +0.332 | 15.84 | 1.6% |
+| Gemma-2-9B | USA | 0.6031 | 0.1105 | +0.630 | 22.28 | 0.6% |
+| Mistral-7B | BRA | 0.4336 | 0.0931 | -0.667 | 13.96 | 1.0% |
+| Mistral-7B | CHN ⚠️ | 0.5066 | 0.1050 | -0.682 | 17.41 | 0.3% |
+| Mistral-7B | DEU | 0.4938 | 0.1059 | -0.957 | 17.16 | 1.0% |
+| Mistral-7B | JPN | 0.3489 | 0.0762 | -0.904 | 12.45 | 1.3% |
+| Mistral-7B | USA | 0.5984 | 0.1303 | -0.570 | 21.61 | 0.6% |
+
+#### EXP-20 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +19.35% | +12.22% | +33.18% | +22.11% | +21.26% |
+| Gemma-2-9B | -29.79% | -23.09% | -2.94% | +21.14% | +18.91% |
+| Mistral-7B | -4.87% | -10.89% | -1.75% | -0.59% | -4.62% |
+
+#### EXP-20 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +0.00% | -0.01% | -0.36% | -0.05% | +0.01% |
+| Gemma-2-9B | +0.11% | +0.17% | +0.08% | +0.02% | +0.39% |
+| Mistral-7B | +0.01% | +0.01% | +0.37% | +0.09% | +0.61% |
+
+#### EXP-20 key takeaways
+
+- **Not a headline improvement**: aggregate MIS is **0.4265**, far from EXP-09/22/21 top group.
+- **Acts like a strong dampener**: flip rates collapse to very low levels, but lower flip does not translate to better alignment.
+- **Qwen remains mostly stable** (near EXP-01), but no clear gain from variance-adaptive alpha on average.
+- **Gemma/Mistral vs Vanilla degrade**, especially Mistral (0/5 wins vs Vanilla), indicating over-suppression of prior dynamics.
+- **Interpretation**: with current scale (`SIGMA_CONF_SCALE=0.20`), confidence often collapses too hard (`alpha_h_eff` near zero), effectively disabling useful prior adaptation.
+
+---
+
+### EXP-17 — Dual-Momentum Hierarchical Prior (DMHP) (✅ Completed 2026-04-10)
+
+**Script**: `exp17_dual_momentum.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 hierarchical prior with **dual-timescale country prior**: fast EMA (`beta_fast=0.20`) + slow EMA (`beta_slow=0.03`) blended by annealed `lambda_t`.
+
+#### EXP-17 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.3979**
+- **Model means**: Qwen **0.3669**, Gemma **0.4027**, Mistral **0.4240**
+- **Ranking**: currently **#3** on leaderboard (near-tie with EXP-09/22/21/10 top group)
+- **Relative performance**: 14/15 wins vs Vanilla; 12/15 wins vs EXP-01 overall
+- **Behavior note**: `lambda_t` converges to ~0.481 in all runs, confirming expected warmup-to-blend regime.
+
+#### EXP-17 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3550 | 0.0653 | +0.071 | 11.75 | 14.2% |
+| Qwen2.5-7B | CHN ⚠️ | 0.3564 | 0.0684 | +0.336 | 11.66 | 18.1% |
+| Qwen2.5-7B | DEU | 0.4271 | 0.0514 | +0.373 | 14.69 | 15.5% |
+| Qwen2.5-7B | JPN | 0.3426 | 0.0450 | +0.373 | 11.38 | 14.2% |
+| Qwen2.5-7B | USA | 0.3536 | 0.0481 | +0.706 | 12.44 | 18.1% |
+| Gemma-2-9B | BRA | 0.3440 | 0.0484 | +0.352 | 11.52 | 19.7% |
+| Gemma-2-9B | CHN ⚠️ | 0.3624 | 0.0496 | +0.780 | 12.91 | 13.9% |
+| Gemma-2-9B | DEU | 0.3697 | 0.0459 | +0.772 | 13.41 | 16.8% |
+| Gemma-2-9B | JPN | 0.4417 | 0.0556 | +0.355 | 15.67 | 13.2% |
+| Gemma-2-9B | USA | 0.4956 | 0.0553 | +0.675 | 18.50 | 13.5% |
+| Mistral-7B | BRA | 0.4123 | 0.0666 | -0.697 | 13.32 | 17.7% |
+| Mistral-7B | CHN ⚠️ | 0.4052 | 0.0824 | -0.622 | 15.97 | 17.4% |
+| Mistral-7B | DEU | 0.4613 | 0.0829 | -0.895 | 15.89 | 18.4% |
+| Mistral-7B | JPN | 0.3221 | 0.0587 | -0.660 | 11.99 | 16.1% |
+| Mistral-7B | USA | 0.5189 | 0.1006 | -0.582 | 19.47 | 15.8% |
+
+#### EXP-17 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +22.45% | +23.28% | +18.58% | +2.89% | +30.53% |
+| Gemma-2-9B | -6.64% | +1.49% | +2.49% | +11.35% | +23.39% |
+| Mistral-7B | +9.06% | +11.32% | +6.08% | +6.02% | +0.50% |
+
+#### EXP-17 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +3.84% | +12.60% | -22.27% | -24.73% | +11.79% |
+| Gemma-2-9B | +17.93% | +20.10% | +5.35% | -12.40% | +5.89% |
+| Mistral-7B | +13.28% | +20.04% | +8.03% | +6.65% | +5.47% |
+
+#### EXP-17 key takeaways
+
+- **Near-SOTA aggregate**: mean MIS **0.3979**, only marginally above EXP-09/22 and better than all non-top-cluster methods.
+- **Gemma and Mistral gain strongly vs EXP-01** (Gemma 4/5 wins, Mistral 5/5 wins), validating the dual-timescale prior idea.
+- **Qwen remains mixed**: strong wins in USA/CHN/BRA but notable regressions in JPN/DEU vs EXP-01.
+- **Main target missed**: Flip% remains high (~14-18%), so dual-momentum did not deliver the expected flip suppression.
+- **Mistral anti-correlation persists** across all 5 countries (Pearson r still negative), despite lower MIS.
+
+---
+
+### EXP-18 — ESS-Quality-Gated Prior Update (EGPU) (✅ Completed 2026-04-10)
+
+**Script**: `exp18_ess_gated.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 hierarchical prior + EXP-05 anchor regularization, with ESS-gated country-prior EMA update `beta_eff = beta_base * max(k_eff/K, rho_floor)`.
+
+#### EXP-18 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.4047**
+- **Model means**: Qwen **0.3712**, Gemma **0.4085**, Mistral **0.4345**
+- **Ranking**: currently **#5** on leaderboard (behind EXP-09/22/21/10, ahead of SHIS/PDHP)
+- **Relative performance**: 13/15 wins vs Vanilla (Qwen 5/5, Gemma 3/5, Mistral 5/5)
+- **Core blocker**: `ESS`, `beta_eff`, `alpha_reg`, `anchor_divergence` aggregate outputs are `NaN` due to diagnostics export path mismatch.
+
+#### EXP-18 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.4136 | 0.0767 | -0.252 | 14.29 | 13.2% |
+| Qwen2.5-7B | CHN ⚠️ | 0.3683 | 0.0703 | +0.239 | 11.71 | 18.1% |
+| Qwen2.5-7B | DEU | 0.3992 | 0.0519 | +0.324 | 13.26 | 21.3% |
+| Qwen2.5-7B | JPN | 0.3278 | 0.0400 | +0.505 | 11.17 | 13.9% |
+| Qwen2.5-7B | USA | 0.3472 | 0.0450 | +0.675 | 12.17 | 20.6% |
+| Gemma-2-9B | BRA | 0.3504 | 0.0474 | +0.161 | 11.73 | 21.9% |
+| Gemma-2-9B | CHN ⚠️ | 0.3652 | 0.0406 | +0.782 | 13.55 | 16.8% |
+| Gemma-2-9B | DEU | 0.3820 | 0.0394 | +0.735 | 14.03 | 20.0% |
+| Gemma-2-9B | JPN | 0.4566 | 0.0576 | +0.215 | 16.10 | 14.5% |
+| Gemma-2-9B | USA | 0.4884 | 0.0519 | +0.595 | 18.17 | 11.0% |
+| Mistral-7B | BRA | 0.4082 | 0.0616 | -0.728 | 13.53 | 19.4% |
+| Mistral-7B | CHN ⚠️ | 0.4096 | 0.0828 | -0.622 | 16.08 | 14.5% |
+| Mistral-7B | DEU | 0.4611 | 0.0828 | -0.890 | 15.84 | 16.8% |
+| Mistral-7B | JPN | 0.3358 | 0.0611 | -0.774 | 12.27 | 18.4% |
+| Mistral-7B | USA | 0.5576 | 0.1083 | -0.680 | 20.84 | 12.6% |
+
+#### EXP-18 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +23.83% | +20.72% | +22.09% | +9.24% | +19.08% |
+| Gemma-2-9B | -5.10% | +0.72% | -0.80% | +8.39% | +21.97% |
+| Mistral-7B | +2.28% | +10.36% | +2.06% | +6.08% | +1.50% |
+
+#### EXP-18 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +5.56% | +9.68% | -17.00% | -16.57% | -2.76% |
+| Gemma-2-9B | +19.11% | +19.48% | +2.16% | -16.14% | +4.14% |
+| Mistral-7B | +6.82% | +19.17% | +4.10% | +6.71% | +6.42% |
+
+#### EXP-18 key takeaways
+
+- **Strong aggregate result**: mean MIS **0.4047** is a clear gain over EXP-01/06/08 and only behind the top-4 cluster.
+- **Mistral improves vs both Vanilla and EXP-01 across all 5 countries**, but Pearson r stays negative in every country.
+- **Flip% is unexpectedly high** (often 13-22%), far above target and worse than many prior methods.
+- **Qwen performance is mixed vs EXP-01**: strong wins in USA/CHN, but large regressions in JPN/DEU.
+- **Instrumentation gap remains**: NaN diagnostics prevent validating whether EGPU truly improved IS reliability (`ESS`, `beta_eff`, `alpha_reg`).
+
+---
+
+### EXP-19 — Per-Dimension Hierarchical Prior (PDHP) (✅ Completed 2026-04-10)
+
+**Script**: `exp19_per_dim_prior.py`  
+**Scope**: 3 models × 5 countries = **15 rows**.  
+**Design**: EXP-09 hierarchical prior with **6 independent per-dimension EMAs** and per-dim warmup (`N_WARMUP_DIM=25`).
+
+#### EXP-19 headline numbers
+
+- **Overall mean MIS (15 rows)**: **0.4163**
+- **Model means**: Qwen **0.3576**, Gemma **0.4325**, Mistral **0.4587**
+- **Ranking**: **#6** on current leaderboard (below EXP-09/22/21/10/SHIS, above EXP-01/06/08)
+- **Relative performance**: Qwen wins 5/5 vs Vanilla; Gemma and Mistral each win 5/5 vs EXP-01
+- **Diagnostics note**: printed `ESS` summaries are `NaN` (instrumentation/export issue), so IS efficiency claims remain limited.
+
+#### EXP-19 full metrics (5-country benchmark)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3916 | 0.0910 | +0.174 | 13.96 | 2.6% |
+| Qwen2.5-7B | CHN ⚠️ | 0.4005 | 0.0934 | +0.419 | 13.45 | 2.3% |
+| Qwen2.5-7B | DEU | 0.3437 | 0.0543 | +0.482 | 10.54 | 4.2% |
+| Qwen2.5-7B | JPN | 0.2859 | 0.0559 | +0.413 | 10.09 | 4.8% |
+| Qwen2.5-7B | USA | 0.3662 | 0.0750 | +0.639 | 9.80 | 2.6% |
+| Gemma-2-9B | BRA | 0.3591 | 0.0729 | +0.278 | 13.77 | 4.8% |
+| Gemma-2-9B | CHN ⚠️ | 0.4324 | 0.0965 | +0.780 | 14.09 | 1.9% |
+| Gemma-2-9B | DEU | 0.3281 | 0.0673 | +0.801 | 10.01 | 2.9% |
+| Gemma-2-9B | JPN | 0.4602 | 0.0779 | +0.343 | 15.57 | 2.9% |
+| Gemma-2-9B | USA | 0.5829 | 0.1046 | +0.626 | 21.63 | 0.6% |
+| Mistral-7B | BRA | 0.4238 | 0.0894 | -0.632 | 13.49 | 1.6% |
+| Mistral-7B | CHN ⚠️ | 0.4826 | 0.1012 | -0.656 | 16.71 | 0.3% |
+| Mistral-7B | DEU | 0.4769 | 0.1017 | -0.960 | 16.65 | 2.3% |
+| Mistral-7B | JPN | 0.3297 | 0.0723 | -0.904 | 11.97 | 1.6% |
+| Mistral-7B | USA | 0.5807 | 0.1264 | -0.546 | 21.04 | 2.9% |
+
+#### EXP-19 vs Vanilla (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +19.68% | +13.79% | +32.05% | +21.85% | +23.38% |
+| Gemma-2-9B | -25.43% | -17.54% | -1.60% | +21.32% | +20.02% |
+| Mistral-7B | -1.77% | -5.63% | +3.85% | +2.86% | -2.27% |
+
+#### EXP-19 vs EXP-01 (MIS improvement %, positive is better)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +0.42% | +1.78% | -2.04% | -0.38% | +2.70% |
+| Gemma-2-9B | +3.47% | +4.67% | +1.38% | +0.25% | +1.75% |
+| Mistral-7B | +2.96% | +4.75% | +5.85% | +3.51% | +2.84% |
+
+#### EXP-19 key takeaways
+
+- **PDHP is a meaningful mid-tier gain**: beats EXP-01/06/08 aggregate, but still behind the top cluster around 0.398.
+- **Qwen stays robust** with broad Vanilla wins, yet large SocialValue errors remain in USA/CHN/BRA.
+- **Gemma improves consistently vs EXP-01** despite mixed behavior vs Vanilla (big USA regression remains).
+- **Mistral improves vs EXP-01 but not directionally**: Pearson r remains negative in all 5 countries.
+- **Conclusion**: per-dimension priors reduce contamination and help stability, but alone are insufficient for Mistral anti-correlation fix.
+
 ## Hyperparameter Differences vs EXP-01
 
-| Param | EXP-01 | EXP-02 | EXP-03 | EXP-04 (Mistral) | EXP-05 | EXP-06a | EXP-06b | EXP-07 | EXP-09 | EXP-12 | EXP-13 |
-|:------|:------:|:------:|:------:|:----------------:|:------:|:-------:|:-------:|:------:|:------:|:------:|:------:|
-| N personas | 4 | **8** | **5** | 4 | 4 | 4 | 4 | 5 (SV) / 4 (other) | 4 | 4 country + 4 world reference | family-adaptive (Qwen=5, Gemma/Mistral=4) |
-| λ_coop | 0.70 | **0.75** | **0.60** | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | family-adaptive (Qwen=0.60, others=0.70) |
-| σ policy | fixed floor 0.30 | fixed floor 0.30 | fixed floor 0.30 | fixed floor 0.80 | fixed floor 0.30 | **entropy-adaptive** `max(σ_entropy, σ_agents)` | fixed floor 0.30 | mixed (Mistral floor 0.80) | fixed floor 0.30 | fixed floor 0.30 | family-adaptive (Q=0.30, G=0.25, M=0.80) |
-| K samples | 128 | **256** | 128 | **512** | 128 | 128 | 128 | **512** (Mistral) | 128 | 128 | family-adaptive (Q/G=128, M=512) |
-| T_decision | 0.50 | 0.50 | 0.50 | **0.50** | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | family-adaptive (Q/G=1.0, M=0.5) |
-| Anchor reg. | ✗ | ✗ | ✗ | ✗ | **✓ ESS-α** | ✗ | ✗ | **✓ ESS-α** | ✗ | ✗ | family-adaptive (Q/G ✓, M ✗) |
-| Contrastive term | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (λ=0.5)** | ✗ |
-| Country prior | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ EMA + annealing** | ✗ | ✗ |
-| N_warmup | — | — | — | — | — | — | — | — | **50** | — | — |
-| Decay tau | — | — | — | — | — | — | — | — | **100** | — | — |
-| Beta EMA | — | — | — | — | — | — | — | — | **0.10** | — | — |
-| Category routing | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** | ✗ | ✗ | ✗ |
-| Urban/rural axis | ✗ | **✓** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Global-citizen agent | ✗ | **✓** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (world ref set)** | ✗ |
+| Param | EXP-01 | EXP-02 | EXP-03 | EXP-04 (Mistral) | EXP-05 | EXP-06a | EXP-06b | EXP-07 | EXP-09 | EXP-12 | EXP-13 | EXP-17 | EXP-18 | EXP-19 | EXP-20 | EXP-21 | EXP-22 |
+|:------|:------:|:------:|:------:|:----------------:|:------:|:-------:|:-------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|:------:|
+| N personas | 4 | **8** | **5** | 4 | 4 | 4 | 4 | 5 (SV) / 4 (other) | 4 | 4 country + 4 world reference | family-adaptive (Qwen=5, Gemma/Mistral=4) | 4 | 4 | 4 | 4 | 4 | 4 |
+| λ_coop | 0.70 | **0.75** | **0.60** | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | family-adaptive (Qwen=0.60, others=0.70) | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 | 0.70 |
+| σ policy | fixed floor 0.30 | fixed floor 0.30 | fixed floor 0.30 | fixed floor 0.80 | fixed floor 0.30 | **entropy-adaptive** `max(σ_entropy, σ_agents)` | fixed floor 0.30 | mixed (Mistral floor 0.80) | fixed floor 0.30 | fixed floor 0.30 | family-adaptive (Q=0.30, G=0.25, M=0.80) | fixed floor 0.30 + **dual-EMA prior** `(β_fast=0.20, β_slow=0.03)` | fixed floor 0.30 + **ESS-gated prior update** `β_eff=β·max(k_eff/K,0.10)` | fixed floor 0.30 (**per-dim prior EMA**) | fixed floor 0.30 + **var-adaptive alpha** `α_eff=α_base·exp(-roll_σ/0.20)` | fixed floor 0.30 + **directional shift** `μ_shift=clip(γ·α_h·δ_country, ±0.8σ)` | **history-adaptive** `max(σ_agents, σ_hist·0.5+0.30)` + clip [0.15,0.80] |
+| K samples | 128 | **256** | 128 | **512** | 128 | 128 | 128 | **512** (Mistral) | 128 | 128 | family-adaptive (Q/G=128, M=512) | 128 | 128 | 128 | 128 | 128 | 128 |
+| T_decision | 0.50 | 0.50 | 0.50 | **0.50** | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | family-adaptive (Q/G=1.0, M=0.5) | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 | 0.50 |
+| Anchor reg. | ✗ | ✗ | ✗ | ✗ | **✓ ESS-α** | ✗ | ✗ | **✓ ESS-α** | ✗ | ✗ | family-adaptive (Q/G ✓, M ✗) | ✗ | **✓ ESS-α (EXP-05 style)** | ✗ | ✗ | ✗ | ✗ |
+| Contrastive term | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (λ=0.5)** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Country prior | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ EMA + annealing** | ✗ | ✗ | **✓ dual-momentum EMA + annealed blend λ_t** | **✓ EMA + annealing + ESS-gated β** | **✓ per-dim EMA + per-dim annealing** | **✓ EMA + annealing** | **✓ EMA + annealing** | **✓ EMA + annealing** |
+| N_warmup | — | — | — | — | — | — | — | — | **50** | — | — | **50** | **50** | **25 (per-dim)** | **50** | **50** | **50** |
+| Decay tau | — | — | — | — | — | — | — | — | **100** | — | — | **100** (+ `tau_blend=80`) | **100** | **100** | **100** | **100** | **100** |
+| Beta EMA | — | — | — | — | — | — | — | — | **0.10** | — | — | **β_fast=0.20, β_slow=0.03** | **0.10 (ESS-gated)** | **0.10** | **0.10** | **0.10** | **0.10** |
+| Category routing | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓** | **✓** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Urban/rural axis | ✗ | **✓** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Global-citizen agent | ✗ | **✓** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | **✓ (world ref set)** | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+
+**EXP-16 addendum (vs EXP-01)**: Nesterov lookahead IS (`anchor_NAG = δ̄ + γ·m_t`, `β_m=0.90`, `γ=0.70`) + progressive PT sharpening (`κ: 1.80 → 2.80`, `τ=150`) + EXP-09 country prior (`N_warmup=50`, `τ=100`, `β=0.10`).
+
+**EXP-15 addendum (vs EXP-01)**: online persona credibility reweighting with category-conditioned EMA (`α_cred=0.15`, `N_warmup=40`, `T_cred=0.50`, `σ_agree=0.30`, `use_category=True`) replacing uniform anchor mean by `anchor = Σ w_i(cat)·δ_i`.
+
+**EXP-14 addendum (vs EXP-01)**: direction-conditioned adaptive PT loss aversion (`κ_low=1.50`, `κ_high=3.50`, `τ_κ=80`) + soft sign-consistency term (`λ_sign=0.30`, `κ_sign=2.00`) on top of EXP-09 country prior (`N_warmup=50`, `τ=100`, `β=0.10`).
+
+**EXP-25 addendum (vs EXP-09)**: sign-constrained country EMA (`β_eff=β` if aligned, `β_eff=β·0.30` if anti-aligned) + anti-aligned output dampening (`damp=0.40` when `α_h>0.20`) with diagnostics `anti_rate`, `n_anti`, `n_aligned`.
+
+**EXP-24 addendum (vs EXP-09)**: dual independent IS passes (`K1=K2=64`, same total `K=128`) + bootstrap reliability soft weight `r=exp(-(δ*_1-δ*_2)^2/0.04)` and `δ*=r·(δ*_1+δ*_2)/2` replacing single-pass binary ESS-only trust.
+
+**EXP-23 addendum (vs EXP-09)**: category-running-mean coherence regularization with per-category EMA (`α_cat=0.08`) and blend `delta_opt_coh=(1-cw)·delta_opt_micro+cw·mu_cat[dim]`, where `cw=alpha_h·0.35` (active after per-category warmup `N_warmup_cat=15`).
 
 ---
 
 ## EXP-14 — Direction-Conditioned Adaptive Loss Aversion (DCAL)
 
 **Script**: `exp14_adaptive_kappa.py`  
-**Status**: 🟡 READY  
+**Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
@@ -1152,12 +1525,58 @@ Additionally, a **soft sign consistency penalty** (`λ_sign=0.30`) rewards candi
 **Target**: Mean MIS < 0.3800 | Mistral Pearson r > 0 | Flip% < 10%  
 **Fixes**: Mistral anti-correlation (brake on wrong direction) + EXP-09 flip% (κ_high penalises sign flips)
 
+### Headline Results
+
+- **Overall mean MIS**: **0.4009** (better than EXP-18/01-SHIS, below EXP-09/16/17/22 top cluster).
+- **Model means**:
+  - Qwen: MIS **0.3836**, JSD 0.0544, r **+0.322**, Flip 19.7%
+  - Gemma: MIS **0.3926**, JSD 0.0466, r **+0.610**, Flip 22.8%
+  - Mistral: MIS **0.4265**, JSD 0.0788, r **-0.676**, Flip 18.1%
+- **Win-rate vs Vanilla**: **12/15** rows (Qwen 4/5, Gemma 3/5, Mistral 5/5)
+- **Win-rate vs EXP-01 SWA**: **12/15** rows (Qwen 3/5, Gemma 4/5, Mistral 5/5)
+
+### Full Metrics (EXP-14)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3679 | 0.0624 | +0.026 | 12.43 | 18.7% |
+| Qwen2.5-7B | CHN | 0.4011 | 0.0620 | +0.237 | 14.30 | 23.5% |
+| Qwen2.5-7B | DEU | 0.4441 | 0.0542 | +0.319 | 15.28 | 17.7% |
+| Qwen2.5-7B | JPN | 0.3558 | 0.0460 | +0.336 | 11.95 | 18.4% |
+| Qwen2.5-7B | USA | 0.3491 | 0.0477 | +0.694 | 12.21 | 20.3% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3508 | 0.0485 | +0.307 | 11.84 | 27.1% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.3715 | 0.0437 | +0.766 | 13.66 | 28.1% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.3623 | 0.0444 | +0.785 | 13.18 | 23.2% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.3956 | 0.0446 | +0.502 | 14.27 | 15.2% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.4825 | 0.0518 | +0.688 | 18.10 | 20.6% |
+| mistral-7b | BRA | 0.4134 | 0.0674 | -0.714 | 13.34 | 19.4% |
+| mistral-7b | CHN | 0.4095 | 0.0832 | -0.593 | 16.25 | 18.4% |
+| mistral-7b | DEU | 0.4612 | 0.0826 | -0.880 | 15.95 | 18.1% |
+| mistral-7b | JPN | 0.3289 | 0.0604 | -0.645 | 12.33 | 16.8% |
+| mistral-7b | USA | 0.5195 | 0.1004 | -0.549 | 19.54 | 17.7% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-14) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.4009 | **+10.49%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.4009 | **+6.11%** |
+
+### Key Takeaways
+
+- **Strong aggregate gain vs EXP-01** for Gemma and Mistral macro MIS, but Qwen regresses on DEU/JPN so total still below top tier.
+- **Primary objective not met**: Mistral remains anti-correlated in all 5 countries (Pearson r still negative everywhere).
+- **Flip% target missed hard**: all model means are far above 10%, with Gemma highest.
+- **Near-target MIS but not SOTA**: 0.4009 is competitive but still behind EXP-09 and tied-cluster methods.
+- **Diagnostics blocker**: `kappa_eff` and ESS export as NaN in aggregate outputs, preventing validation that direction-conditioned κ actually activated as intended.
+
 ---
 
 ## EXP-15 — Online Persona Credibility Reweighting (OPCR)
 
 **Script**: `exp15_persona_credibility.py`  
-**Status**: 🟡 READY  
+**Base**: EXP-01 SWA-PTIS (equal-weight anchor)  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
@@ -1175,12 +1594,58 @@ Paper uses **equal-weight mean** `anchor = (1/N) Σ δ_i`. EXP-15 replaces this 
 
 **Target**: Mean MIS < 0.3800 | SocialValue error < 20pp | Mistral Pearson r > 0
 
+### Headline Results
+
+- **Overall mean MIS**: **0.4277** (behind EXP-09/16/17/22 cluster; slightly worse than EXP-01 by +0.0007).
+- **Model means**:
+  - Qwen: MIS **0.3608**, JSD 0.0750, r **+0.403**, Flip 1.2%
+  - Gemma: MIS **0.4437**, JSD 0.0877, r **+0.558**, Flip 1.7%
+  - Mistral: MIS **0.4787**, JSD 0.1028, r **-0.755**, Flip 0.3%
+- **Win-rate vs Vanilla**: **7/15** rows (Qwen 5/5, Gemma 2/5, Mistral 0/5)
+- **Win-rate vs EXP-01 SWA**: **4/15** rows (Qwen 2/5, Gemma 2/5, Mistral 0/5)
+
+### Full Metrics (EXP-15)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.4031 | 0.0941 | +0.147 | 14.27 | 1.6% |
+| Qwen2.5-7B | CHN | 0.4069 | 0.0952 | +0.414 | 13.66 | 0.6% |
+| Qwen2.5-7B | DEU | 0.3491 | 0.0564 | +0.423 | 10.76 | 1.6% |
+| Qwen2.5-7B | JPN | 0.2802 | 0.0547 | +0.396 | 9.88 | 1.6% |
+| Qwen2.5-7B | USA | 0.3646 | 0.0745 | +0.635 | 9.75 | 0.6% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3628 | 0.0740 | +0.267 | 14.06 | 1.9% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.4549 | 0.1045 | +0.775 | 14.71 | 2.3% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.3218 | 0.0656 | +0.795 | 10.18 | 1.3% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.4707 | 0.0820 | +0.324 | 15.82 | 1.6% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.6085 | 0.1124 | +0.627 | 22.52 | 1.3% |
+| mistral-7b | BRA | 0.4382 | 0.0953 | -0.667 | 14.06 | 0.3% |
+| mistral-7b | CHN | 0.5069 | 0.1048 | -0.683 | 17.38 | 0.0% |
+| mistral-7b | DEU | 0.4992 | 0.1071 | -0.954 | 17.37 | 0.3% |
+| mistral-7b | JPN | 0.3503 | 0.0765 | -0.900 | 12.44 | 0.3% |
+| mistral-7b | USA | 0.5991 | 0.1306 | -0.571 | 21.60 | 0.3% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-15) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.4277 | **+4.50%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.4277 | **-0.16%** |
+
+### Key Takeaways
+
+- **Core OPCR claim not validated** in this run: credibility weighting did not improve aggregate MIS vs EXP-01.
+- **Mistral anti-correlation remains unresolved** (all 5 countries still negative Pearson r, with stronger negative r in JPN/DEU).
+- **Very low Flip% across all models** is the dominant behavior change, suggesting OPCR currently acts like heavy smoothing/near-fixed anchor dynamics.
+- **SocialValue gap remains large** in most rows (especially Qwen USA/CHN/BRA and Gemma USA/DEU/JPN), so category-conditioned credibility did not activate as intended.
+- **Diagnostics blocker**: `cred_entropy` remains NaN and final persona weights stay exactly uniform (`max_w=0.250`), indicating the credibility update path is likely not being applied in exported/run-time state.
+
 ---
 
 ## EXP-16 — Nesterov Momentum IS + Progressive PT Sharpening (NMIS)
 
 **Script**: `exp16_nesterov_is.py`  
-**Status**: 🟡 READY  
+**Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
@@ -1200,6 +1665,238 @@ Early scenarios: `κ=1.80` (explorative). Late scenarios: `κ→2.80` (commitmen
 When `m_t → c` (systematic correction): NAG accelerates by factor `1/(1-β_m) = 10`.
 
 **Target**: Mean MIS < 0.3700 (*most ambitious*) | Flip% < 12% | δ*_std < EXP-09
+
+### Headline Results
+
+- **Overall mean MIS**: **0.3977** (near-tie top cluster; essentially tied with EXP-22, slightly above EXP-09 by +0.0002).
+- **Model means**:
+  - Qwen: MIS **0.3649**, JSD 0.0564, r **+0.371**, Flip 16.6%
+  - Gemma: MIS **0.4002**, JSD 0.0515, r **+0.583**, Flip 14.3%
+  - Mistral: MIS **0.4281**, JSD 0.0797, r **-0.685**, Flip 16.4%
+- **Win-rate vs Vanilla**: **14/15** rows (Qwen 5/5, Gemma 4/5, Mistral 5/5)
+- **Win-rate vs EXP-01 SWA**: **12/15** rows (Qwen 3/5, Gemma 4/5, Mistral 5/5)
+
+### Full Metrics (EXP-16)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3539 | 0.0663 | +0.064 | 11.61 | 13.5% |
+| Qwen2.5-7B | CHN | 0.3530 | 0.0682 | +0.349 | 11.34 | 18.7% |
+| Qwen2.5-7B | DEU | 0.4250 | 0.0523 | +0.366 | 14.53 | 17.4% |
+| Qwen2.5-7B | JPN | 0.3383 | 0.0444 | +0.392 | 11.24 | 16.1% |
+| Qwen2.5-7B | USA | 0.3545 | 0.0506 | +0.684 | 12.26 | 17.1% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3434 | 0.0493 | +0.339 | 11.47 | 17.4% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.3583 | 0.0494 | +0.786 | 12.74 | 12.3% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.3654 | 0.0462 | +0.772 | 13.19 | 15.8% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.4415 | 0.0568 | +0.343 | 15.56 | 14.2% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.4925 | 0.0557 | +0.673 | 18.33 | 11.6% |
+| mistral-7b | BRA | 0.4140 | 0.0678 | -0.709 | 13.34 | 16.5% |
+| mistral-7b | CHN | 0.4097 | 0.0837 | -0.613 | 16.25 | 16.5% |
+| mistral-7b | DEU | 0.4635 | 0.0837 | -0.887 | 16.08 | 17.4% |
+| mistral-7b | JPN | 0.3274 | 0.0603 | -0.648 | 12.30 | 16.1% |
+| mistral-7b | USA | 0.5258 | 0.1029 | -0.568 | 19.74 | 15.5% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-16) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.3977 | **+11.20%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.3977 | **+6.86%** |
+
+### Key Takeaways
+
+- **Near-SOTA aggregate**: EXP-16 is in the top cluster but does **not** surpass EXP-09.
+- **Gemma and Mistral improve vs EXP-01** in macro MIS, with Mistral achieving 5/5 row wins vs EXP-01.
+- **Mistral anti-correlation persists** (all 5 countries still negative Pearson r), so the core anti-corr objective is still unmet.
+- **Flip% target missed**: all model means remain above 12%.
+- **Diagnostics note**: `mean_ess_ratio` and momentum-summary fields show `NaN` in exported aggregate report, while per-country logs show finite momentum values (`m_final`), indicating an export/column-path mismatch.
+
+---
+
+## EXP-25 — Sign-Constrained EMA with Dampening (SCED)
+
+**Script**: `exp25_sign_constrained.py`  
+**Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
+**Status**: ✅ DONE (2026-04-10)  
+
+### Design Rationale
+
+EXP-25 targets the persistent anti-correlation failure by constraining how contradictory micro-updates affect the country prior:
+
+- **Part A (sign-constrained EMA)**: anti-aligned micro updates are down-weighted (`β_eff=β·BETA_ANTI`) instead of full EMA weight.
+- **Part B (soft dampening)**: anti-aligned `delta_opt_micro` is scaled by `DAMP_FACTOR=0.40` before prior-mixing, only when `α_h > 0.20`.
+- Warmup remains EXP-09-equivalent behavior.
+
+### Headline Results
+
+- **Overall mean MIS**: **0.4046** (rank **#8**; better than EXP-01 baseline family but below EXP-09/22/16 top cluster).
+- **Model means**:
+  - Qwen: MIS **0.3912**, JSD 0.0533, r **+0.304**, Flip **23.9%**, anti_rate 33.99%
+  - Gemma: MIS **0.4102**, JSD 0.0453, r **+0.561**, Flip **30.5%**, anti_rate 46.01%
+  - Mistral: MIS **0.4124**, JSD 0.0708, r **-0.544**, Flip **28.8%**, anti_rate 42.74%
+- **Win-rate vs Vanilla**: **12/15** rows (Qwen 4/5, Gemma 3/5, Mistral 5/5)
+- **Win-rate vs EXP-01 SWA**: **12/15** rows (Qwen 3/5, Gemma 4/5, Mistral 5/5)
+
+### Full Metrics (EXP-25)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3687 | 0.0568 | +0.076 | 12.77 | 21.0% |
+| Qwen2.5-7B | CHN | 0.3997 | 0.0659 | +0.232 | 12.34 | 25.2% |
+| Qwen2.5-7B | DEU | 0.4550 | 0.0553 | +0.220 | 15.60 | 21.0% |
+| Qwen2.5-7B | JPN | 0.3675 | 0.0476 | +0.285 | 12.35 | 21.0% |
+| Qwen2.5-7B | USA | 0.3649 | 0.0409 | +0.709 | 13.37 | 31.6% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3460 | 0.0497 | +0.259 | 11.61 | 35.8% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.3444 | 0.0377 | +0.835 | 12.89 | 34.2% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.4215 | 0.0414 | +0.699 | 15.65 | 34.5% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.4363 | 0.0551 | +0.348 | 15.44 | 15.8% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.5028 | 0.0427 | +0.665 | 19.35 | 32.3% |
+| mistral-7b | BRA | 0.4084 | 0.0640 | -0.684 | 13.12 | 33.2% |
+| mistral-7b | CHN | 0.3862 | 0.0712 | -0.467 | 14.74 | 28.4% |
+| mistral-7b | DEU | 0.4541 | 0.0755 | -0.805 | 15.28 | 22.6% |
+| mistral-7b | JPN | 0.3256 | 0.0550 | -0.362 | 11.83 | 31.6% |
+| mistral-7b | USA | 0.4875 | 0.0882 | -0.402 | 17.30 | 28.1% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-25) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.4046 | **+9.66%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.4046 | **+5.24%** |
+| EXP-09 Hierarchical IS | 0.3975 | 0.4046 | **-1.79%** |
+
+### Key Takeaways
+
+- **Strong relative gains on Mistral and Gemma vs EXP-01**, and Mistral achieves 5/5 wins vs both Vanilla and EXP-01 on MIS.
+- **Primary objective not met**: Mistral remains anti-correlated in all 5 countries (mean Pearson r still negative).
+- **Flip% regresses sharply** vs prior top-tier methods (especially Gemma and Mistral), so SCED currently trades stability for misalignment gains in selected rows.
+- **Anti-rate diagnostics now visible and finite** (`anti_rate`, `n_anti`, `n_aligned`) and should be reused as a standard diagnostic field in follow-up methods.
+
+---
+
+## EXP-24 — Dual-Pass Bootstrap IS Reliability (DPBR)
+
+**Script**: `exp24_dual_pass_bootstrap.py`  
+**Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
+**Status**: ✅ DONE (2026-04-10)  
+
+### Design Rationale
+
+EXP-24 replaces single-pass IS trust with a two-pass agreement signal under fixed compute:
+
+- Run two independent IS passes with equal budget (`K1=64`, `K2=64`; total `K=128`, same as EXP-09).
+- Estimate disagreement via `bootstrap_var=(δ*_1-δ*_2)^2`.
+- Convert to soft reliability `r=exp(-bootstrap_var/0.04)` and blend:
+  `δ* = r·(δ*_1+δ*_2)/2`.
+- Prior update/mixing remains EXP-09 style.
+
+### Headline Results
+
+- **Overall mean MIS**: **0.3969** (**new #1 leaderboard**, slightly better than EXP-09 by -0.0006).
+- **Model means**:
+  - Qwen: MIS **0.3643**, JSD 0.0565, r **+0.374**, Flip **16.5%**
+  - Gemma: MIS **0.3988**, JSD 0.0509, r **+0.587**, Flip **14.2%**
+  - Mistral: MIS **0.4276**, JSD 0.0796, r **-0.684**, Flip **16.5%**
+- **Win-rate vs Vanilla**: **14/15** rows (Qwen 5/5, Gemma 4/5, Mistral 5/5)
+- **Win-rate vs EXP-01 SWA**: **12/15** rows (Qwen 3/5, Gemma 4/5, Mistral 5/5)
+
+### Full Metrics (EXP-24)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3518 | 0.0659 | +0.083 | 11.54 | 14.8% |
+| Qwen2.5-7B | CHN | 0.3512 | 0.0684 | +0.352 | 11.45 | 18.1% |
+| Qwen2.5-7B | DEU | 0.4271 | 0.0524 | +0.362 | 14.62 | 16.1% |
+| Qwen2.5-7B | JPN | 0.3380 | 0.0445 | +0.391 | 11.22 | 15.8% |
+| Qwen2.5-7B | USA | 0.3535 | 0.0511 | +0.683 | 12.17 | 17.7% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3467 | 0.0497 | +0.326 | 11.61 | 15.8% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.3597 | 0.0485 | +0.787 | 12.88 | 13.9% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.3655 | 0.0464 | +0.772 | 13.18 | 16.1% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.4321 | 0.0545 | +0.369 | 15.28 | 13.5% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.4900 | 0.0555 | +0.680 | 18.24 | 11.6% |
+| mistral-7b | BRA | 0.4136 | 0.0677 | -0.705 | 13.33 | 16.8% |
+| mistral-7b | CHN | 0.4114 | 0.0839 | -0.621 | 16.30 | 17.7% |
+| mistral-7b | DEU | 0.4630 | 0.0836 | -0.887 | 16.04 | 18.1% |
+| mistral-7b | JPN | 0.3264 | 0.0602 | -0.640 | 12.28 | 16.1% |
+| mistral-7b | USA | 0.5236 | 0.1024 | -0.566 | 19.67 | 13.9% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-24) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.3969 | **+11.39%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.3969 | **+7.06%** |
+| EXP-09 Hierarchical IS | 0.3975 | 0.3969 | **+0.15%** |
+
+### Key Takeaways
+
+- **Best aggregate MIS so far** (0.3969), narrowly surpassing EXP-09 on the 5-country benchmark.
+- **Flip% is substantially lower** than recent EXP-09 variants (model means ~14-17%), giving stronger stability behavior.
+- **Core objective still unmet for Mistral**: Pearson r stays negative in all 5 countries despite MIS gains.
+- **Diagnostics blocker**: `reliability_r`, `bootstrap_var`, `ess_pass1`, `ess_pass2` export as `NaN` in aggregate/per-country summaries, so DPBR reliability mechanism is not yet verifiable from logs.
+
+---
+
+## EXP-23 — Category-Coherence Regularization (CCR)
+
+**Script**: `exp23_category_coherence.py`  
+**Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
+**Status**: ✅ DONE (2026-04-10)  
+
+### Design Rationale
+
+EXP-23 introduces a per-category coherence constraint before prior mixing:
+
+- Keep a category running mean `mu_cat[dim]` via EMA (`alpha_cat=0.08`).
+- Blend raw IS micro output with category mean:
+  `delta_opt_coh=(1-cw)·delta_opt_micro+cw·mu_cat[dim]`.
+- Use `cw=alpha_h·0.35`, activated after category warmup (`N_warmup_cat=15`).
+- Global country prior step remains EXP-09 style, but updates using coherence-adjusted value.
+
+### Headline Results
+
+- **Overall mean MIS**: **0.3956** (**new #1 leaderboard**, best so far on 5-country benchmark).
+- **Model means**:
+  - Qwen: MIS **0.3656**, JSD 0.0541, r **+0.382**, Flip **17.3%**
+  - Gemma: MIS **0.3978**, JSD 0.0494, r **+0.582**, Flip **15.6%**
+  - Mistral: MIS **0.4234**, JSD 0.0757, r **-0.677**, Flip **18.6%**
+- **Win-rate vs Vanilla**: **14/15** rows (Qwen 5/5, Gemma 4/5, Mistral 5/5)
+- **Win-rate vs EXP-01 SWA**: **12/15** rows (Qwen 3/5, Gemma 4/5, Mistral 5/5)
+
+### Full Metrics (EXP-23)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.3472 | 0.0629 | +0.095 | 11.45 | 16.5% |
+| Qwen2.5-7B | CHN | 0.3520 | 0.0654 | +0.365 | 11.34 | 16.8% |
+| Qwen2.5-7B | DEU | 0.4310 | 0.0516 | +0.354 | 14.83 | 17.4% |
+| Qwen2.5-7B | JPN | 0.3433 | 0.0442 | +0.393 | 11.50 | 17.1% |
+| Qwen2.5-7B | USA | 0.3544 | 0.0463 | +0.702 | 12.59 | 18.7% |
+| gemma-2-9b-it-bnb-4bit | BRA | 0.3446 | 0.0483 | +0.334 | 11.52 | 19.0% |
+| gemma-2-9b-it-bnb-4bit | CHN | 0.3531 | 0.0459 | +0.796 | 12.74 | 15.2% |
+| gemma-2-9b-it-bnb-4bit | DEU | 0.3663 | 0.0440 | +0.771 | 13.33 | 15.5% |
+| gemma-2-9b-it-bnb-4bit | JPN | 0.4390 | 0.0555 | +0.346 | 15.53 | 14.5% |
+| gemma-2-9b-it-bnb-4bit | USA | 0.4860 | 0.0531 | +0.665 | 18.12 | 13.9% |
+| mistral-7b | BRA | 0.4096 | 0.0641 | -0.680 | 13.31 | 19.7% |
+| mistral-7b | CHN | 0.4003 | 0.0790 | -0.605 | 15.61 | 19.4% |
+| mistral-7b | DEU | 0.4640 | 0.0805 | -0.893 | 15.80 | 19.0% |
+| mistral-7b | JPN | 0.3325 | 0.0582 | -0.654 | 12.19 | 19.4% |
+| mistral-7b | USA | 0.5108 | 0.0967 | -0.552 | 19.03 | 15.5% |
+
+### Comparison Summary
+
+| Comparator | Macro MIS (baseline) | Macro MIS (EXP-23) | Macro Δ |
+|:-----------|----------------------:|-------------------:|--------:|
+| Vanilla | 0.4479 | 0.3956 | **+11.68%** |
+| EXP-01 SWA-PTIS | 0.4270 | 0.3956 | **+7.35%** |
+| EXP-09 Hierarchical IS | 0.3975 | 0.3956 | **+0.48%** |
+
+### Key Takeaways
+
+- **Best current MIS** on the benchmark (0.3956), narrowly beating EXP-24 and EXP-09.
+- **No flip-rate win despite coherence objective**: Flip% remains high (15-19%) and worse than EXP-24.
+- **Mistral anti-correlation persists** in all five countries (Pearson r remains negative).
+- **Diagnostics blocker**: `coherence_weight` exports as `NaN` in summaries despite finite `mu_cat` and `n_cat`, so coherence mechanism observability is incomplete.
 
 ## TODO
 
@@ -1222,18 +1919,18 @@ When `m_t → c` (systematic correction): NAG accelerates by factor `1/(1-β_m) 
 - [ ] Update `docs/experiment_tracker.md` with final EXP-07 numbers
 - [ ] Update paper §5 results table with EXP-07 as "SWA-PTIS+"
 - [ ] Verify EXP-02 JPN Qwen JSD=0.0488 is publishable (best single-country JSD so far)
-- [ ] Run EXP-14 (DCAL) — target MIS < 0.3800, Mistral Pearson r > 0
-- [ ] Run EXP-15 (OPCR) — target MIS < 0.3800, SocialValue error < 20pp
-- [ ] Run EXP-16 (NMIS) — target MIS < 0.3700 (most ambitious)
-- [ ] **Run EXP-19 (PDHP) — #1 PRIORITY** — per-dim priors, target MIS < 0.3700, SV err < 20pp
-- [ ] Run EXP-18 (EGPU) — #2 PRIORITY — ESS-gated prior + anchor reg, target MIS < 0.3800
-- [ ] Run EXP-17 (DMHP) — #3 PRIORITY — dual-momentum prior, target Flip% < 10%
-- [ ] Run EXP-20 (VAAA) — variance-modulated alpha, target BRA MIS improved
-- [ ] Run EXP-21 (DISP) — directional IS noise, target ESS ↑ vs EXP-09
-- [ ] Run EXP-22 (AISH) — adaptive sigma from IS history, target Mistral ESS collapse fixed
-- [ ] Run EXP-23 (CCR) — category coherence regularization, target Flip% < 10% and JSD ↓
-- [ ] Run EXP-24 (DPBR) — dual-pass bootstrap, target Mistral r > 0 and soft reliability > 0.6
-- [ ] **Run EXP-25 (SCED) — sign-constrained EMA + dampening, HIGHEST PRIORITY for Mistral anti-corr fix**
+- [x] Run EXP-14 (DCAL) — completed (mean MIS=0.4009; strong vs EXP-01 on Gemma/Mistral but Mistral Pearson r remains negative and κ_eff diagnostics are NaN)
+- [x] Run EXP-15 (OPCR) — completed (mean MIS=0.4277; low Flip% but no gain vs EXP-01 and credibility diagnostics remain inactive/uniform)
+- [x] Run EXP-16 (NMIS) — completed (mean MIS=0.3977; tied top-cluster with EXP-22, broad wins vs Vanilla/EXP-01 but Mistral Pearson r remains negative)
+- [x] **Run EXP-19 (PDHP) — #1 PRIORITY** — completed (mean MIS=0.4163; #6 leaderboard; improves vs EXP-01 on Gemma/Mistral but Mistral Pearson r remains negative)
+- [x] Run EXP-18 (EGPU) — #2 PRIORITY — completed (mean MIS=0.4047; #5 leaderboard; 13/15 wins vs Vanilla but diagnostics `beta_eff/ESS/alpha_reg` still NaN and Flip% remains high)
+- [x] Run EXP-17 (DMHP) — #3 PRIORITY — completed (mean MIS=0.3979; #3 leaderboard; broad gains vs Vanilla/EXP-01 but Flip% still high and Mistral r remains negative)
+- [x] Run EXP-20 (VAAA) — variance-modulated alpha, target BRA MIS improved → completed (mean MIS=0.4265; low Flip but not competitive vs EXP-09/21/22)
+- [x] Run EXP-21 (DISP) — directional IS noise, target ESS ↑ vs EXP-09 → completed (mean MIS=0.3981; #3 leaderboard, near-tie with EXP-09/22/10)
+- [x] Run EXP-22 (AISH) — adaptive sigma from IS history, target Mistral ESS collapse fixed → completed (mean MIS=0.3977; #2 leaderboard, near-tie with EXP-09)
+- [x] Run EXP-23 (CCR) — completed (mean MIS=0.3956; current #1 MIS, broad wins vs Vanilla/EXP-01, but Flip% remains high and `coherence_weight` diagnostics export NaN)
+- [x] Run EXP-24 (DPBR) — completed (mean MIS=0.3969; current #1 MIS and lower Flip%, but Mistral Pearson r remains negative and reliability diagnostics export as NaN)
+- [x] **Run EXP-25 (SCED) — completed** (mean MIS=0.4046; strong gains vs EXP-01 on Gemma/Mistral and anti-rate diagnostics available, but Flip% surges and Mistral Pearson r stays negative)
 - [ ] After all EXP-17…25 complete: grand ablation table vs EXP-09 (pick best 3 for NeurIPS table)
 
 ---
@@ -1242,7 +1939,7 @@ When `m_t → c` (systematic correction): NAG accelerates by factor `1/(1-β_m) 
 
 **Script**: `exp17_dual_momentum.py`  
 **Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
-**Status**: 🟡 READY  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
@@ -1268,7 +1965,7 @@ Early: weighted toward fast arm (responsive); Late: blend with slow arm (stable)
 
 **Script**: `exp18_ess_gated.py`  
 **Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
-**Status**: 🟡 READY  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
@@ -1296,7 +1993,7 @@ High ESS: β_eff ≈ 0.10 (= EXP-09); Low ESS: β_eff ≈ 0.010 (barely moves pr
 
 **Script**: `exp19_per_dim_prior.py`  
 **Base**: EXP-09 (Hierarchical IS, SOTA MIS=0.3975)  
-**Status**: 🟡 READY  
+**Status**: ✅ DONE (2026-04-10)  
 
 ### Design Rationale
 
