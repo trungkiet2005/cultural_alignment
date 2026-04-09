@@ -597,6 +597,13 @@ def main():
               f"{row['align_mae']:.2f} | {row['flip_rate']:.1%} | "
               f"{row.get('mean_cultural_signal', float('nan')):+.4f} |")
 
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
+
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
 

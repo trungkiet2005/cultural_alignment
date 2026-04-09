@@ -681,6 +681,13 @@ def main():
     print(f"  Gemma:  Strict anchor-reg (ρ=0.15) + tighter σ₀=0.25 → prevents over-correction")
     print(f"  Mistral: English personas + σ₀=0.8 + K=512 → fixes tokenizer variance collapse")
 
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
+
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
 

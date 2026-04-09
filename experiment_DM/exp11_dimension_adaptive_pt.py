@@ -517,6 +517,13 @@ def main():
         print(f"  | {dim:<18s} | {params['kappa']:.2f} | {params['sigma_scale']:.1f}x | "
               f"{rationales.get(dim, '')} |")
 
+    # ── TRACKER-READY REPORT (copy-paste into tracker.md) ──
+    from experiment_DM.exp_reporting import print_tracker_ready_report
+    print_tracker_ready_report(
+        cmp_df, exp_id=EXP_ID,
+        per_dim_csv_path=str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
+    )
+
     print(f"\n[{EXP_ID}] DONE — results under {CMP_ROOT}")
 
 
