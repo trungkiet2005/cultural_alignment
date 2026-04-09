@@ -5,7 +5,10 @@
       "Read(//c/Users/huynh/.claude/projects/d--AI-RESEARCH-moral-machine-cultural-alignment/**)",
       "Bash(ls -lah /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)",
       "Bash(find \"d:/AI_RESEARCH/moral_machine/cultural_alignment\" -type f \\\\\\( -name \"*.md\" -o -name \"*.txt\" \\\\\\) -exec grep -l \"dataset\\\\|data\" {} \\\\;)",
-      "Bash(find \"d:/AI_RESEARCH/moral_machine/cultural_alignment\" -name \"*.py\" -type f -exec grep -l \"South_Korea\\\\|UK\\\\|US\\\\|Algeria\\\\|Indonesia\\\\|Spain\\\\|Iran\\\\|Mexico\\\\|Assam\\\\|Greece\\\\|Ethiopia\\\\|Northern_Nigeria\\\\|Azerbaijan\\\\|North_Korea\\\\|West_Java\\\\|BLEnD\" {} \\\\;)"
+      "Bash(find \"d:/AI_RESEARCH/moral_machine/cultural_alignment\" -name \"*.py\" -type f -exec grep -l \"South_Korea\\\\|UK\\\\|US\\\\|Algeria\\\\|Indonesia\\\\|Spain\\\\|Iran\\\\|Mexico\\\\|Assam\\\\|Greece\\\\|Ethiopia\\\\|Northern_Nigeria\\\\|Azerbaijan\\\\|North_Korea\\\\|West_Java\\\\|BLEnD\" {} \\\\;)",
+      "Bash(grep -r \"VNM\\\\|IND\\\\|KOR\\\\|GBR\\\\|RUS\\\\|MEX\\\\|NGA\\\\|AUS\\\\|IDN\\\\|TUR\\\\|ARG\\\\|EGY\\\\|PAK\\\\|COL\\\\|UKR\\\\|CAN\\\\|CHL\\\\|TWN\\\\|MAR\\\\|IRN\" /d/AI_RESEARCH/moral_machine/cultural_alignment/experiment_DM/*.py)",
+      "Bash(grep -l \"_MIS\\\\|REFERENCE\\\\|FULL.*25\\\\|full.*25\" /d/AI_RESEARCH/moral_machine/cultural_alignment/experiment_DM/*.py)",
+      "Bash(find /d/AI_RESEARCH/moral_machine/cultural_alignment -type f -name \"*.py\" -exec grep -l \"IND\\\\|VNM\\\\|KOR\\\\|GBR\\\\|RUS\" {} \\\\;)"
     ]
   }
 }

@@ -81,6 +81,30 @@ COUNTRY_FULL_NAMES: Dict[str, str] = {
     # WVS Wave 7 replacements for SAU/FRA/POL/ZAF/SWE (absent in WVS W7)
     "CAN": "Canada", "CHL": "Chile", "TWN": "Taiwan",
     "MAR": "Morocco", "IRN": "Iran",
+    # --- Expansion batch (25 new countries, all in WVS Wave 7) ---
+    # Southeast Asia
+    "PHL": "the Philippines", "MYS": "Malaysia",
+    "THA": "Thailand", "MMR": "Myanmar",
+    # East Asia
+    "HKG": "Hong Kong",
+    # South Asia
+    "BGD": "Bangladesh",
+    # Oceania
+    "NZL": "New Zealand",
+    # Sub-Saharan Africa
+    "ETH": "Ethiopia", "ZWE": "Zimbabwe",
+    # Latin America
+    "PER": "Peru", "ECU": "Ecuador", "GTM": "Guatemala",
+    "BOL": "Bolivia", "NIC": "Nicaragua",
+    # Middle East / North Africa
+    "IRQ": "Iraq", "TUN": "Tunisia", "LBN": "Lebanon",
+    # Post-Soviet / Central Asia
+    "KAZ": "Kazakhstan", "KGZ": "Kyrgyzstan",
+    "TJK": "Tajikistan", "BLR": "Belarus",
+    # Caucasus & Balkans
+    "GEO": "Georgia", "SRB": "Serbia",
+    # Southeast Europe
+    "ROU": "Romania", "GRC": "Greece",
     # Legacy entries (kept for back-compat with manual personas in personas.py;
     # not in target_countries because they lack WVS Wave 7 coverage)
     "SAU": "Saudi Arabia", "FRA": "France", "POL": "Poland",
@@ -101,6 +125,32 @@ COUNTRY_LANG: Dict[str, str] = {
     "TWN": "zh_tw",  # Traditional Chinese (Taiwan) — distinct from simplified ``zh`` (China)
     "MAR": "ar",     # Arabic (Moroccan dialect; MSA i18n is acceptable)
     "IRN": "fa",     # Persian (Farsi)
+    # --- Expansion batch ---
+    "PHL": "tl",     # Filipino (Tagalog)
+    "MYS": "ms",     # Malay
+    "THA": "th",     # Thai
+    "MMR": "my",     # Burmese
+    "HKG": "zh_tw",  # Traditional Chinese (Hong Kong uses traditional characters)
+    "BGD": "bn",     # Bengali
+    "NZL": "en",     # English
+    "ETH": "am",     # Amharic
+    "ZWE": "en",     # English (official language)
+    "PER": "es",     # Spanish
+    "ECU": "es",     # Spanish
+    "GTM": "es",     # Spanish
+    "BOL": "es",     # Spanish
+    "NIC": "es",     # Spanish
+    "IRQ": "ar",     # Arabic
+    "TUN": "ar",     # Arabic
+    "LBN": "ar",     # Arabic
+    "KAZ": "kk",     # Kazakh
+    "KGZ": "ky",     # Kyrgyz
+    "TJK": "tg",     # Tajik
+    "BLR": "be",     # Belarusian
+    "GEO": "ka",     # Georgian
+    "SRB": "sr",     # Serbian
+    "ROU": "ro",     # Romanian
+    "GRC": "el",     # Greek
     # Legacy entries (for back-compat with manual personas)
     "SAU": "ar", "FRA": "fr", "POL": "pl", "ZAF": "en", "SWE": "sv",
 }

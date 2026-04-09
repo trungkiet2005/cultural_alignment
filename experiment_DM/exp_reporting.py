@@ -329,8 +329,10 @@ def print_tracker_ready_report(
         vanilla_vals, exp_vals = [], []
         for _, row in m_df.sort_values("country").iterrows():
             country = row["country"]
-            v = VANILLA_MIS.get((mk, country), float("nan"))
+            v = VANILLA_MIS.get((mk, country))
             e = row["align_mis"]
+            if v is None:
+                continue  # skip countries without reference data
             delta = v - e
             improv = (delta / v * 100) if v > 0 else float("nan")
             win = delta > 0
@@ -368,8 +370,10 @@ def print_tracker_ready_report(
         ref_vals, exp_vals = [], []
         for _, row in m_df.sort_values("country").iterrows():
             country = row["country"]
-            r = EXP01_SWA_MIS.get((mk, country), float("nan"))
+            r = EXP01_SWA_MIS.get((mk, country))
             e = row["align_mis"]
+            if r is None:
+                continue  # skip countries without reference data
             delta = r - e
             improv = (delta / r * 100) if r > 0 else float("nan")
             win = delta > 0

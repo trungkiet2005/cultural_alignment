@@ -51,7 +51,11 @@ Maintenance notes
   rendering depends on the consumer (terminal / model / IDE).
 """
 
+from copy import deepcopy
 from typing import Dict, List, Tuple
+
+from i18n_batch1 import BATCH1_DESCRIPTORS
+from i18n_batch2 import BATCH2_DESCRIPTORS
 
 
 # ============================================================================
@@ -2193,6 +2197,7 @@ COUNTRY_NATIVE_NAME: Dict[str, str] = {
     # Chinese
     "CHN": "中国",
     "TWN": "台灣",
+    "HKG": "香港",
 
     # Japanese
     "JPN": "日本",
@@ -2219,6 +2224,11 @@ COUNTRY_NATIVE_NAME: Dict[str, str] = {
     "ARG": "Argentina",
     "COL": "Colombia",
     "CHL": "Chile",
+    "PER": "Perú",
+    "ECU": "Ecuador",
+    "GTM": "Guatemala",
+    "BOL": "Bolivia",
+    "NIC": "Nicaragua",
 
     # Indonesian
     "IDN": "Indonesia",
@@ -2230,6 +2240,9 @@ COUNTRY_NATIVE_NAME: Dict[str, str] = {
     "EGY": "مصر",
     "MAR": "المغرب",
     "SAU": "المملكة العربية السعودية",
+    "IRQ": "العراق",
+    "TUN": "تونس",
+    "LBN": "لبنان",
 
     # Urdu
     "PAK": "پاکستان",
@@ -2237,6 +2250,26 @@ COUNTRY_NATIVE_NAME: Dict[str, str] = {
     # Ukrainian — stored in the genitive case ("з України") for the same
     # reason as RUS above.
     "UKR": "України",
+
+    # Russian-speaking expansion (genitive case for "из {country}" header)
+    "KAZ": "Казахстана",
+    "KGZ": "Кыргызстана",
+    "TJK": "Таджикистана",
+    "BLR": "Беларуси",
+
+    # English-speaking expansion (no native-script needed)
+    "PHL": "the Philippines",
+    "MYS": "Malaysia",
+    "THA": "Thailand",
+    "MMR": "Myanmar",
+    "BGD": "Bangladesh",
+    "NZL": "New Zealand",
+    "ETH": "Ethiopia",
+    "ZWE": "Zimbabwe",
+    "GEO": "Georgia",
+    "SRB": "Serbia",
+    "ROU": "Romania",
+    "GRC": "Greece",
 
     # Legacy / fallback (used by BASE_PERSONAS)
     "FRA": "la France",
@@ -2540,6 +2573,70 @@ UTILITARIAN_PERSONA_I18N: Dict[str, str] = {
         "her ikisini de en üst düzeye çıkaran seçeneği seçersiniz."
     ),
 }
+
+
+def _register_batch_i18n_languages() -> None:
+    """Merge descriptor-only language batches into main i18n dictionaries."""
+    batch_descriptors: Dict[str, Dict[str, List[str]]] = {}
+    batch_descriptors.update(BATCH1_DESCRIPTORS)
+    batch_descriptors.update(BATCH2_DESCRIPTORS)
+    expected_dims = tuple(PERSONA_DESCRIPTORS_I18N["en"].keys())
+
+    neutral_scaffold = {
+        "header": "{country_name}",
+        "closing": "",
+        "ages": {
+            "young": ("", ""),
+            "middle": ("", ""),
+            "older": ("", ""),
+            "all": ("", ""),
+        },
+        "fallback_minimal": "{country_name}",
+        "utilitarian_anchor": "{country_name}",
+    }
+    utilitarian_by_lang = {
+        "th": "คุณเป็นผู้ยึดหลักอรรถประโยชน์นิยมจาก {country_name} โดยให้ความสำคัญกับการช่วยชีวิตให้ได้มากที่สุด",
+        "el": "Είσαι ωφελιμιστής από τη {country_name} και δίνεις προτεραιότητα στη διάσωση όσο το δυνατόν περισσότερων ζωών",
+        "ro": "Ești un utilitarist din {country_name} și prioritizezi salvarea unui număr cât mai mare de vieți",
+        "sr": "Ти си утилитариста из {country_name} и приоритет ти је спасавање што већег броја живота",
+        "ms": "Anda seorang utilitarian dari {country_name} dan mengutamakan menyelamatkan sebanyak mungkin nyawa",
+        "bn": "আপনি {country_name} থেকে একজন উপযোগবাদী চিন্তক এবং যত বেশি সম্ভব জীবন বাঁচানোকে অগ্রাধিকার দেন",
+        "be": "Вы ўтылітарыст з {country_name} і аддаяце прыярытэт выратаванню як мага большай колькасці жыццяў",
+        "tl": "Isa kang utilitaryan mula sa {country_name} at inuuna mo ang pagliligtas ng pinakamaraming buhay",
+        "am": "ከ{country_name} የመጣህ ዩቲሊቴሪያን ነህ እና ከፍተኛውን የህይወት ማዳን ትቀድማለህ",
+        "ka": "შენ ხარ უტილიტარისტი {country_name}-დან და პრიორიტეტს ანიჭებ რაც შეიძლება მეტი სიცოცხლის გადარჩენას",
+        "kk": "Сіз {country_name} елінен шыққан утилитаристсіз және мүмкіндігінше көп өмірді сақтап қалуды басым көресіз",
+        "ky": "Сиз {country_name} өлкөсүнөн чыккан утилитаристсиз жана мүмкүн болушунча көбүрөөк өмүрдү сактоону артык көрөсүз",
+        "tg": "Шумо утилитарист аз {country_name} ҳастед ва наҷоти ҳарчи бештари ҷони одамонро авлавият медиҳед",
+        "my": "သင်သည် {country_name} မှ အသုံးဝါဒအယူရှိသူဖြစ်ပြီး လူအသက်များနိုင်သမျှ များများ ကယ်တင်ခြင်းကို ဦးစားပေးသည်",
+    }
+
+    for lang, descriptors in batch_descriptors.items():
+        if lang in PERSONA_DESCRIPTORS_I18N:
+            continue
+        missing_dims = [d for d in expected_dims if d not in descriptors]
+        if missing_dims:
+            raise RuntimeError(
+                f"persona_i18n: batch lang {lang!r} missing dims {missing_dims!r}"
+            )
+        bad_lengths = [d for d in expected_dims if len(descriptors.get(d, [])) != 4]
+        if bad_lengths:
+            raise RuntimeError(
+                f"persona_i18n: batch lang {lang!r} dims must have 4 descriptors: {bad_lengths!r}"
+            )
+
+        PERSONA_DESCRIPTORS_I18N[lang] = descriptors
+        # Use descriptor-native compact rendering to avoid English mixing.
+        PERSONA_TEMPLATES_I18N[lang] = {
+            dim: "{desc}" for dim in expected_dims
+        }
+        PERSONA_SCAFFOLD_I18N[lang] = deepcopy(neutral_scaffold)
+        UTILITARIAN_PERSONA_I18N[lang] = utilitarian_by_lang.get(
+            lang, "You are a utilitarian thinker from {country_name}."
+        )
+
+
+_register_batch_i18n_languages()
 
 
 # ============================================================================
