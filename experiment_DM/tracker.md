@@ -6,7 +6,7 @@
 >
 > **Run order on Kaggle H100**: **EXP-10 (fusion)** → EXP-13 (meta) → EXP-11 (dim-PT) → EXP-12 (contrastive) → EXP-07  
 > **Primary metric**: MIS = L2 misalignment vs human AMCE ↓. Secondary: JSD ↓, Pearson r ↑.  
-> **Completed runs**: EXP-01 ✅ (2026-04-09) | EXP-02 ✅ (2026-04-09) | EXP-07a ✅ (2026-04-09) | EXP-09 ✅ (2026-04-09)
+> **Completed runs**: EXP-01 ✅ (2026-04-09) | EXP-02 ✅ (2026-04-09) | EXP-03 ✅ (2026-04-09) | EXP-04 ✅ (2026-04-09) | EXP-05 ✅ (2026-04-09) | EXP-06b ✅ (2026-04-09) | EXP-07 ✅ (2026-04-10) | EXP-07a ✅ (2026-04-09) | EXP-09 ✅ (2026-04-09)
 
 ---
 
@@ -20,7 +20,7 @@
 | `exp05_anchor_regularization.py` | EXP-05 | ✅ DONE | ESS-adaptive anchor α·anchor + (1-α)·base | Gemma over-correction |
 | `exp06_adaptive_sigma.py` | EXP-06a | 🟡 READY | Per-scenario adaptive σ (entropy-based) | Qwen32B logit collapse |
 | `exp06_category_routing.py` | EXP-06b | ✅ DONE | Per-category expert persona pools (6 panels) | Dim-level anchor bias |
-| `exp07_best_config_sweep.py` | EXP-07 | 🟡 READY | **Combined EXP-03+04+05+06, 15 countries** | ALL |
+| `exp07_best_config_sweep.py` | EXP-07 | ✅ DONE | **Combined EXP-03+04+05+06, 15 countries** | ALL |
 | `exp07_wvs_augmentation.py` | EXP-07a | ✅ DONE | Hofstede-neighbor persona augmentation (sparse WVS) | Sparse WVS coverage |
 | `exp08_category_routing.py` | EXP-08 | 🟡 READY | Extended category routing (8 panels) | Precision routing |
 | `exp09_hierarchical_is.py` | EXP-09 | ✅ DONE | Hierarchical IS with country prior (EMA + annealing) | IS variance / stability |
@@ -47,6 +47,7 @@ These are the **most important** tables for fast decision-making and for paper i
 | 6 | EXP-03 SocialValue personas | 3 models × 5 countries | 0.4413 | Strong gains on Qwen SocialValue (USA/CHN/JPN), but Gemma/Mistral remain problematic and anti-correlation persists in some countries |
 | 7 | EXP-04 Mistral cross-lingual | 1 model × 5 countries | 0.4463* | *Only Mistral was run (Qwen/Gemma unchanged vs EXP-01); mixed outcome (CHN/DEU/JPN improved, USA/BRA regressed) |
 | 8 | EXP-07a WVS augmentation | 2 models × 5 countries | 0.4031* | *Not directly comparable (missing Mistral) |
+| 9 | EXP-07 Unified best-config (15-country) | 3 models × 15 countries | 0.4522* | *Full-sweep setting; despite stronger coverage, headline MIS is not better than EXP-09/05 on 5-country benchmark |
 
 > Mean MIS computed as the simple average over the reported (model,country) rows for that method.
 
@@ -55,23 +56,23 @@ These are the **most important** tables for fast decision-making and for paper i
 Reference point: **EXP-01 Vanilla** (raw LLM, no personas).  
 Notation: `delta = MIS_vanilla - MIS_method` so **positive delta = method improved**.
 
-| Model | Country | Vanilla MIS | EXP-01 SWA | Δ | Improv% | EXP-02 (8-agent) | Δ | Improv% | EXP-03 (SV personas) | Δ | Improv% | EXP-04 (Mistral xling) | Δ | Improv% | EXP-05 (anchor reg) | Δ | Improv% | EXP-07a (WVS aug) | Δ | Improv% | EXP-09 (hier IS) | Δ | Improv% |
-|:------|:-------:|------------:|-----------:|--:|--------:|-----------------:|--:|--------:|---------------------:|--:|--------:|--------------------:|--:|--------:|------------------:|--:|--------:|-----------------:|--:|--------:|-----------------:|--:|--------:|
-| Qwen2.5-7B | USA | 0.4559 | 0.3677 | +0.0882 | +19.34% | 0.3496 | +0.1063 | +23.31% | **0.2491** | **+0.2069** | **+45.38%** | — | — | — | 0.3628 | +0.0931 | +20.43% | 0.3687 | +0.0872 | +19.13% | 0.3538 | +0.1021 | +22.40% |
-| Qwen2.5-7B | CHN ⚠️ | 0.4646 | 0.4078 | +0.0568 | +12.22% | 0.3680 | +0.0966 | +20.79% | 0.2930 | +0.1717 | +36.95% | — | — | — | 0.3791 | +0.0855 | +18.40% | 0.4094 | +0.0552 | +11.89% | 0.3526 | +0.1121 | +24.12% |
-| Qwen2.5-7B | JPN | 0.4208 | 0.2802 | +0.1405 | +33.40% | 0.2808 | +0.1400 | +33.26% | 0.2925 | +0.1283 | +30.49% | — | — | — | **0.2493** | **+0.1714** | **+40.72%** | **0.2801** | +0.1407 | +33.44% | 0.3392 | +0.0816 | +19.39% |
-| Qwen2.5-7B | DEU | 0.4398 | 0.3424 | +0.0974 | +22.15% | 0.3895 | +0.0503 | +11.43% | 0.3827 | +0.0571 | +12.99% | — | — | — | **0.3140** | **+0.1259** | **+28.61%** | 0.3444 | +0.0954 | +21.69% | 0.4262 | +0.0136 | +3.09% |
-| Qwen2.5-7B | BRA | 0.5111 | 0.4025 | +0.1086 | +21.26% | 0.3904 | +0.1207 | +23.62% | 0.4041 | +0.1070 | +20.94% | — | — | — | 0.4493 | +0.0618 | +12.09% | 0.3792 | +0.1319 | +25.81% | 0.3546 | +0.1565 | +30.62% |
-| Gemma-2-9B | USA | 0.4647 | 0.6038 | -0.1391 | -29.95% | 0.6073 | -0.1426 | -30.68% | 0.5497 | -0.0850 | -18.30% | — | — | — | 0.5599 | -0.0952 | -20.48% | 0.6067 | -0.1420 | -30.55% | 0.4922 | -0.0275 | -5.91% |
-| Gemma-2-9B | CHN ⚠️ | 0.3679 | 0.4536 | -0.0857 | -23.28% | 0.4095 | -0.0416 | -11.30% | 0.6321 | -0.2642 | -71.81% | — | — | — | 0.4002 | -0.0323 | -8.78% | 0.4517 | -0.0838 | -22.78% | 0.3592 | +0.0087 | +2.36% |
-| Gemma-2-9B | JPN | 0.4530 | 0.4667 | -0.0136 | -3.01% | 0.5730 | -0.1200 | -26.50% | 0.5265 | -0.0735 | -16.24% | — | — | — | 0.5012 | -0.0482 | -10.63% | 0.4616 | -0.0086 | -1.90% | 0.4411 | +0.0119 | +2.63% |
-| Gemma-2-9B | DEU | 0.4170 | **0.3289** | +0.0882 | +21.14% | 0.3418 | +0.0752 | +18.03% | 0.3948 | +0.0222 | +5.33% | — | — | — | 0.3420 | +0.0750 | +17.98% | **0.3286** | +0.0884 | +21.20% | 0.3653 | +0.0517 | +12.39% |
-| Gemma-2-9B | BRA | 0.4490 | 0.3655 | +0.0834 | +18.58% | 0.3873 | +0.0617 | +13.74% | 0.4406 | +0.0084 | +1.87% | — | — | — | **0.3446** | **+0.1045** | **+23.27%** | 0.4002 | +0.0488 | +10.86% | 0.3438 | +0.1052 | +23.43% |
-| Mistral-7B | USA | 0.5706 | 0.5984 | -0.0278 | -4.87% | 0.6368 | -0.0661 | -11.59% | 0.6666 | -0.0960 | -16.83% | 0.6303 | -0.0597 | -10.46% | — | — | — | 0.5266 | +0.0440 | +7.72% |
-| Mistral-7B | CHN ⚠️ | 0.4569 | 0.5067 | -0.0498 | -10.90% | 0.5053 | -0.0484 | -10.59% | **0.3091** | **+0.1478** | **+32.35%** | 0.4764 | -0.0195 | -4.26% | — | — | — | 0.4099 | +0.0470 | +10.29% |
-| Mistral-7B | JPN | 0.3429 | 0.3502 | -0.0073 | -2.12% | 0.3508 | -0.0079 | -2.30% | 0.3221 | +0.0208 | +6.06% | **0.3442** | -0.0013 | -0.37% | — | — | — | 0.3273 | +0.0156 | +4.55% |
-| Mistral-7B | DEU | 0.4909 | 0.4942 | -0.0033 | -0.67% | 0.5106 | -0.0197 | -4.01% | 0.4091 | +0.0818 | +16.66% | 0.4889 | +0.0020 | +0.41% | — | — | — | 0.4634 | +0.0275 | +5.60% |
-| Mistral-7B | BRA | 0.4144 | 0.4362 | -0.0217 | -5.25% | 0.4447 | -0.0303 | -7.32% | 0.5246 | -0.1102 | -26.59% | 0.4195 | -0.0051 | -1.22% | — | — | — | 0.4138 | +0.0006 | +0.13% |
+| Model | Country | Vanilla MIS | EXP-01 SWA | Δ | Improv% | EXP-02 (8-agent) | Δ | Improv% | EXP-03 (SV personas) | Δ | Improv% | EXP-04 (Mistral xling) | Δ | Improv% | EXP-05 (anchor reg) | Δ | Improv% | EXP-07 (best config) | Δ | Improv% | EXP-07a (WVS aug) | Δ | Improv% | EXP-09 (hier IS) | Δ | Improv% |
+|:------|:-------:|------------:|-----------:|--:|--------:|-----------------:|--:|--------:|---------------------:|--:|--------:|--------------------:|--:|--------:|------------------:|--:|--------:|--------------------:|--:|--------:|-----------------:|--:|--------:|-----------------:|--:|--------:|
+| Qwen2.5-7B | USA | 0.4559 | 0.3677 | +0.0882 | +19.34% | 0.3496 | +0.1063 | +23.31% | **0.2491** | **+0.2069** | **+45.38%** | — | — | — | 0.3628 | +0.0931 | +20.43% | 0.3628 | +0.0931 | +20.43% | 0.3687 | +0.0872 | +19.13% | 0.3538 | +0.1021 | +22.40% |
+| Qwen2.5-7B | CHN ⚠️ | 0.4646 | 0.4078 | +0.0568 | +12.22% | 0.3680 | +0.0966 | +20.79% | 0.2930 | +0.1717 | +36.95% | — | — | — | 0.3791 | +0.0855 | +18.40% | 0.3791 | +0.0855 | +18.40% | 0.4094 | +0.0552 | +11.89% | 0.3526 | +0.1121 | +24.12% |
+| Qwen2.5-7B | JPN | 0.4208 | 0.2802 | +0.1405 | +33.40% | 0.2808 | +0.1400 | +33.26% | 0.2925 | +0.1283 | +30.49% | — | — | — | **0.2493** | **+0.1714** | **+40.72%** | **0.2493** | **+0.1714** | **+40.72%** | **0.2801** | +0.1407 | +33.44% | 0.3392 | +0.0816 | +19.39% |
+| Qwen2.5-7B | DEU | 0.4398 | 0.3424 | +0.0974 | +22.15% | 0.3895 | +0.0503 | +11.43% | 0.3827 | +0.0571 | +12.99% | — | — | — | **0.3140** | **+0.1259** | **+28.61%** | **0.3140** | **+0.1259** | **+28.61%** | 0.3444 | +0.0954 | +21.69% | 0.4262 | +0.0136 | +3.09% |
+| Qwen2.5-7B | BRA | 0.5111 | 0.4025 | +0.1086 | +21.26% | 0.3904 | +0.1207 | +23.62% | 0.4041 | +0.1070 | +20.94% | — | — | — | 0.4493 | +0.0618 | +12.09% | 0.4493 | +0.0618 | +12.09% | 0.3792 | +0.1319 | +25.81% | 0.3546 | +0.1565 | +30.62% |
+| Gemma-2-9B | USA | 0.4647 | 0.6038 | -0.1391 | -29.95% | 0.6073 | -0.1426 | -30.68% | 0.5497 | -0.0850 | -18.30% | — | — | — | 0.5599 | -0.0952 | -20.48% | 0.5545 | -0.0898 | -19.32% | 0.6067 | -0.1420 | -30.55% | 0.4922 | -0.0275 | -5.91% |
+| Gemma-2-9B | CHN ⚠️ | 0.3679 | 0.4536 | -0.0857 | -23.28% | 0.4095 | -0.0416 | -11.30% | 0.6321 | -0.2642 | -71.81% | — | — | — | 0.4002 | -0.0323 | -8.78% | 0.4006 | -0.0327 | -8.89% | 0.4517 | -0.0838 | -22.78% | 0.3592 | +0.0087 | +2.36% |
+| Gemma-2-9B | JPN | 0.4530 | 0.4667 | -0.0136 | -3.01% | 0.5730 | -0.1200 | -26.50% | 0.5265 | -0.0735 | -16.24% | — | — | — | 0.5012 | -0.0482 | -10.63% | 0.4774 | -0.0244 | -5.39% | 0.4616 | -0.0086 | -1.90% | 0.4411 | +0.0119 | +2.63% |
+| Gemma-2-9B | DEU | 0.4170 | **0.3289** | +0.0882 | +21.14% | 0.3418 | +0.0752 | +18.03% | 0.3948 | +0.0222 | +5.33% | — | — | — | 0.3420 | +0.0750 | +17.98% | 0.3383 | +0.0787 | +18.87% | **0.3286** | +0.0884 | +21.20% | 0.3653 | +0.0517 | +12.39% |
+| Gemma-2-9B | BRA | 0.4490 | 0.3655 | +0.0834 | +18.58% | 0.3873 | +0.0617 | +13.74% | 0.4406 | +0.0084 | +1.87% | — | — | — | **0.3446** | **+0.1045** | **+23.27%** | 0.3475 | +0.1015 | +22.61% | 0.4002 | +0.0488 | +10.86% | 0.3438 | +0.1052 | +23.43% |
+| Mistral-7B | USA | 0.5706 | 0.5984 | -0.0278 | -4.87% | 0.6368 | -0.0661 | -11.59% | 0.6666 | -0.0960 | -16.83% | 0.6303 | -0.0597 | -10.46% | — | — | — | 0.6235 | -0.0529 | -9.27% | 0.5266 | +0.0440 | +7.72% |
+| Mistral-7B | CHN ⚠️ | 0.4569 | 0.5067 | -0.0498 | -10.90% | 0.5053 | -0.0484 | -10.59% | **0.3091** | **+0.1478** | **+32.35%** | 0.4764 | -0.0195 | -4.26% | — | — | — | 0.3573 | +0.0996 | +21.80% | 0.4099 | +0.0470 | +10.29% |
+| Mistral-7B | JPN | 0.3429 | 0.3502 | -0.0073 | -2.12% | 0.3508 | -0.0079 | -2.30% | 0.3221 | +0.0208 | +6.06% | **0.3442** | -0.0013 | -0.37% | — | — | — | 0.3776 | -0.0347 | -10.12% | 0.3273 | +0.0156 | +4.55% |
+| Mistral-7B | DEU | 0.4909 | 0.4942 | -0.0033 | -0.67% | 0.5106 | -0.0197 | -4.01% | 0.4091 | +0.0818 | +16.66% | 0.4889 | +0.0020 | +0.41% | — | — | — | 0.4762 | +0.0147 | +2.99% | 0.4634 | +0.0275 | +5.60% |
+| Mistral-7B | BRA | 0.4144 | 0.4362 | -0.0217 | -5.25% | 0.4447 | -0.0303 | -7.32% | 0.5246 | -0.1102 | -26.59% | 0.4195 | -0.0051 | -1.22% | — | — | — | 0.4872 | -0.0728 | -17.57% | 0.4138 | +0.0006 | +0.13% |
 
 ### Big Table — Full metrics (most complete we have)
 
@@ -152,6 +153,36 @@ For Vanilla, only MIS is tracked here (we did not log vanilla JSD/Pearson/MAE in
 | Gemma-2-9B | DEU | 0.3286 | 0.0673 | +0.796 | 10.19 | 0.6% |
 | Gemma-2-9B | USA | 0.6067 | 0.1112 | +0.626 | 22.45 | 0.3% |
 | Gemma-2-9B | CHN ⚠️ | 0.4517 | 0.1024 | +0.782 | 14.48 | 0.3% |
+
+#### EXP-07 Unified Best-Config Sweep (full metrics; 15 countries × 3 models)
+
+**Overall mean MIS (45 rows): `0.4522`**  
+Per-model means from this run:
+- Qwen: `0.3742`
+- Gemma: `0.5001`
+- Mistral: `0.4818`
+
+Five-country slice (for direct comparability with EXP-01/02/03/04/05/09):
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | USA | 0.3628 | 0.0674 | +0.610 | 10.20 | 6.1% |
+| Qwen2.5-7B | CHN ⚠️ | 0.3791 | 0.0885 | +0.372 | 12.35 | 5.2% |
+| Qwen2.5-7B | JPN | **0.2493** | **0.0442** | +0.543 | **8.70** | 8.7% |
+| Qwen2.5-7B | DEU | **0.3140** | 0.0520 | +0.445 | 10.38 | 17.1% |
+| Qwen2.5-7B | BRA | 0.4493 | 0.0965 | -0.218 | 16.67 | 8.1% |
+| Gemma-2-9B | USA | 0.5545 | 0.0911 | +0.552 | 19.74 | 4.8% |
+| Gemma-2-9B | CHN ⚠️ | 0.4006 | 0.0738 | +0.770 | 12.77 | 13.5% |
+| Gemma-2-9B | JPN | 0.4774 | 0.0757 | +0.207 | 16.67 | 5.8% |
+| Gemma-2-9B | DEU | 0.3383 | 0.0526 | +0.725 | 11.36 | 10.6% |
+| Gemma-2-9B | BRA | 0.3475 | 0.0648 | +0.071 | 12.92 | 17.1% |
+| Mistral-7B | USA | 0.6235 | 0.1361 | -0.685 | 23.33 | 5.2% |
+| Mistral-7B | CHN ⚠️ | 0.3573 | 0.0782 | -0.051 | 13.08 | 3.5% |
+| Mistral-7B | JPN | 0.3776 | 0.0828 | -0.616 | 13.37 | 5.8% |
+| Mistral-7B | DEU | 0.4762 | 0.0974 | -0.756 | 17.27 | 4.5% |
+| Mistral-7B | BRA | 0.4872 | 0.1124 | -0.695 | 18.61 | 6.8% |
+
+> Full 45-row table (all 15 countries × 3 models) is available in `results/best_config_full_sweep/compare/comparison.csv`.
 
 #### EXP-04 Mistral Cross-Lingual (English personas + σ₀=0.8 + K=512 + T=0.5; Mistral-only)
 
@@ -567,11 +598,44 @@ Notation: `delta = MIS_exp01 - MIS_exp02` so **positive delta = EXP-02 improved*
 
 ---
 
-### EXP-07/08 — results pending Kaggle run
+### EXP-07 — Unified Best-Config Full Sweep (✅ Completed 2026-04-10)
+
+**Script**: `exp07_best_config_sweep.py`  
+**Scope**: 15 countries × 3 models = **45 rows**.
+
+#### EXP-07 headline numbers
+
+- **Overall mean MIS (45 rows)**: **0.4522**
+- **Model means**: Qwen **0.3742**, Gemma **0.5001**, Mistral **0.4818**
+- **Top 3 country-model rows (lowest MIS)**:
+  - Mistral-VNM: **0.2233**
+  - Qwen-JPN: **0.2493**
+  - Qwen-RUS: **0.2612**
+
+#### EXP-07 vs Vanilla (5-country comparable slice)
+
+`delta = MIS_vanilla - MIS_exp07` (positive = improved vs vanilla)
+
+| Model | USA | CHN ⚠️ | JPN | DEU | BRA |
+|:------|----:|-------:|----:|----:|----:|
+| Qwen2.5-7B | +20.43% | +18.40% | +40.72% | +28.61% | +12.09% |
+| Gemma-2-9B | -19.32% | -8.89% | -5.39% | +18.87% | +22.61% |
+| Mistral-7B | -9.27% | +21.80% | -10.12% | +2.99% | -17.57% |
+
+#### EXP-07 key takeaways
+
+- **Qwen** remains strongest and stable across many countries, but SocialValue underestimation is still often the top error.
+- **Gemma** improves in CHN/DEU/BRA relative to EXP-01 but still regresses on several countries (notably USA/JPN and multiple 15-country additions).
+- **Mistral** remains unstable with many negative Pearson-r rows despite the combined stack; EXP-04 gains do not transfer consistently to the full 15-country setting.
+- **Conclusion**: EXP-07 is useful for broad coverage diagnostics, but not the best paper headline on 5-country benchmark (EXP-09/EXP-05 remain stronger there).
+
+---
+
+### EXP-08 — results pending Kaggle run
 
 | EXP | Model | Country | Baseline MIS | EXP MIS | Δ | Status |
 |:----|:-----:|:-------:|:------------:|:-------:|:-:|:------:|
-| 07 | All | All 15 | — | — | — | ⏳ |
+| 08 | All | All 15 | — | — | — | ⏳ |
 
 ---
 
@@ -629,7 +693,7 @@ Notation: `delta = MIS_exp01 - MIS_exp07a` so **positive delta = EXP-07a improve
 #### Key takeaways
 - **BRA (Qwen)**: MIS improves **0.4025 → 0.3792** (**+5.8%**) from augmentation, but **SocialValue_High still dominates error** (≈27.5pp).
 - **BRA (Gemma)**: MIS worsens **0.3655 → 0.4002** (augmentation not helpful here).
-- **Net**: augmentation helps a subset of sparse-country cases but does **not** resolve the core SocialValue bias; still needs EXP-03/06/07.
+- **Net**: augmentation helps a subset of sparse-country cases but does **not** resolve the core SocialValue bias; still needs stronger routing/fusion variants (EXP-08/10/13).
 
 ---
 
@@ -737,7 +801,7 @@ Notation: `delta = MIS_exp01 - MIS_exp07a` so **positive delta = EXP-07a improve
 - [ ] Fix EXP-05 diagnostics export (`alpha_reg`, `anchor_divergence` columns missing → NaN run means)
 - [x] Run EXP-06b on Kaggle H100 (category routing ablation) ✅ 2026-04-09
 - [ ] Debug EXP-06b routing effect (results currently mirror EXP-01 almost exactly)
-- [ ] Run EXP-07 on Kaggle H100 (15 countries × 3 models) → **Final priority**
+- [x] Run EXP-07 on Kaggle H100 (15 countries × 3 models) → completed (mean MIS=0.4522; mixed by model)
 - [ ] Compute per-dimension MIS from EXP-02 results in analysis script (SocialValue target: err < 10)
 - [ ] Update `docs/experiment_tracker.md` with final EXP-07 numbers
 - [ ] Update paper §5 results table with EXP-07 as "SWA-PTIS+"
