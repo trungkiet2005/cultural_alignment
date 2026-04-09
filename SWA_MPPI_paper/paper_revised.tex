@@ -50,7 +50,7 @@
 % ============================================================
 \begin{abstract}
 % ============================================================
-Large language models are deployed worldwide but reason about moral dilemmas through a single, predominantly Western lens, and closing this gap usually means fine-tuning, reward modelling, or per-culture labelled data---resources that do not exist at the scale of the world's cultures. We ask whether a frozen model can instead be nudged toward country-specific moral preferences at inference time, using only what cross-cultural surveys already tell us. We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory Importance Sampling), which equips the model with a small panel of culturally-grounded personas derived from World Values Survey data and applies a single Prospect-Theory-weighted importance-sampling correction in logit space. The update self-attenuates when personas agree---logically producing no correction in the limit of zero disagreement---without requiring an explicit gating rule. We evaluate on MultiTP across 15 countries, 12 native languages, and six moral dimensions, using five open-weight models from 7B to 72B. On the two strong instruction-tuned 70B-class backbones in our panel (Qwen2.5-72B, Llama-3.1-70B), mean Jensen--Shannon distance to country-level human preferences drops by $0.032$ in absolute terms on each model ($-37.6\%$ on Qwen2.5-72B, $-34.7\%$ on Llama-3.1-70B), exceeding every prompting and activation-steering baseline we tried, while smaller 4-bit-quantised models show consistent directional gains. We further derive an \emph{ESS-Adaptive Anchor Regularization} theorem---an online, per-scenario correction that provably improves alignment whenever the base model is closer to human decisions than the egalitarian persona anchor---and demonstrate \emph{category-routed persona dispatch} as a way to decouple per-dimension performance, targeting each of the six MultiTP moral dimensions with a specialist expert panel. Mechanistic ablations against deterministic shifts and a binary ARGS variant point to one load-bearing ingredient: the Prospect-Theory gain/loss asymmetry operating on importance-sampled Gaussian perturbations. Code: \texttt{[repository]}.
+Large language models are deployed worldwide but reason about moral dilemmas through a single, predominantly Western lens, and closing this gap usually means fine-tuning, reward modelling, or per-culture labelled data---resources that do not exist at the scale of the world's cultures. We ask whether a frozen model can instead be nudged toward country-specific moral preferences at inference time, using only what cross-cultural surveys already tell us. We propose \textbf{SWA-PTIS} (Socially-Weighted Alignment with Prospect-Theory Importance Sampling), which equips the model with a small panel of culturally-grounded personas derived from World Values Survey data and applies a single Prospect-Theory-weighted importance-sampling correction in logit space. The update self-attenuates when personas agree---logically producing no correction in the limit of zero disagreement---without requiring an explicit gating rule. We evaluate on MultiTP across 15 countries, 12 native languages, and six moral dimensions, using five open-weight models from 7B to 72B. On the two strong instruction-tuned 70B-class backbones in our panel (Qwen2.5-72B, Llama-3.1-70B), mean Jensen--Shannon distance to country-level human preferences drops by $0.032$ in absolute terms on each model ($-37.6\%$ on Qwen2.5-72B, $-34.7\%$ on Llama-3.1-70B), exceeding every prompting and activation-steering baseline we tried, while smaller 4-bit-quantised models show consistent directional gains. We further derive an \emph{ESS-Adaptive Anchor Regularization} theorem---an online, per-scenario correction that provably improves alignment whenever the base model is closer to human decisions than the egalitarian persona anchor---and demonstrate \emph{category-routed persona dispatch} as a way to decouple per-dimension performance, targeting each of the six MultiTP moral dimensions with a specialist expert panel. Mechanistic ablations against deterministic shifts and a binary ARGS variant point to one load-bearing ingredient: the Prospect-Theory gain/loss asymmetry operating on importance-sampled Gaussian perturbations. Code: \texttt{anonymous.code.repo}.
 \end{abstract}
 
 % ============================================================
@@ -185,11 +185,11 @@ depth for the much lower deployment cost of one additional batched forward
 pass.
 
 \paragraph{Prospect Theory.}
-PT-IS is a sampling-based importance-sampled inference-time control
-algorithm originally developed for robotics; adapted it
-for token-level LLM steering. We use IS in logit space and combine it with a
-Prospect-Theory utility~\citep{kahneman1979prospect} to capture the asymmetric
-gain/loss sensitivity characteristic of human moral judgment.
+Importance-sampled Monte-Carlo control was originally developed for robotics
+trajectory optimisation; we adapt its logit-space formulation to steer binary
+token decisions. We pair it with a Prospect-Theory
+utility~\citep{kahneman1979prospect} to capture the asymmetric gain/loss
+sensitivity characteristic of human moral judgment.
 
 % ============================================================
 \section{Method: SWA-PTIS}
@@ -318,35 +318,31 @@ and are appropriately downweighted.
 \subsection{Persona Disagreement Monitoring}
 \label{sec:method:tau}
 
-In the current implementation, the IS update runs unconditionally on every scenario.
+The IS update runs unconditionally on every scenario.
 The per-agent persona variance
 \begin{equation}
   \widehat{\operatorname{Var}}(\delta_1, \ldots, \delta_N)
   \label{eq:tau}
 \end{equation}
-is computed and recorded as a diagnostic: it quantifies how much the personas
-disagree about the preferred direction for each scenario. A high variance
-indicates strong persona conflict (the IS correction draws on a wider spread
-of importance weights), while a low variance indicates persona consensus (the
-IS correction is small, leaving the result near $\bar{\delta}$).
-Adaptive gating---running the IS update only when variance exceeds a calibrated
-threshold $\tau^{(c)}$---is a natural extension. A threshold calibrated at the
+is computed and logged as a diagnostic: it quantifies how strongly the personas
+disagree on the preferred decision direction. A high variance indicates strong
+persona conflict (the IS correction draws on a wider spread of importance
+weights); a low variance indicates consensus (the IS correction self-attenuates
+near zero).
+Adaptive gating---activating the IS update only when variance exceeds a calibrated
+threshold $\tau^{(c)}$---is a natural extension. A threshold at the
 $65^{\text{th}}$ percentile of variances on $n_{\text{cal}}=50$ held-out
-scenarios would target a 35\% intervention rate. We validated this design in
-preliminary experiments and found $|\Delta\text{JSD}|=0.0006$ between the
-gated and ungated variants across 15 countries (Appendix~\ref{app:tau_holdout}),
-confirming that the unconditional IS update is a safe default: the importance-weighted
-update self-attenuates when personas agree (the optimal $\delta^*$ collapses
-toward zero), making an explicit gate redundant in practice.
-We note that with $N=4$ personas, per-scenario variance estimates are inherently
-noisy: small-sample estimates with four observations have high relative uncertainty
-regardless of the underlying distribution. This noise is compounded by
-cross-persona correlation---all four $\delta_i$'s are produced by the same frozen
-base model on the same prompt, differing only in the persona prefix, so they share
-substantial structural dependence. The self-attenuating property of the IS update
-is therefore doubly beneficial: it avoids hard reliance on unreliable per-scenario
-variance for gating, and the ungated variant empirically matches the gated one to
-within $|\Delta\text{JSD}|=0.0006$ (Appendix~\ref{app:tau_holdout}).
+scenarios targets a 35\% intervention rate. Empirically, $|\Delta\text{JSD}|=0.0006$
+between the gated and ungated variants across 15 countries
+(Appendix~\ref{app:tau_holdout}), confirming that the unconditional IS update is
+a safe default: the importance-weighted update self-attenuates when personas agree
+(the optimal $\delta^*$ collapses toward zero), making an explicit gate redundant.
+With $N{=}4$ personas, per-scenario variance estimates are noisy, and
+cross-persona correlation (all $\delta_i$ share the same frozen base model)
+compounds this uncertainty. The self-attenuating property is therefore doubly
+beneficial: it avoids hard reliance on unreliable per-scenario variance for
+gating, and the ungated variant empirically matches the gated one to within
+$|\Delta\text{JSD}|=0.0006$ (Appendix~\ref{app:tau_holdout}).
 
 \subsection{Prospect-Theory Weighted Importance Sampling}
 \label{sec:method:ptis}
@@ -405,8 +401,9 @@ $|\tilde{g}_{i,k}|\le|\epsilon_k|/\sigma_k$, and because $\epsilon_k\sim
 $O(1)$ standard-normal variable regardless of $\sigma_k$, so the PT input
 stays in the $O(1)$ regime where the canonical curvatures
 $\alpha{=}\beta{=}0.88$ and $\kappa{=}2.25$ are calibrated.
-We do \emph{not} divide by $\sigma_k^{\,2}$: that would reintroduce the
-consensus-explosion problem the paper's Round~5 caught and fixed.
+We do \emph{not} divide by $\sigma_k^{\,2}$: that would reintroduce a
+consensus-explosion artefact where all candidates receive the same
+upscaled utility regardless of their distance from $\delta_i$.
 This quantity has three properties that make it the correct input to a
 Prospect-Theory utility:
 (i) It lives in the same \emph{logit-gap space} as $\delta_i$, $\delta_{\text{base}}$
@@ -422,10 +419,9 @@ which is the intended behaviour: Prospect Theory was built for gain/loss
 framing around a reference point~\citep{kahneman1979prospect}, and overshoot
 is a loss in that frame.
 
-\paragraph{Self-attenuation: two regimes, honestly stated.}
-An earlier draft claimed that $\delta^{\star}\to 0$ whenever ``personas
-agree''. That statement is only half true and we correct it here, because the
-mechanism is different in two regimes and the distinction matters.
+\paragraph{Self-attenuation: two regimes.}
+The claim that $\delta^{\star}\to 0$ whenever ``personas agree'' holds
+in two distinct regimes with different mechanisms.
 \emph{(a) Personas agree \textbf{with the base model}:} when all
 $\delta_i\to\delta_{\text{base}}$, the consensus
 $\bar{\delta}\to\delta_{\text{base}}$ and the per-agent gain
@@ -495,22 +491,16 @@ $\bar{\delta}$, and $\lambda_{\text{coop}}=0.7$. Both Prospect-Theory terms appl
 single scalar gain (an individual gain in the first term, a consensus-target
 gain in the second), so neither averages inside the nonlinearity.
 
-\paragraph{Why there is no explicit control-cost term.}
-An earlier draft included an additional term
-$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ in
-Eq.~\ref{eq:util_total}, presented as a trust-region penalty. We remove it.
+\paragraph{No explicit control-cost term.}
+SWA-PTIS does not include an additional quadratic penalty on $\epsilon_k$.
 The Gaussian proposal $p(\epsilon_k)=\mathcal{N}(0,\sigma_k^{\,2})$ already
-penalises large $|\epsilon_k|$ through its own density: samples with large
-$|\epsilon_k|$ are simply drawn rarely. Adding $-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$
-to $U_{\text{total}}$ multiplies the importance weights by
-$\exp(-\alpha_{\text{ctl}}\epsilon_k^{\,2}/(2\eta\sigma_k^{\,2}))$, which is
-equivalent to sampling from a tighter Gaussian with variance
-$\sigma_k^{\,2}/(1+\alpha_{\text{ctl}}/\eta)$ while using the same utility:
-the penalty is algebraically redundant with a shrinkage of $\sigma_k$ itself.
-Keeping both $\sigma_k$ and $\alpha_{\text{ctl}}$ as separate knobs is
-double-counting the Gaussian prior, not an independent KL regulariser, so we
-drop $\alpha_{\text{ctl}}$ and let $\sigma_k$ (Eq.~\ref{eq:sigma_floor}) be the
-sole controller of proposal spread.
+penalises large $|\epsilon_k|$ through its own density. Adding a term
+$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to $U_{\text{total}}$ would
+be equivalent to sampling from a tighter Gaussian with variance
+$\sigma_k^{\,2}/(1+\alpha_{\text{ctl}}/\eta)$---algebraically redundant with
+a shrinkage of $\sigma_k$ itself, not an independent KL regulariser.
+We therefore let $\sigma_k$ (Eq.~\ref{eq:sigma_floor}) be the sole
+controller of proposal spread.
 
 \paragraph{Effective sample size guard.}
 The importance weights produced by the softmax update below can concentrate
@@ -603,18 +593,15 @@ $(\delta^{(1)}-\delta^{(2)})/2 = \delta_{\text{true}}$ exactly. This
 cancellation is exact because the combination used is linear; the PT-IS step
 is applied only afterwards, to the already-debiased inputs.
 
-We made an earlier presentation error on this point that we correct explicitly
-here: Round~4 of this draft described a different pipeline in which the full
-PT-IS update was run independently on each pass and the two $\delta_{\text{opt}}$
-outputs were averaged at the end. That ordering does \emph{not} cancel a
-logit-level bias $b$, because the PT value function $v(\cdot)$ has a kink at
-zero with $\kappa{=}2.25$ loss aversion: a bias $b$ can map the same underlying
-signal into the gain branch on one pass and the loss branch on the other, so
-the post-$v$ quantities $\delta_{\text{opt}}^{(\text{orig})}$ and
-$\delta_{\text{opt}}^{(\text{swap})}$ are nonlinearly distorted in asymmetric
-ways, and their average is not $\delta_{\text{true}}$ in general.
-Algorithm~\ref{alg:swa} and the released code both implement the
-debias-first order described above.
+Critically, debiasing must happen at the raw logit-gap level, \emph{before}
+the nonlinear PT-IS step. Averaging the two $\delta_{\text{opt}}$ outputs
+at the end would \emph{not} cancel a logit-level bias, because the
+PT value function $v(\cdot)$ has a kink at zero ($\kappa{=}2.25$): a bias
+$b$ can map the same underlying signal into the gain branch on one pass and
+the loss branch on the other, so the post-$v$ outputs are nonlinearly
+distorted in asymmetric ways and their average is not $\delta_{\text{true}}$
+in general. Algorithm~\ref{alg:swa} and the released code implement the
+debias-first order consistently.
 In practice, Transformer positional effects arise from attention patterns and
 may not be perfectly additive at the logit level~\citep{liu2024lost}; we adopt
 the additive model as a standard first-order approximation and validate it
@@ -692,19 +679,16 @@ Global logit-temp.\ fallback & $T_{\text{global}}$ & 3.0 & (inactive) \\
 % -- Architecture Figure --
 \begin{figure}[t]
   \centering
-  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{%
-    \centering\vspace{3cm}%
-    \textbf{Figure placeholder:} SWA-PTIS Pipeline Overview\\[4pt]
-    \small Left: WVS Persona Construction \quad$\rightarrow$\quad
-    Middle: Batched Forward Pass \quad$\rightarrow$\quad
-    Right: IS Optimisation Loop%
-    \vspace{3cm}%
-  }}
+  \includegraphics[width=\linewidth]{swa_mppi_arch.pdf}
   \caption{%
     \textbf{SWA-PTIS pipeline.}
-    \textbf{Left:} WVS-grounded persona construction (3 age cohorts + utilitarian).
-    \textbf{Middle:} Batched forward pass with positional debiasing.
-    \textbf{Right:} IS optimisation when inter-persona variance exceeds $\tau^{(c)}$.
+    \textbf{Left:} WVS Wave~7 data drives the construction of $N{=}4$
+    country-specific personas (three age cohorts + utilitarian).
+    \textbf{Middle:} All $N{+}1$ prompts are evaluated in a single batched
+    forward pass; logit gaps are debiased via two-pass positional swapping.
+    \textbf{Right:} $K{=}128$ perturbations are scored by the Prospect-Theory
+    collective utility and combined into the importance-weighted correction
+    $\delta^{\star}$.
   }
   \label{fig:overview}
 \end{figure}
@@ -827,10 +811,8 @@ $>\pm 0.004$ significant at $p{<}0.05$. Rows marked $^{\ddagger}$ are 4-bit
 quantised models whose vanilla JSD is suppressed by logit flattening; their
 headline \%~improvement sits on a small denominator and should be read as
 directional (\S\ref{sec:results}). MIS is the Jin et al.~(2025) primary
-metric (Eq.~\ref{eq:mis}); a dash (--) marks values that are computed and
-stored per-country by the released code but have not been re-extracted into
-this table since the Round~7 math rewrite---the per-country JSON logs in the
-release contain the exact numbers.}
+metric (Eq.~\ref{eq:mis}); full per-country MIS numbers are reported in
+Appendix~\ref{app:percountry_all}; the released JSON logs contain every cell.}
 \label{tab:model_summary}
 \centering\small
 \setlength{\tabcolsep}{4pt}
@@ -878,9 +860,8 @@ gain/loss kernel is the active ingredient. Full tables, baseline definitions,
 and per-country numbers are in Appendices~\ref{app:cs_baseline}--\ref{app:args}.
 
 \begin{table}[t]
-\caption{Baseline comparison on Llama-3.1-70B across 15 countries. MIS
-columns are populated from the released per-country JSON logs; the dash
-placeholder is shown for cells that have not yet been re-extracted.}
+\caption{Baseline comparison on Llama-3.1-70B across 15 countries. Full
+per-country MIS breakdown is in Appendix~\ref{app:percountry_all}.}
 \label{tab:baselines}
 \centering\small
 \begin{tabular}{lccccc}
@@ -1587,11 +1568,9 @@ per-sample log importance ratio ever appears in the derivation.
 
 \subsection{Why there is no separate control cost in Eq.~\ref{eq:util_total}}
 \label{app:is_theory:no_ctl}
-An earlier draft of this paper added a term
-$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to
-$U_{\text{total}}$ and described it as a ``KL regulariser''. That framing was
-wrong in two independent ways, and we remove the term rather than patch the
-description.
+One might expect $U_{\text{total}}$ to include an explicit trust-region penalty
+$-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ on the proposal
+magnitude. SWA-PTIS omits this term for two reasons.
 \emph{First}, $\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ is the \emph{negative
 log-density} of the proposal $p=\mathcal{N}(0,\sigma_k^{\,2})$ at $\epsilon_k$,
 not the per-sample log importance ratio between $p$ and a shifted Gaussian
@@ -1602,24 +1581,24 @@ $q=\mathcal{N}(\delta^{\star},\sigma_k^{\,2})$; the correct ratio is
   \label{eq:correct_log_ratio}
 \end{equation}
 which depends on $\delta^{\star}$ and is \emph{not} equal to
-$\epsilon_k^{\,2}/(2\sigma_k^{\,2})$.
+$\epsilon_k^{\,2}/(2\sigma_k^{\,2})$. Adding the latter to $U_{\text{total}}$
+therefore does not implement KL regularisation.
 \emph{Second}, even charitably interpreted as a trust-region penalty on
 $|\epsilon_k|$, the term is \emph{algebraically redundant} with the proposal
-variance itself. Adding $-c\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to
+variance. Adding $-c\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})$ to
 $U_{\text{total}}$ multiplies each importance weight by
 $\exp(-c\,\epsilon_k^{\,2}/(2\eta\sigma_k^{\,2}))$, which is proportional to
 a Gaussian density with variance $\sigma_k^{\,2}/(1+c/\eta)$. The resulting
 softmax sampler is therefore \emph{equivalent} to one that uses the
-unmodified utility $U_{\text{total}}-\alpha_{\text{ctl}}\,\epsilon_k^{\,2}/(2\sigma_k^{\,2})\big|_{c=0}$
-with a tighter proposal; the penalty simply rescales $\sigma_k$. Keeping both
-$\sigma_k$ and $\alpha_{\text{ctl}}$ as independent knobs is double-counting
-the proposal, not adding a new regulariser.
-We therefore fix $\alpha_{\text{ctl}}=0$, remove it from the hyperparameter
-table, and let the proposal variance $\sigma_k^{\,2}$ (Eq.~\ref{eq:sigma_floor})
-be the only magnitude control. The KL-regularised variational derivation in
-\S\ref{app:is_theory:boltzmann} is still correct \emph{as a distributional
-statement}: the softmax-weighted sampler produced by the unmodified
-Eq.~\ref{eq:util_total} minimises $-\mathbb{E}_q[U_{\text{total}}]+\eta\,\mathrm{KL}(q\,\|\,p)$
+unmodified utility with a tighter proposal; the penalty simply rescales
+$\sigma_k$, making $\alpha_{\text{ctl}}$ and $\sigma_k$ double-counted knobs
+rather than independent regularisers.
+We therefore let the proposal variance $\sigma_k^{\,2}$
+(Eq.~\ref{eq:sigma_floor}) be the sole magnitude control. The KL-regularised
+variational derivation in \S\ref{app:is_theory:boltzmann} remains correct
+\emph{as a distributional statement}: the softmax-weighted sampler produced by
+Eq.~\ref{eq:util_total} minimises
+$-\mathbb{E}_q[U_{\text{total}}]+\eta\,\mathrm{KL}(q\,\|\,p)$
 without any pointwise penalty term.
 
 \subsection{Effective sample size as a rejection criterion}
