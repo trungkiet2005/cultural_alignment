@@ -8,7 +8,125 @@
 
 ---
 
-## 🔬 EXP-04 — Model-Adaptive Grand Fusion (LATEST)
+## 🔬 EXP-02 — Dimension-Adaptive PT + Stratified Prior (LATEST)
+
+**Script**: `experiment/exp02_dimension_adaptive_pt.py`  
+**Date**: 2026-04-09 | **Run**: Kaggle H100  
+**Innovations**: Per-dimension kappa/sigma in PT value function + Stratified Hierarchical
+Prior + Confidence Gating + ESS-Adaptive Anchor Reg (NO SV personas, NO contrastive)  
+**Key PT params**: SocialValue kappa=1.25 sigma_scale=1.5 | Species kappa=3.00 sigma_scale=0.8
+
+### Raw MIS Table
+
+| Model | Country | Vanilla MIS | Method MIS | Improv % |
+|:------|:-------:|------------:|-----------:|---------:|
+| **Qwen2.5-7B** | USA | 0.4559 | 0.3820 | **+16.2%** |
+| **Qwen2.5-7B** | CHN | 0.4646 | 0.4091 | **+12.0%** |
+| **Qwen2.5-7B** | JPN | 0.4208 | 0.2964 | **+29.6%** |
+| **Qwen2.5-7B** | DEU | 0.4398 | 0.3675 | **+16.5%** |
+| **Qwen2.5-7B** | BRA | 0.5111 | 0.3844 | **+24.8%** |
+| **Gemma-2-9B** | USA | 0.4647 | 0.5829 | -25.5% |
+| **Gemma-2-9B** | CHN | 0.3679 | 0.4182 | -13.7% |
+| **Gemma-2-9B** | JPN | 0.4530 | 0.4638 | -2.4% |
+| **Gemma-2-9B** | DEU | 0.4170 | 0.3374 | **+19.1%** |
+| **Gemma-2-9B** | BRA | 0.4490 | 0.3614 | **+19.5%** |
+| **Mistral-7B** | USA | 0.5706 | 0.5649 | +1.0% |
+| **Mistral-7B** | CHN | 0.4569 | 0.4796 | -5.0% |
+| **Mistral-7B** | JPN | 0.3429 | 0.3429 | 0.0% |
+| **Mistral-7B** | DEU | 0.4909 | 0.4727 | +3.7% |
+| **Mistral-7B** | BRA | 0.4144 | 0.4199 | -1.3% |
+
+### Per-Model Summary
+
+| Model | Mean MIS | Wins | vs EXP-09 DM | vs EXP-04 | Verdict |
+|:------|:--------:|:----:|:------------:|:---------:|:--------|
+| **Qwen** | **0.3679** | 5/5 | 0.3653 (~tied) | 0.4003 (better) | Dim-PT alone > SV personas for Qwen |
+| **Gemma** | 0.4327 | 2/5 | 0.4003 (worse) | 0.4385 (better) | Same 2/5 pattern, no SV persona harm |
+| **Mistral** | 0.4560 | 2/5 | 0.4282 (worse) | 0.4321 (worse) | Dim-PT alone doesn't help Mistral |
+| **GLOBAL** | **0.4189** | 9/15 | 0.3975 (worse) | 0.4236 (better) | Beat EXP-04 but not EXP-09 |
+
+### Diagnosis: EXP-02 vs EXP-04 vs EXP-09
+
+**EXP-02 is BETTER than EXP-04 for Qwen** (0.3679 vs 0.4003): Proves the SV personas
+in EXP-04 were HURTING Qwen on JPN/DEU/BRA. The dim-adaptive PT alone (kappa_SV=1.25)
+gives Qwen consistent improvement across all 5 countries without persona interference.
+
+**EXP-02 Qwen is roughly tied with EXP-09 Qwen** (0.3679 vs 0.3653): The dimension-
+adaptive PT achieves similar Qwen performance to EXP-09's hierarchical prior through a
+completely different mechanism (PT parameter space vs Bayesian prior).
+
+**The gap to EXP-09 is entirely Gemma + Mistral**: EXP-09 gets Gemma=0.4003, Mistral=0.4282.
+EXP-02 gets Gemma=0.4327, Mistral=0.4560. The dim-adaptive PT is model-agnostic but
+Gemma/Mistral need MODEL-SPECIFIC fixes that PT params alone cannot provide.
+
+**Conclusion**: The optimal strategy is EXP-09's hierarchical prior (helps Gemma/Mistral)
++ EXP-02's dim-adaptive PT (helps SocialValue). These are ORTHOGONAL improvements.
+
+---
+
+## 🔬 EXP-03 — Contrastive Persona Decoding + Dim-PT + Stratified Prior
+
+**Script**: `experiment/exp03_contrastive_persona.py`  
+**Date**: 2026-04-09 | **Run**: Kaggle H100  
+**Innovations**: World-average persona subtraction (lambda=0.5) + Dim-Adaptive PT +
+Stratified Prior + Confidence Gating + Anchor Reg  
+**Persona pool**: 4 country + 4 world-average = 8 total per scenario
+
+### Raw MIS Table
+
+| Model | Country | Vanilla MIS | Method MIS | Improv % |
+|:------|:-------:|------------:|-----------:|---------:|
+| **Qwen2.5-7B** | USA | 0.4559 | 0.3905 | **+14.3%** |
+| **Qwen2.5-7B** | CHN | 0.4646 | 0.3696 | **+20.5%** |
+| **Qwen2.5-7B** | JPN | 0.4208 | 0.3220 | **+23.5%** |
+| **Qwen2.5-7B** | DEU | 0.4398 | 0.4824 | -9.7% |
+| **Qwen2.5-7B** | BRA | 0.5111 | 0.3978 | **+22.2%** |
+| **Gemma-2-9B** | USA | 0.4647 | 0.6851 | **-47.5%** |
+| **Gemma-2-9B** | CHN | 0.3679 | 0.5035 | -36.8% |
+| **Gemma-2-9B** | JPN | 0.4530 | 0.5611 | -23.9% |
+| **Gemma-2-9B** | DEU | 0.4170 | 0.3429 | **+17.8%** |
+| **Gemma-2-9B** | BRA | 0.4490 | 0.4371 | +2.6% |
+| **Mistral-7B** | USA | 0.5706 | 0.5851 | -2.5% |
+| **Mistral-7B** | CHN | 0.4569 | 0.5144 | -12.6% |
+| **Mistral-7B** | JPN | 0.3429 | 0.3710 | -8.2% |
+| **Mistral-7B** | DEU | 0.4909 | 0.4918 | -0.2% |
+| **Mistral-7B** | BRA | 0.4144 | 0.4770 | -15.1% |
+
+### Per-Model Summary
+
+| Model | Mean MIS | Wins | vs EXP-02 | vs EXP-09 | Verdict |
+|:------|:--------:|:----:|:---------:|:---------:|:--------|
+| **Qwen** | 0.3925 | 4/5 | 0.3679 (worse) | 0.3653 (worse) | Contrastive helps CHN (+20%) but hurts DEU (-10%) |
+| **Gemma** | **0.5060** | 2/5 | 0.4327 (MUCH worse) | 0.4003 (much worse) | **CATASTROPHIC** — contrastive AMPLIFIES Gemma's over-correction |
+| **Mistral** | **0.4879** | 0/5 | 0.4560 (worse) | 0.4282 (worse) | Contrastive hurts ALL countries for Mistral |
+| **GLOBAL** | **0.4621** | 6/15 | 0.4189 (worse) | 0.3975 (much worse) | **WORST experiment so far** |
+
+### Diagnosis: Contrastive Decoding BACKFIRES
+
+**Root cause**: The contrastive formula `anchor = anchor_country + lambda * (anchor_country - anchor_world)` AMPLIFIES whatever direction the country personas are pulling.
+
+- For **Gemma**: country personas already over-correct (anchor >> base). Subtracting world
+  personas and amplifying makes the over-correction WORSE. Gemma USA went from 0.5829
+  (EXP-02, already bad) to **0.6851** (EXP-03, catastrophic).
+
+- For **Mistral**: country personas have near-zero variance (tokenizer collapse). The world
+  personas have DIFFERENT near-zero variance. The subtraction creates NOISE, not signal.
+  Every country got worse (0/5 wins).
+
+- For **Qwen**: contrastive helps CHN (+20%) where cultural signal is strong, but hurts DEU
+  (-10%) where the world-average and German personas are similar (both Western-moderate).
+
+**Lesson learned**: Contrastive persona decoding requires that:
+  1. Country personas carry genuine cultural signal (true for Qwen, NOT for Gemma/Mistral)
+  2. World personas capture shared bias accurately (questionable with only 4 generic English personas)
+  3. The amplification factor lambda doesn't overshoot (0.5 was too aggressive for Gemma)
+
+**Contrastive decoding is NOT a universal fix. It helps strong models (Qwen) on high-
+cultural-signal countries (CHN) but catastrophically harms weak models (Gemma, Mistral).**
+
+---
+
+## 🔬 EXP-04 — Model-Adaptive Grand Fusion
 
 **Script**: `experiment/exp04_model_adaptive_fusion.py`  
 **Date**: 2026-04-09 | **Run**: Kaggle H100  
@@ -313,8 +431,8 @@ Combined fix (EXP-07) should eliminate all 3 failure modes simultaneously:
 | EXP | Name | Status | Key Innovation | Mean MIS | Beat EXP-09? |
 |:----|:-----|:------:|:---------------|:--------:|:------------:|
 | 01-SHIS | Stratified Hier IS + Confidence Gating | ✅ DONE | Category-stratified prior + CG + anchor reg | 0.4156 | NO |
-| 02 | Dim-Adaptive PT + Stratified Prior | 🟡 READY | Per-dim kappa/sigma (SV kappa=1.25) | — | — |
-| 03 | Contrastive Persona + Dim-PT + Stratified | 🟡 READY | World-avg subtraction + all EXP-02 | — | — |
+| **02** | **Dim-Adaptive PT + Stratified Prior** | ✅ **DONE** | **Per-dim kappa/sigma (SV kappa=1.25)** | **0.4189** | **NO** |
+| **03** | **Contrastive + Dim-PT + Stratified** | ✅ **DONE** | **World-avg subtraction + EXP-02** | **0.4621** | **NO (worst)** |
 | **04** | **Model-Adaptive Grand Fusion** | ✅ **DONE** | **Per-model profiles + all innovations** | **0.4236** | **NO** |
 
 ### experiment_DM/ folder (reference experiments)
@@ -327,16 +445,36 @@ Combined fix (EXP-07) should eliminate all 3 failure modes simultaneously:
 
 ### Leaderboard (Mean MIS ↓, all 3 models × 5 countries)
 
-| Rank | Method | Mean MIS | Source |
-|:----:|:-------|:--------:|:-------|
-| **1** | **EXP-09 Hierarchical IS** | **0.3975** | experiment_DM |
-| 2 | EXP-05 Anchor Reg | 0.4174 | experiment_DM |
-| 3 | EXP-04 Grand Fusion | 0.4236 | experiment/ |
-| 4 | EXP-01 SHIS-CG | 0.4156 | experiment/ |
-| 5 | EXP-01 Baseline SWA | 0.4269 | experiment_DM |
+| Rank | Method | Mean MIS | Qwen | Gemma | Mistral | Source |
+|:----:|:-------|:--------:|:----:|:-----:|:-------:|:-------|
+| **1** | **EXP-09 Hierarchical IS** | **0.3975** | 0.3653 | **0.4003** | **0.4282** | experiment_DM |
+| 2 | EXP-01 SHIS-CG | 0.4156 | 0.3636 | 0.4282 | 0.4551 | experiment/ |
+| 3 | EXP-05 Anchor Reg | 0.4174 | 0.3709 | 0.4296 | 0.4518 | experiment_DM |
+| 4 | EXP-02 Dim-Adaptive PT | 0.4189 | **0.3679** | 0.4327 | 0.4560 | experiment/ |
+| 5 | EXP-04 Grand Fusion | 0.4236 | 0.4003 | 0.4385 | 0.4321 | experiment/ |
+| 6 | EXP-01 Baseline SWA | 0.4269 | 0.3601 | 0.4437 | 0.4771 | experiment_DM |
+| 7 | EXP-03 Contrastive | **0.4621** | 0.3925 | **0.5060** | **0.4879** | experiment/ |
 
-**Priority for next Kaggle run**: EXP-02 (dim-adaptive PT) — isolates the kappa fix
-without SV persona interference that hurt Qwen JPN/DEU in EXP-04
+### Key Insight: After 4 experiments, the pattern is clear
+
+**EXP-09's hierarchical prior remains unbeatable** because it's the ONLY method that
+stabilizes Gemma (0.4003) and Mistral (0.4282). All experiment/ innovations improve
+the PT-IS math (kappa, contrastive, personas) but these are INPUT improvements —
+they don't help when the model itself is unstable (Gemma) or collapsed (Mistral).
+
+**What works per model:**
+- **Qwen**: Any SWA method works. Best: EXP-01 DM baseline (0.3601) or EXP-02 dim-PT (0.3679)
+- **Gemma**: ONLY EXP-09's hierarchical prior helps (0.4003). Everything else makes it worse.
+- **Mistral**: ONLY EXP-09 (0.4282) or EXP-04 with English personas (0.4321) help.
+
+**What DOESN'T work:**
+- Contrastive decoding: AMPLIFIES existing model biases instead of removing them
+- SV personas: Help Qwen-USA but hurt Qwen-JPN/DEU/BRA
+- Confidence gating: Too conservative, blocks beneficial prior corrections
+
+**Next step**: Create EXP-05 that directly ports EXP-09's hierarchical prior + adds
+dim-adaptive PT on top. This combines the ONLY proven Gemma/Mistral fix with the
+best Qwen improvement.
 
 ---
 
