@@ -3,7 +3,8 @@ import os, textwrap
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# HF ids for Reference_Notebook_Model/*.ipynb (text path: FastLanguageModel / same checkpoints as vision notebooks where applicable).
+# Rows: (suffix, short, hf_id, comment) or (..., comment, deps_profile).
+# deps_profile "unsloth_git" = install Unsloth from GitHub (needed for Gemma-4 etc.; PyPI wheel lags).
 MODELS = [
     # (file_suffix,    model_short,     hf_model_name,                                       comment)
     # ── Reference_Notebook_Model (Unsloth notebook checkpoints) ─────────────────
@@ -13,7 +14,7 @@ MODELS = [
     ("phi_4",        "phi_4",        "unsloth/Phi-4",                                   "Phi-4 — Phi_4_Conversational.ipynb"),
     ("llama32_1b",   "llama32_1b",   "unsloth/Llama-3.2-1B-Instruct",                   "Llama-3.2-1B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb"),
     ("llama32_3b",   "llama32_3b",   "unsloth/Llama-3.2-3B-Instruct",                   "Llama-3.2-3B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb"),
-    ("gemma4_31b",   "gemma4_31b",   "unsloth/gemma-4-31B-it",                          "Gemma-4-31B-IT — gemma4-31b-unsloth.ipynb"),
+    ("gemma4_31b",   "gemma4_31b",   "unsloth/gemma-4-31B-it",                          "Gemma-4-31B-IT — gemma4-31b-unsloth.ipynb", "unsloth_git"),
     # ── Additional sweep models ───────────────────────────────────────────────────
     ("qwen25_7b",    "qwen25_7b",    "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",          "Qwen2.5-7B-Instruct (4-bit)"),
     ("qwen2_7b",     "qwen2_7b",     "unsloth/Qwen2-7B-Instruct-bnb-4bit",            "Qwen2-7B-Instruct (4-bit)"),
@@ -33,9 +34,31 @@ MODELS = [
     ("qwen3_vl_8b",  "qwen3_vl_8b",  "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit", "Qwen3-VL-8B-Instruct (4-bit)"),
 ]
 
+_INSTALL_PYPI = [
+    "pip install -q bitsandbytes scipy tqdm",
+    "pip install --upgrade --no-deps unsloth",
+    "pip install -q unsloth_zoo",
+    "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
+]
 
-def _make_file(suffix, short, model_name, comment):
+# Matches Unsloth NotImplementedError hint (Gemma-4 / newest architectures).
+_INSTALL_UNSLOTH_GIT = [
+    "pip install -q bitsandbytes scipy tqdm",
+    "pip uninstall -y unsloth unsloth_zoo",
+    'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
+    'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
+    "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
+]
+
+
+def _pip_install_list_literal(cmds: list) -> str:
+    return "[\n" + "".join(f'                {repr(c)},\n' for c in cmds) + "            ]"
+
+
+def _make_file(suffix, short, model_name, comment, deps_profile: str = "pypi"):
     sep = "=" * (len("EXP-24 Dual-Pass Bootstrap IS — ") + len(comment))
+    _install_cmds = _INSTALL_PYPI if deps_profile == "pypi" else _INSTALL_UNSLOTH_GIT
+    install_list_py = _pip_install_list_literal(_install_cmds)
     content = textwrap.dedent(f"""\
         #!/usr/bin/env python3
         \"\"\"
@@ -86,12 +109,7 @@ def _make_file(suffix, short, model_name, comment):
         def _install_deps() -> None:
             if not _on_kaggle():
                 return
-            for cmd in [
-                "pip install -q bitsandbytes scipy tqdm",
-                "pip install --upgrade --no-deps unsloth",
-                "pip install -q unsloth_zoo",
-                "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
-            ]:
+            for cmd in {install_list_py}:
                 subprocess.run(cmd, shell=True, check=False)
 
 
@@ -119,6 +137,9 @@ def _make_file(suffix, short, model_name, comment):
 
 
 if __name__ == "__main__":
-    for args in MODELS:
-        _make_file(*args)
+    for row in MODELS:
+        if len(row) == 5:
+            _make_file(row[0], row[1], row[2], row[3], row[4])
+        else:
+            _make_file(*row)
     print(f"\nDone — {len(MODELS)} files written to {BASE_DIR}")

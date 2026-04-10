@@ -48,9 +48,9 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        "pip install -q bitsandbytes scipy tqdm",
-        "pip install --upgrade --no-deps unsloth",
-        "pip install -q unsloth_zoo",
+        'pip install -q bitsandbytes scipy tqdm',
+        'pip install --upgrade --no-deps unsloth',
+        'pip install -q unsloth_zoo',
         "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
     ]:
         subprocess.run(cmd, shell=True, check=False)

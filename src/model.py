@@ -47,18 +47,32 @@ def load_model(
     load_in_4bit: bool = True,
 ):
     """Load a model via Unsloth and return *(model, tokenizer)*."""
-    from unsloth import FastLanguageModel
     import transformers
     transformers.logging.set_verbosity_error()
 
     print(f"[MODEL] Loading {model_name} via Unsloth...")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=model_name,
-        max_seq_length=max_seq_length,
-        dtype=torch.bfloat16,
-        load_in_4bit=load_in_4bit,
-    )
-    FastLanguageModel.for_inference(model)
+    # Gemma-4 is loaded via FastModel in Unsloth notebooks; FastLanguageModel
+    # may raise NotImplementedError on older wheels or use the wrong path.
+    if "gemma-4" in model_name.lower():
+        from unsloth import FastModel
+
+        model, tokenizer = FastModel.from_pretrained(
+            model_name=model_name,
+            max_seq_length=max_seq_length,
+            dtype=None,
+            load_in_4bit=load_in_4bit,
+        )
+        FastModel.for_inference(model)
+    else:
+        from unsloth import FastLanguageModel
+
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=model_name,
+            max_seq_length=max_seq_length,
+            dtype=torch.bfloat16,
+            load_in_4bit=load_in_4bit,
+        )
+        FastLanguageModel.for_inference(model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
