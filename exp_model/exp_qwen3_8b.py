@@ -24,6 +24,7 @@ import os, sys, subprocess
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
+os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 REPO_URL        = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
