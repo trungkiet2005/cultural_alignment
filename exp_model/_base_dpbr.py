@@ -31,6 +31,7 @@ from experiment_DM.exp_reporting import (
     print_tracker_ready_report,
     try_load_reference_comparison,
 )
+from src.baseline_runner import run_baseline_vanilla
 from src.config import SWAConfig, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.controller import ImplicitSWAController
@@ -268,18 +269,34 @@ def run_for_model(model_name: str, model_short: str) -> None:
     model, tokenizer = load_model(model_name, max_seq_length=2048, load_in_4bit=True)
 
     rows: List[dict] = []
+    dp_method = f"{exp_id}_dual_pass"
     try:
         for ci, country in enumerate(TARGET_COUNTRIES):
             if country not in SUPPORTED_COUNTRIES:
                 print(f"[SKIP] unsupported country: {country}")
                 continue
-            _PRIOR_STATE.clear()
-            _PRIOR_STATE[country] = BootstrapPriorState()
             print(f"\n[{ci+1}/{len(TARGET_COUNTRIES)}] {exp_id} | {country}")
 
             scen     = _load_scen(cfg, country)
             personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
 
+            # ── Vanilla baseline (same scenarios, no personas / no SWA-IS) ──
+            print(f"  [VANILLA] Token-logit baseline …")
+            bl = run_baseline_vanilla(model, tokenizer, scen, country, cfg)
+            bl["results_df"].to_csv(out_dir / f"vanilla_results_{country}.csv", index=False)
+            rows.append({
+                "model": model_name,
+                "method": "baseline_vanilla",
+                "country": country,
+                **{f"align_{k}": v for k, v in bl["alignment"].items()},
+                "flip_rate": float("nan"),
+                "n_scenarios": len(bl["results_df"]),
+            })
+
+            # ── DPBR (EXP-24) ──
+            _PRIOR_STATE.clear()
+            _PRIOR_STATE[country] = BootstrapPriorState()
+            print(f"  [DPBR] Dual-pass bootstrap IS …")
             orig_init = Exp24DualPassController.__init__
             def patched_init(self, *a, country=country, **kw):
                 orig_init(self, *a, country=country, **kw)
@@ -294,13 +311,13 @@ def run_for_model(model_name: str, model_short: str) -> None:
                 str(Path(cmp_root) / "per_dim_breakdown.csv"),
                 flatten_per_dim_alignment(
                     summary.get("per_dimension_alignment", {}),
-                    model=model_name, method=f"{exp_id}_dual_pass", country=country,
+                    model=model_name, method=dp_method, country=country,
                 ),
             )
             ps  = _PRIOR_STATE.get(country, BootstrapPriorState()).stats
             mea = lambda col: float(results_df[col].mean()) if col in results_df.columns else float("nan")
             rows.append({
-                "model": model_name, "method": f"{exp_id}_dual_pass", "country": country,
+                "model": model_name, "method": dp_method, "country": country,
                 **{f"align_{k}": v for k, v in summary["alignment"].items()},
                 "flip_rate": summary["flip_rate"], "n_scenarios": summary["n_scenarios"],
                 "final_delta_country": ps["delta_country"], "final_alpha_h": ps["alpha_h"],
@@ -333,25 +350,42 @@ def run_for_model(model_name: str, model_short: str) -> None:
     cmp_df = pd.DataFrame(rows)
     cmp_df.to_csv(Path(cmp_root) / "comparison.csv", index=False)
 
+    vanilla_df = cmp_df[cmp_df["method"] == "baseline_vanilla"].copy()
+    dpbr_df    = cmp_df[cmp_df["method"] == dp_method].copy()
+
     print(f"\n{'#'*70}\n# {exp_id} FINAL REPORT\n{'#'*70}")
-    print_alignment_table(cmp_df, title=f"{exp_id} RESULTS")
-    if not cmp_df.empty:
-        print(
-            f"  MEAN MIS={cmp_df['align_mis'].mean():.4f}  "
-            f"r={cmp_df['align_pearson_r'].mean():+.3f}  "
-            f"Flip={cmp_df['flip_rate'].mean():.1%}  "
-            f"rel_r={cmp_df['mean_reliability_r'].mean():.3f}"
-        )
-        print(f"  (EXP-09 SOTA: 0.3975  |  EXP-24 SOTA: 0.3969)")
-    ref = try_load_reference_comparison()
-    if ref is not None:
+    if not vanilla_df.empty:
+        print_alignment_table(vanilla_df, title=f"{exp_id} VANILLA (no personas / no IS)")
+    print_alignment_table(dpbr_df, title=f"{exp_id} DPBR")
+    if not vanilla_df.empty and not dpbr_df.empty:
         print_metric_comparison(
-            ref, cmp_df, title=f"{exp_id} vs EXP-01",
+            vanilla_df, dpbr_df,
+            title=f"{exp_id} vs Vanilla (MIS)",
+            spec=CompareSpec(
+                metric_col="align_mis",
+                ref_method="baseline_vanilla",
+                cur_method=dp_method,
+            ),
+        )
+    if not dpbr_df.empty:
+        _rr = dpbr_df["mean_reliability_r"]
+        rel_mean = float(_rr.mean()) if _rr.notna().any() else float("nan")
+        print(
+            f"\n  DPBR MEAN MIS={dpbr_df['align_mis'].mean():.4f}  "
+            f"r={dpbr_df['align_pearson_r'].mean():+.3f}  "
+            f"Flip={dpbr_df['flip_rate'].mean():.1%}  "
+            f"rel_r={rel_mean:.3f}"
+        )
+        print(f"  (EXP-09 SOTA: 0.3975  |  EXP-24 multi-model ref: 0.3969)")
+    ref = try_load_reference_comparison()
+    if ref is not None and not dpbr_df.empty:
+        print_metric_comparison(
+            ref, dpbr_df, title=f"{exp_id} vs EXP-01 SWA-PTIS (MIS)",
             spec=CompareSpec(metric_col="align_mis", ref_method="swa_ptis",
-                             cur_method=f"{exp_id}_dual_pass"),
+                             cur_method=dp_method),
         )
     print_tracker_ready_report(
-        cmp_df, exp_id=exp_id,
+        cmp_df, exp_id=exp_id, cur_method=dp_method,
         per_dim_csv_path=str(Path(cmp_root) / "per_dim_breakdown.csv"),
     )
     print(f"\n[{exp_id}] DONE — {cmp_root}")

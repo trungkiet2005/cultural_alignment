@@ -116,7 +116,7 @@ def run_country_experiment(
         diagnostics["logit_temps_used"].append(pred["logit_temp_used"])
 
         agent_rewards_arr = np.asarray(pred["agent_rewards"], dtype=float)
-        results.append({
+        row_out = {
             "country": country_iso,
             "scenario_idx": idx,
             "Prompt": prompt,
@@ -138,7 +138,23 @@ def run_country_experiment(
             "agent_reward_max":  float(agent_rewards_arr.max())  if agent_rewards_arr.size else 0.0,
             "agent_reward_std":  float(agent_rewards_arr.std())  if agent_rewards_arr.size else 0.0,
             "latency_ms": latency * 1000,
-        })
+        }
+        # Optional controller diagnostics (EXP-24 dual-pass, etc.) — forward to results_df means.
+        for _k in (
+            "reliability_r", "bootstrap_var", "ess_pass1", "ess_pass2",
+            "delta_star_1", "delta_star_2", "delta_opt_micro",
+            "delta_country", "alpha_h", "prior_step",
+        ):
+            if _k not in pred:
+                continue
+            _v = pred[_k]
+            if hasattr(_v, "item"):
+                _v = _v.item()
+            try:
+                row_out[_k] = float(_v)
+            except (TypeError, ValueError):
+                row_out[_k] = _v
+        results.append(row_out)
 
     results_df = pd.DataFrame(results)
 
