@@ -8,6 +8,8 @@ NOT self-contained: env bootstrap must have run before this is imported.
 import gc
 import os
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -61,6 +63,7 @@ RESULTS_BASE = "/kaggle/working/cultural_alignment/results/exp24_model_sweep"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH     = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 HUMAN_AMCE_PATH   = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
+PREFLIGHT_TIMEOUT_MINUTES = int(os.environ.get("EXP24_PREFLIGHT_TIMEOUT_MINUTES", "15"))
 
 
 # DPBR controller + PRIOR_STATE: experiment_DM.exp24_dpbr_core (same as exp24_dual_pass_bootstrap.py)
@@ -112,6 +115,61 @@ def _load_scen(cfg: SWAConfig, country: str) -> pd.DataFrame:
     return df
 
 
+def _on_kaggle() -> bool:
+    return os.path.isdir("/kaggle/working")
+
+
+def _write_preflight_error_flag(flag_path: Path, message: str) -> None:
+    flag_path.parent.mkdir(parents=True, exist_ok=True)
+    flag_path.write_text(message + "\n", encoding="utf-8")
+    print(f"[PREFLIGHT] wrote error flag: {flag_path}")
+
+
+def _preflight_model_load(model_name: str, timeout_minutes: int) -> tuple[bool, str]:
+    timeout_seconds = max(1, timeout_minutes) * 60
+    code = f"""
+import gc
+import os
+import torch
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
+os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
+from src.model import load_model
+model, tokenizer = load_model("{model_name}", max_seq_length=2048, load_in_4bit=True)
+del model, tokenizer
+gc.collect()
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+print("PREFLIGHT_OK")
+"""
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        return False, f"Model pre-flight timeout after {timeout_minutes} minute(s)."
+
+    if result.returncode != 0:
+        tail = (result.stderr or result.stdout or "").strip()[-1500:]
+        return False, f"Model pre-flight failed (rc={result.returncode}). Details:\n{tail}"
+
+    if "PREFLIGHT_OK" not in (result.stdout or ""):
+        return False, "Model pre-flight did not confirm successful load."
+    return True, "ok"
+
+
+def _abort_kaggle_run(reason: str) -> None:
+    print(f"[PREFLIGHT][ERROR] {reason}")
+    if _on_kaggle():
+        raise SystemExit("[PREFLIGHT] Stopping Kaggle run to avoid wasting GPU.")
+    raise RuntimeError(reason)
+
+
 # ─── Core run function ─────────────────────────────────────────────────────────
 def run_for_model(model_name: str, model_short: str) -> None:
     """
@@ -136,6 +194,16 @@ def run_for_model(model_name: str, model_short: str) -> None:
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg.output_dir = str(out_dir)
+    preflight_flag = out_dir / "preflight_error.flag"
+
+    print(f"[PREFLIGHT] checking model load with timeout={PREFLIGHT_TIMEOUT_MINUTES} minute(s)")
+    ok, message = _preflight_model_load(model_name, PREFLIGHT_TIMEOUT_MINUTES)
+    if not ok:
+        _write_preflight_error_flag(preflight_flag, message)
+        _abort_kaggle_run(message)
+    if preflight_flag.exists():
+        preflight_flag.unlink(missing_ok=True)
+    print("[PREFLIGHT] PASS")
 
     model, tokenizer = load_model(model_name, max_seq_length=2048, load_in_4bit=True)
 
