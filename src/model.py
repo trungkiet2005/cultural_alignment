@@ -1,5 +1,11 @@
 """Model loading, tokenization helpers, and seed setup."""
 
+import os
+
+# Unsloth calls `get_statistics()` → HF snapshot_download with a 120s cap; on
+# Kaggle this often times out (slow/blocked hub), falsely raising "HF is down".
+os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
+
 import random as _rng
 
 import numpy as np

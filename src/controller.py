@@ -7,15 +7,15 @@ update with a cooperative Prospect-Theory utility aggregated over N culturally
 grounded persona agents. See `src/controller.py::_is_solve_decision` for the
 math; it corresponds exactly to Eqs. (5)-(10) of the paper.
 
-Math summary:
-  Per-agent gain (logit-gap units, bounded, no unit mismatch, no explosion):
+Math summary (matches ``_is_solve_decision``; gains are sigma-normalised inside PT):
+  Per-agent gain (logit-gap units before / sigma in PT):
       g_{i,k} = |delta_base - delta_i| - |delta_tilde_k - delta_i|
   Consensus-target gain:
       g_cons_k = |delta_base - delta_bar| - |delta_tilde_k - delta_bar|
-  Collective utility (mean-of-v, NOT v-of-mean -- preserves loss aversion):
-      U(eps_k) = (1 - lambda_coop) * mean_i v(g_{i,k})
-               +       lambda_coop  * v(g_cons_k)
-               -       alpha_ctl    * eps_k^2 / (2 * sigma^2)
+  Collective utility (mean-of-v, NOT v-of-mean — preserves loss aversion):
+      U(eps_k) = (1 - lambda_coop) * mean_i v(g_{i,k} / sigma)
+               +       lambda_coop  * v(g_cons_k / sigma)
+  (No separate quadratic control cost: Gaussian proposal supplies KL-like breadth.)
   Softmax weights / IS update:
       w_k = softmax(U(eps_k) / eta)
       delta_star = sum_k w_k * eps_k

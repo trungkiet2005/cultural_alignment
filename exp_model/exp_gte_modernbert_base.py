@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Phi-4 — Phi_4_Conversational.ipynb
-==================================================================
+EXP-24 Dual-Pass Bootstrap IS — GTE-ModernBERT-base — ModernBert.ipynb (embedding; DPBR needs causal LM — see load_model guard)
+===============================================================================================================================
 
-Model  : unsloth/Phi-4
+Model  : unsloth/gte-modernbert-base
 Profile: ref_phi_llama32  (pip stack aligned with Reference_Notebook_Model where noted)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
-    !python exp_model/exp_phi_4.py
+    !python exp_model/exp_gte_modernbert_base.py
 
 Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
 (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
@@ -24,7 +24,6 @@ import os, sys, subprocess
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 REPO_URL        = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
@@ -68,8 +67,8 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Phi-4"
-MODEL_SHORT = "phi_4"
+MODEL_NAME  = "unsloth/gte-modernbert-base"
+MODEL_SHORT = "gte_modernbert_base"
 
 # ============================================================
 # Step 2: run (all EXP-24 logic lives in the shared base)
