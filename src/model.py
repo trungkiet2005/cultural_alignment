@@ -67,6 +67,28 @@ def load_model(
     return model, tokenizer
 
 
+def text_tokenizer(tok):
+    """Return the HF tokenizer used for plain text.
+
+    Vision-Language `Processor` objects wrap the text tokenizer at `.tokenizer`;
+    calling `processor(string)` routes through multimodal code and may treat text
+    as image URLs. Always use this for `.encode` / `.decode` of chat strings.
+    """
+    inner = getattr(tok, "tokenizer", None)
+    if inner is not None and callable(getattr(inner, "encode", None)):
+        return inner
+    return tok
+
+
+def encode_text_to_tensor(
+    tok, text: str, device, add_special_tokens: bool = False
+) -> torch.Tensor:
+    """Tokenize text only (never `Processor.__call__`, which is multimodal)."""
+    tt = text_tokenizer(tok)
+    ids = tt.encode(text, add_special_tokens=add_special_tokens)
+    return torch.tensor([ids], dtype=torch.long, device=device)
+
+
 # ── chat-template helper ────────────────────────────────────────────────────
 
 
@@ -128,9 +150,9 @@ class ChatTemplateHelper:
         else:
             prefix_text = full_s[:idx]
 
-        ids = self.tokenizer(prefix_text, return_tensors="pt",
-                             add_special_tokens=False).input_ids.to(device)
-        return ids
+        return encode_text_to_tensor(
+            self.tokenizer, prefix_text, device, add_special_tokens=False
+        )
 
     def format_query_with_suffix(self, user_content: str) -> str:
         """

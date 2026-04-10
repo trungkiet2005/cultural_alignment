@@ -32,7 +32,7 @@ from src.i18n import (
     PROMPT_FRAME_I18N,
     SCENARIO_FRAME_I18N,
 )
-from src.model import ChatTemplateHelper
+from src.model import ChatTemplateHelper, encode_text_to_tensor, text_tokenizer
 
 
 # ============================================================================
@@ -141,9 +141,10 @@ class ImplicitSWAController:
         user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
         formatted = self.chat_helper.format_query_with_suffix(user_content)
 
-        base_ids = self.tokenizer.encode(formatted, add_special_tokens=False)
-        a_full = self.tokenizer.encode(formatted + "A", add_special_tokens=False)
-        b_full = self.tokenizer.encode(formatted + "B", add_special_tokens=False)
+        tt = text_tokenizer(self.tokenizer)
+        base_ids = tt.encode(formatted, add_special_tokens=False)
+        a_full = tt.encode(formatted + "A", add_special_tokens=False)
+        b_full = tt.encode(formatted + "B", add_special_tokens=False)
 
         def _first_diff(base: list, full: list) -> int:
             n = min(len(base), len(full))
@@ -163,8 +164,8 @@ class ImplicitSWAController:
         a_id = a_full[a_pos]
         b_id = b_full[b_pos]
         self._answer_token_cache[lang] = (a_id, b_id)
-        a_str = self.tokenizer.decode([a_id])
-        b_str = self.tokenizer.decode([b_id])
+        a_str = tt.decode([a_id])
+        b_str = tt.decode([b_id])
         print(f"[SWA] Decision tokens for lang={lang}: "
               f"A={a_id}({a_str!r})  B={b_id}({b_str!r})")
         return a_id, b_id
@@ -419,8 +420,9 @@ class ImplicitSWAController:
         frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
         user_content = frame.format(scenario=user_query)
         formatted = self.chat_helper.format_query_with_suffix(user_content)
-        query_ids = self.tokenizer(formatted, return_tensors="pt",
-                                   add_special_tokens=False).input_ids.to(self.device)
+        query_ids = encode_text_to_tensor(
+            self.tokenizer, formatted, self.device, add_special_tokens=False
+        )
 
         z_base, z_agents = self._evaluate_all_agents(
             query_ids, lang, logit_temp=logit_temp)

@@ -9,7 +9,7 @@ from tqdm.auto import tqdm
 
 from src.constants import COUNTRY_LANG
 from src.i18n import BASE_ASSISTANT_I18N, PROMPT_FRAME_I18N
-from src.model import ChatTemplateHelper
+from src.model import ChatTemplateHelper, encode_text_to_tensor, text_tokenizer
 from src.amce import compute_amce_from_preferences, load_human_amce, compute_alignment_metrics
 
 
@@ -28,9 +28,10 @@ def resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang):
     user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
     formatted = chat_helper.format_query_with_suffix(user_content)
 
-    base_ids = tokenizer.encode(formatted, add_special_tokens=False)
-    a_full = tokenizer.encode(formatted + "A", add_special_tokens=False)
-    b_full = tokenizer.encode(formatted + "B", add_special_tokens=False)
+    tt = text_tokenizer(tokenizer)
+    base_ids = tt.encode(formatted, add_special_tokens=False)
+    a_full = tt.encode(formatted + "A", add_special_tokens=False)
+    b_full = tt.encode(formatted + "B", add_special_tokens=False)
 
     def _first_diff(base, full):
         n = min(len(base), len(full))
@@ -47,8 +48,8 @@ def resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang):
             f"prompt+'A'/'B' produced no new token."
         )
     a_id, b_id = a_full[a_pos], b_full[b_pos]
-    a_str = tokenizer.decode([a_id])
-    b_str = tokenizer.decode([b_id])
+    a_str = tt.decode([a_id])
+    b_str = tt.decode([b_id])
     print(f"[Baseline] Decision tokens for lang={lang}: "
           f"A={a_id}({a_str!r})  B={b_id}({b_str!r})")
     return a_id, b_id
@@ -92,7 +93,9 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
             continue
         user_content = frame.format(scenario=prompt)
         formatted = chat_helper.format_query_with_suffix(user_content)
-        query_ids = tokenizer(formatted, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
+        query_ids = encode_text_to_tensor(
+            tokenizer, formatted, device, add_special_tokens=False
+        )
         full_ids = torch.cat([base_ids, query_ids], dim=1)
         rows_data.append((row, full_ids, bool(row.get("preferred_on_right", 1))))
 
@@ -105,7 +108,9 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         p_spare, p_l, p_r = logit_fallback_p_spare(
             model, full_ids, a_id, b_id, pref_right,
             temperature=cfg.decision_temperature, return_raw=True)
-        full_text = tokenizer.decode(full_ids[0], skip_special_tokens=False)
+        full_text = text_tokenizer(tokenizer).decode(
+            full_ids[0], skip_special_tokens=False
+        )
         print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
         print(f"  [FULL LLM INPUT]\n{full_text}")
         print(f"  [END LLM INPUT]")
