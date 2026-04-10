@@ -56,10 +56,11 @@ def _install_deps() -> None:
         'pip uninstall -y unsloth unsloth_zoo',
         'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
         'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
-        'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
+        # If this exact pin doesn't exist in the image, fall back to latest.
+        'pip install --upgrade --no-cache-dir "transformers==5.5.0" || pip install --upgrade --no-cache-dir transformers',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
-        subprocess.run(cmd, shell=True, check=False)
+        subprocess.run(cmd, shell=True, check=True)
 
 
 _ensure_repo()

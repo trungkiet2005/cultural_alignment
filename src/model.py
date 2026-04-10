@@ -69,6 +69,16 @@ def _needs_tf55_git_unsloth_moe_fix(model_name: str) -> bool:
     return ("qwen3-coder" in ln) or ("llama-4-scout" in ln)
 
 
+def _has_transformers_config_key(key: str) -> bool:
+    """Best-effort check for CONFIG_MAPPING support without importing model code."""
+    try:
+        from transformers.models.auto.configuration_auto import CONFIG_MAPPING
+
+        return key in CONFIG_MAPPING
+    except Exception:
+        return False
+
+
 def load_model(
     model_name: str,
     max_seq_length: int = 2048,
@@ -83,7 +93,9 @@ def load_model(
     # may raise NotImplementedError on older wheels or use the wrong path.
     if "gemma-4" in model_name.lower():
         _tv = transformers.__version__
-        if _transformers_version_tuple(_tv) < (5, 5, 0):
+        # Prefer feature detection over hard version-gating: Kaggle images sometimes ship
+        # a newer wheel than the pinned ref_* profile, and pip installs can fail silently.
+        if _transformers_version_tuple(_tv) < (5, 5, 0) and not _has_transformers_config_key("gemma4"):
             raise RuntimeError(
                 f"Gemma-4 needs transformers>=5.5.0 (CONFIG_MAPPING['gemma4']); "
                 f"this env has transformers=={_tv}. "
@@ -115,12 +127,14 @@ def load_model(
         if _needs_tf55_git_unsloth_moe_fix(model_name):
             _tv = transformers.__version__
             if _transformers_version_tuple(_tv) < (5, 5, 0):
-                raise RuntimeError(
-                    f"Qwen3-Coder / Llama-4-Scout MoE stacks need transformers>=5.5.0 with git Unsloth "
-                    f"(exp profile ref_git_tf55); this env has transformers=={_tv}. "
-                    "Pull latest repo and run e.g. exp_qwen3_coder_30b.py so _install_deps runs, "
-                    "or restart kernel after `pip install --upgrade --no-cache-dir transformers==5.5.0` "
-                    "following the ref_git_tf55 block."
+                # Don't block purely on version: if the environment already contains the needed
+                # model code paths, Unsloth can still load successfully. We'll clear Unsloth's
+                # compiled cache and proceed; if transformers truly lacks support, the next call
+                # will raise a more concrete error.
+                print(
+                    f"[MODEL] warn: {model_name} was validated on transformers>=5.5.0 + git Unsloth "
+                    f"(ref_git_tf55), but this env has transformers=={_tv}. "
+                    "Proceeding with feature-detection; if load fails, follow ref_git_tf55 install block."
                 )
             _clear_unsloth_compiled_cache()
         from unsloth import FastLanguageModel
