@@ -1,4 +1,4 @@
-"""Helper: generate one Kaggle-ready exp file per model in exp_model/.
+"""Helper: generate one Kaggle-ready EXP-24 file per model in exp_model/exp_24.
 
 Each row in MODELS ends with a *pip profile* key matching Reference_Notebook_Model
 install cells (Phi/Llama3.2 conversational, Qwen3.5 Vision, Gemma-4, or default PyPI).
@@ -8,7 +8,8 @@ Use one notebook / one kernel per run when profiles pin different transformers v
 import os
 import textwrap
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exp_24")
+os.makedirs(BASE_DIR, exist_ok=True)
 
 # ── Pip command lists (order matters) ───────────────────────────────────────
 _INSTALL_PYPI = [
@@ -111,7 +112,7 @@ def _make_file(suffix: str, short: str, model_name: str, comment: str, profile: 
 
         Usage on Kaggle
         ---------------
-            !python exp_model/exp_{suffix}.py
+            !python exp_model/exp_24/exp_{suffix}.py
 
         Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
         (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
@@ -183,4 +184,4 @@ def _make_file(suffix: str, short: str, model_name: str, comment: str, profile: 
 if __name__ == "__main__":
     for row in MODELS:
         _make_file(*row)
-    print(f"\nDone — {len(MODELS)} files written to {BASE_DIR}")
+    print(f"\nDone — {len(MODELS)} EXP-24 files written to {BASE_DIR}")
