@@ -15,6 +15,15 @@ MODELS = [
     ("llama3_8b",    "llama3_8b",    "unsloth/llama-3-8b-Instruct-bnb-4bit",          "Llama-3-8B-Instruct (4-bit)"),
     ("internlm25_7b","internlm25_7b","unsloth/internlm2_5-7b-chat-bnb-4bit",          "InternLM2.5-7B-Chat (4-bit)"),
     ("yi15_9b",      "yi15_9b",      "unsloth/Yi-1.5-9B-Chat-bnb-4bit",              "Yi-1.5-9B-Chat (4-bit)"),
+    # ── New models ────────────────────────────────────────────────────────────────
+    ("qwen35_4b",         "qwen35_4b",         "unsloth/Qwen3.5-4B",                                          "Qwen3.5-4B (4-bit)"),
+    ("qwen3_8b",          "qwen3_8b",          "unsloth/Qwen3-8B-unsloth-bnb-4bit",                           "Qwen3-8B (4-bit)"),
+    ("gpt_oss_20b",       "gpt_oss_20b",       "unsloth/gpt-oss-20b-unsloth-bnb-4bit",                        "GPT-OSS-20B (4-bit)"),
+    ("qwen3_coder_30b",   "qwen3_coder_30b",   "unsloth/Qwen3-Coder-30B-A3B-Instruct",                        "Qwen3-Coder-30B-A3B-Instruct (4-bit)"),
+    ("llama4_scout",      "llama4_scout",      "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit",      "Llama-4-Scout-17B-16E-Instruct (4-bit)"),
+    ("llama33_70b",       "llama33_70b",       "unsloth/Llama-3.3-70B-Instruct-bnb-4bit",                      "Llama-3.3-70B-Instruct (4-bit)"),
+    ("llama32_3b",        "llama32_3b",        "unsloth/Llama-3.2-3B-Instruct-bnb-4bit",                       "Llama-3.2-3B-Instruct (4-bit)"),
+    ("qwen3_vl_8b",       "qwen3_vl_8b",       "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit",               "Qwen3-VL-8B-Instruct (4-bit)"),
 ]
 
 
