@@ -54,6 +54,24 @@ def load_model(
     # Gemma-4 is loaded via FastModel in Unsloth notebooks; FastLanguageModel
     # may raise NotImplementedError on older wheels or use the wrong path.
     if "gemma-4" in model_name.lower():
+        def _tf_ver_tuple(ver: str):
+            out = []
+            for part in ver.split("+", 1)[0].split("."):
+                if part.isdigit():
+                    out.append(int(part))
+                else:
+                    break
+            return tuple((out + [0, 0, 0])[:3])
+
+        _tv = transformers.__version__
+        if _tf_ver_tuple(_tv) < (5, 5, 0):
+            raise RuntimeError(
+                f"Gemma-4 needs transformers>=5.5.0 (CONFIG_MAPPING['gemma4']); "
+                f"this env has transformers=={_tv}. "
+                "On Kaggle: run the full `ref_gemma4` pip block in exp_gemma4_31b.py "
+                "— especially `pip install --upgrade --no-cache-dir transformers==5.5.0` "
+                "*after* git-installing Unsloth. Then restart the kernel or pull the latest repo."
+            )
         from unsloth import FastModel
 
         model, tokenizer = FastModel.from_pretrained(

@@ -18,13 +18,15 @@ _INSTALL_PYPI = [
     'pip install --quiet "datasets>=3.4.1,<4.4.0"',
 ]
 
-# Gemma-4: gemma4-31b-unsloth.ipynb (uv + transformers==5.5.0 + git Unsloth for Kaggle).
+# Gemma-4: gemma4-31b-unsloth.ipynb (transformers==5.5.0 + git Unsloth).
+# Git Unsloth often leaves transformers at 5.2.x — must force-upgrade *after* unsloth_zoo or
+# AutoConfig raises: model_type `gemma4` not recognized.
 _INSTALL_REF_GEMMA4 = [
     "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
     "pip uninstall -y unsloth unsloth_zoo",
     'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
     'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
-    "pip install transformers==5.5.0",
+    'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
     'pip install --quiet "datasets>=3.4.1,<4.4.0"',
 ]
 
