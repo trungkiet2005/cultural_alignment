@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3-8B (4-bit)
-================================================
+EXP-24 Dual-Pass Bootstrap IS — Phi-4 — Phi_4_Conversational.ipynb
+==================================================================
 
-Model  : unsloth/Qwen3-8B-unsloth-bnb-4bit
+Model  : unsloth/Phi-4
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
-    !python exp_model/exp_qwen3_8b.py
+    !python exp_model/exp_phi_4.py
 """
 
 # ============================================================
@@ -62,8 +62,8 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Qwen3-8B-unsloth-bnb-4bit"
-MODEL_SHORT = "qwen3_8b"
+MODEL_NAME  = "unsloth/Phi-4"
+MODEL_SHORT = "phi_4"
 
 # ============================================================
 # Step 2: run (all EXP-24 logic lives in the shared base)

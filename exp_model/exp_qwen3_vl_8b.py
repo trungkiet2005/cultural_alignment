@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 EXP-24 Dual-Pass Bootstrap IS — Qwen3-VL-8B-Instruct (4-bit)
-==============================================================
+============================================================
 
 Model  : unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
-
-Note   : Multimodal vision-language model — text generation path used.
 
 Usage on Kaggle
 ---------------

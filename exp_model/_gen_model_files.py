@@ -3,8 +3,18 @@ import os, textwrap
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# HF ids for Reference_Notebook_Model/*.ipynb (text path: FastLanguageModel / same checkpoints as vision notebooks where applicable).
 MODELS = [
     # (file_suffix,    model_short,     hf_model_name,                                       comment)
+    # ── Reference_Notebook_Model (Unsloth notebook checkpoints) ─────────────────
+    ("qwen35_08b",   "qwen35_08b",   "unsloth/Qwen3.5-0.8B",                          "Qwen3.5-0.8B — Qwen3_5_(0_8B)_Vision.ipynb"),
+    ("qwen35_2b",    "qwen35_2b",    "unsloth/Qwen3.5-2B",                             "Qwen3.5-2B — Qwen3_5_(2B)_Vision.ipynb"),
+    ("qwen35_4b",    "qwen35_4b",    "unsloth/Qwen3.5-4B",                              "Qwen3.5-4B — Qwen3_5_(4B)_Vision.ipynb"),
+    ("phi_4",        "phi_4",        "unsloth/Phi-4",                                   "Phi-4 — Phi_4_Conversational.ipynb"),
+    ("llama32_1b",   "llama32_1b",   "unsloth/Llama-3.2-1B-Instruct",                   "Llama-3.2-1B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb"),
+    ("llama32_3b",   "llama32_3b",   "unsloth/Llama-3.2-3B-Instruct",                   "Llama-3.2-3B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb"),
+    ("gemma4_31b",   "gemma4_31b",   "unsloth/gemma-4-31B-it",                          "Gemma-4-31B-IT — gemma4-31b-unsloth.ipynb"),
+    # ── Additional sweep models ───────────────────────────────────────────────────
     ("qwen25_7b",    "qwen25_7b",    "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",          "Qwen2.5-7B-Instruct (4-bit)"),
     ("qwen2_7b",     "qwen2_7b",     "unsloth/Qwen2-7B-Instruct-bnb-4bit",            "Qwen2-7B-Instruct (4-bit)"),
     ("gemma2_9b",    "gemma2_9b",    "unsloth/gemma-2-9b-it-bnb-4bit",                "Gemma-2-9B-IT (4-bit)"),
@@ -15,15 +25,12 @@ MODELS = [
     ("llama3_8b",    "llama3_8b",    "unsloth/llama-3-8b-Instruct-bnb-4bit",          "Llama-3-8B-Instruct (4-bit)"),
     ("internlm25_7b","internlm25_7b","unsloth/internlm2_5-7b-chat-bnb-4bit",          "InternLM2.5-7B-Chat (4-bit)"),
     ("yi15_9b",      "yi15_9b",      "unsloth/Yi-1.5-9B-Chat-bnb-4bit",              "Yi-1.5-9B-Chat (4-bit)"),
-    # ── New models ────────────────────────────────────────────────────────────────
-    ("qwen35_4b",         "qwen35_4b",         "unsloth/Qwen3.5-4B",                                          "Qwen3.5-4B (4-bit)"),
-    ("qwen3_8b",          "qwen3_8b",          "unsloth/Qwen3-8B-unsloth-bnb-4bit",                           "Qwen3-8B (4-bit)"),
-    ("gpt_oss_20b",       "gpt_oss_20b",       "unsloth/gpt-oss-20b-unsloth-bnb-4bit",                        "GPT-OSS-20B (4-bit)"),
-    ("qwen3_coder_30b",   "qwen3_coder_30b",   "unsloth/Qwen3-Coder-30B-A3B-Instruct",                        "Qwen3-Coder-30B-A3B-Instruct (4-bit)"),
-    ("llama4_scout",      "llama4_scout",      "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit",      "Llama-4-Scout-17B-16E-Instruct (4-bit)"),
-    ("llama33_70b",       "llama33_70b",       "unsloth/Llama-3.3-70B-Instruct-bnb-4bit",                      "Llama-3.3-70B-Instruct (4-bit)"),
-    ("llama32_3b",        "llama32_3b",        "unsloth/Llama-3.2-3B-Instruct-bnb-4bit",                       "Llama-3.2-3B-Instruct (4-bit)"),
-    ("qwen3_vl_8b",       "qwen3_vl_8b",       "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit",               "Qwen3-VL-8B-Instruct (4-bit)"),
+    ("qwen3_8b",     "qwen3_8b",     "unsloth/Qwen3-8B-unsloth-bnb-4bit",             "Qwen3-8B (4-bit)"),
+    ("gpt_oss_20b",  "gpt_oss_20b",  "unsloth/gpt-oss-20b-unsloth-bnb-4bit",          "GPT-OSS-20B (4-bit)"),
+    ("qwen3_coder_30b", "qwen3_coder_30b", "unsloth/Qwen3-Coder-30B-A3B-Instruct",     "Qwen3-Coder-30B-A3B-Instruct (4-bit)"),
+    ("llama4_scout", "llama4_scout", "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit", "Llama-4-Scout-17B-16E-Instruct (4-bit)"),
+    ("llama33_70b",  "llama33_70b",  "unsloth/Llama-3.3-70B-Instruct-bnb-4bit",       "Llama-3.3-70B-Instruct (4-bit)"),
+    ("qwen3_vl_8b",  "qwen3_vl_8b",  "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit", "Qwen3-VL-8B-Instruct (4-bit)"),
 ]
 
 

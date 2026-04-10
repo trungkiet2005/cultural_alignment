@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 EXP-24 Dual-Pass Bootstrap IS — Llama-3.3-70B-Instruct (4-bit)
-================================================================
+==============================================================
 
 Model  : unsloth/Llama-3.3-70B-Instruct-bnb-4bit
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
-
-Note   : 70B model in 4-bit — requires H100 80GB VRAM.
 
 Usage on Kaggle
 ---------------

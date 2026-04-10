@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3-8B (4-bit)
-================================================
+EXP-24 Dual-Pass Bootstrap IS — Gemma-4-31B-IT — gemma4-31b-unsloth.ipynb
+=========================================================================
 
-Model  : unsloth/Qwen3-8B-unsloth-bnb-4bit
+Model  : unsloth/gemma-4-31B-it
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
-    !python exp_model/exp_qwen3_8b.py
+    !python exp_model/exp_gemma4_31b.py
 """
 
 # ============================================================
@@ -62,8 +62,8 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Qwen3-8B-unsloth-bnb-4bit"
-MODEL_SHORT = "qwen3_8b"
+MODEL_NAME  = "unsloth/gemma-4-31B-it"
+MODEL_SHORT = "gemma4_31b"
 
 # ============================================================
 # Step 2: run (all EXP-24 logic lives in the shared base)

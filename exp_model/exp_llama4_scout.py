@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 EXP-24 Dual-Pass Bootstrap IS — Llama-4-Scout-17B-16E-Instruct (4-bit)
-========================================================================
+======================================================================
 
 Model  : unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
-
-Note   : MoE with 17B per-expert / 16 experts — 4-bit fits Kaggle H100.
 
 Usage on Kaggle
 ---------------

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3.5-4B (4-bit)
-====================================================
+EXP-24 Dual-Pass Bootstrap IS — Qwen3.5-4B — Qwen3_5_(4B)_Vision.ipynb
+======================================================================
 
 Model  : unsloth/Qwen3.5-4B
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24

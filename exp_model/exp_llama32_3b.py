@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Llama-3.2-3B-Instruct (4-bit)
-===============================================================
+EXP-24 Dual-Pass Bootstrap IS — Llama-3.2-3B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb
+=================================================================================================
 
-Model  : unsloth/Llama-3.2-3B-Instruct-bnb-4bit
+Model  : unsloth/Llama-3.2-3B-Instruct
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -62,7 +62,7 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Llama-3.2-3B-Instruct-bnb-4bit"
+MODEL_NAME  = "unsloth/Llama-3.2-3B-Instruct"
 MODEL_SHORT = "llama32_3b"
 
 # ============================================================

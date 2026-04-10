@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
 EXP-24 Dual-Pass Bootstrap IS — Qwen3-Coder-30B-A3B-Instruct (4-bit)
-======================================================================
+====================================================================
 
 Model  : unsloth/Qwen3-Coder-30B-A3B-Instruct
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
-
-Note   : MoE with 30B total / 3B active params — fits Kaggle GPU.
 
 Usage on Kaggle
 ---------------

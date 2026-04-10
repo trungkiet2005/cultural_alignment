@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3-8B (4-bit)
-================================================
+EXP-24 Dual-Pass Bootstrap IS — Llama-3.2-1B-Instruct — Llama3_2_(1B_and_3B)_Conversational.ipynb
+=================================================================================================
 
-Model  : unsloth/Qwen3-8B-unsloth-bnb-4bit
+Model  : unsloth/Llama-3.2-1B-Instruct
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
-    !python exp_model/exp_qwen3_8b.py
+    !python exp_model/exp_llama32_1b.py
 """
 
 # ============================================================
@@ -62,8 +62,8 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Qwen3-8B-unsloth-bnb-4bit"
-MODEL_SHORT = "qwen3_8b"
+MODEL_NAME  = "unsloth/Llama-3.2-1B-Instruct"
+MODEL_SHORT = "llama32_1b"
 
 # ============================================================
 # Step 2: run (all EXP-24 logic lives in the shared base)

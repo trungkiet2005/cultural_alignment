@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 EXP-24 Dual-Pass Bootstrap IS — GPT-OSS-20B (4-bit)
-=====================================================
+===================================================
 
 Model  : unsloth/gpt-oss-20b-unsloth-bnb-4bit
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24

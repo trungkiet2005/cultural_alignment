@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3-8B (4-bit)
-================================================
+EXP-24 Dual-Pass Bootstrap IS — Qwen3.5-0.8B — Qwen3_5_(0_8B)_Vision.ipynb
+==========================================================================
 
-Model  : unsloth/Qwen3-8B-unsloth-bnb-4bit
+Model  : unsloth/Qwen3.5-0.8B
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
-    !python exp_model/exp_qwen3_8b.py
+    !python exp_model/exp_qwen35_08b.py
 """
 
 # ============================================================
@@ -62,8 +62,8 @@ _install_deps()
 # ============================================================
 # Step 1: model config
 # ============================================================
-MODEL_NAME  = "unsloth/Qwen3-8B-unsloth-bnb-4bit"
-MODEL_SHORT = "qwen3_8b"
+MODEL_NAME  = "unsloth/Qwen3.5-0.8B"
+MODEL_SHORT = "qwen35_08b"
 
 # ============================================================
 # Step 2: run (all EXP-24 logic lives in the shared base)
