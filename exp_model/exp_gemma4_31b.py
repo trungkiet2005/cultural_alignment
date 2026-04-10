@@ -4,12 +4,16 @@ EXP-24 Dual-Pass Bootstrap IS — Gemma-4-31B-IT — gemma4-31b-unsloth.ipynb
 =========================================================================
 
 Model  : unsloth/gemma-4-31B-it
+Profile: ref_gemma4  (pip stack aligned with Reference_Notebook_Model where noted)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
     !python exp_model/exp_gemma4_31b.py
+
+Note: ref_* profiles pin transformers; run reference models in a fresh session or
+expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
 """
 
 # ============================================================
@@ -48,11 +52,12 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
         'pip uninstall -y unsloth unsloth_zoo',
         'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
         'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
-        "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
+        'pip install transformers==5.5.0',
+        'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
 

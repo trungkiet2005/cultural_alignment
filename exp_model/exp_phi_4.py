@@ -4,12 +4,16 @@ EXP-24 Dual-Pass Bootstrap IS — Phi-4 — Phi_4_Conversational.ipynb
 ==================================================================
 
 Model  : unsloth/Phi-4
+Profile: ref_phi_llama32  (pip stack aligned with Reference_Notebook_Model where noted)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
     !python exp_model/exp_phi_4.py
+
+Note: ref_* profiles pin transformers; run reference models in a fresh session or
+expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
 """
 
 # ============================================================
@@ -49,9 +53,10 @@ def _install_deps() -> None:
         return
     for cmd in [
         'pip install -q bitsandbytes scipy tqdm',
-        'pip install --upgrade --no-deps unsloth',
-        'pip install -q unsloth_zoo',
-        "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
+        'pip install sentencepiece protobuf "datasets==4.3.0" "huggingface_hub>=0.34.0" hf_transfer',
+        'pip install --no-deps unsloth_zoo bitsandbytes accelerate peft trl triton unsloth',
+        'pip install transformers==4.56.2',
+        'pip install --no-deps trl==0.22.2',
     ]:
         subprocess.run(cmd, shell=True, check=False)
 

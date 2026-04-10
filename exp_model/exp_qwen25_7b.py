@@ -4,12 +4,16 @@ EXP-24 Dual-Pass Bootstrap IS — Qwen2.5-7B-Instruct (4-bit)
 ===========================================================
 
 Model  : unsloth/Qwen2.5-7B-Instruct-bnb-4bit
+Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
     !python exp_model/exp_qwen25_7b.py
+
+Note: ref_* profiles pin transformers; run reference models in a fresh session or
+expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
 """
 
 # ============================================================
@@ -48,10 +52,10 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
         'pip install --upgrade --no-deps unsloth',
         'pip install -q unsloth_zoo',
-        "pip install --quiet 'datasets>=3.4.1,<4.4.0'",
+        'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
 

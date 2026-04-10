@@ -63,6 +63,17 @@ def load_model(
             load_in_4bit=load_in_4bit,
         )
         FastModel.for_inference(model)
+        # Reference_Notebook_Model/gemma4-31b-unsloth.ipynb — template + message shape.
+        try:
+            from unsloth.chat_templates import get_chat_template
+
+            tokenizer = get_chat_template(
+                tokenizer,
+                chat_template="gemma-4-thinking",
+            )
+        except Exception as exc:
+            print(f"[MODEL] warn: get_chat_template(gemma-4-thinking) failed: {exc}")
+        setattr(tokenizer, "_moral_chat_content_mode", "gemma4")
     else:
         from unsloth import FastLanguageModel
 
@@ -73,6 +84,7 @@ def load_model(
             load_in_4bit=load_in_4bit,
         )
         FastLanguageModel.for_inference(model)
+        setattr(tokenizer, "_moral_chat_content_mode", "string")
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -115,11 +127,32 @@ class ChatTemplateHelper:
 
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+        # Gemma-4 (Unsloth): messages use content = [{"type":"text","text":...}] — see
+        # Reference_Notebook_Model/gemma4-31b-unsloth.ipynb
+        self.content_mode = getattr(tokenizer, "_moral_chat_content_mode", "string")
         # Some chat templates (e.g. Gemma) don't accept a "system" role.
         # Detect once and fold the system prompt into the first user turn.
         self.supports_system = self._probe_system_role()
 
+    def _as_turn_content(self, text: str):
+        """Plain string (most models) or Gemma-4 multimodal text block."""
+        if self.content_mode == "gemma4":
+            return [{"type": "text", "text": text}]
+        return text
+
     def _probe_system_role(self) -> bool:
+        if self.content_mode == "gemma4":
+            try:
+                self.tokenizer.apply_chat_template(
+                    [
+                        {"role": "system", "content": self._as_turn_content("x")},
+                        {"role": "user", "content": self._as_turn_content("y")},
+                    ],
+                    tokenize=False, add_generation_prompt=False,
+                )
+                return True
+            except Exception:
+                return False
         try:
             self.tokenizer.apply_chat_template(
                 [{"role": "system", "content": "x"},
@@ -133,11 +166,11 @@ class ChatTemplateHelper:
     def _messages(self, system_prompt: str, user_content: str):
         if self.supports_system:
             return [
-                {"role": "system", "content": system_prompt},
-                {"role": "user",   "content": user_content},
+                {"role": "system", "content": self._as_turn_content(system_prompt)},
+                {"role": "user", "content": self._as_turn_content(user_content)},
             ]
         merged = f"{system_prompt}\n\n{user_content}" if user_content else system_prompt
-        return [{"role": "user", "content": merged}]
+        return [{"role": "user", "content": self._as_turn_content(merged)}]
 
     def build_prefix_ids(self, system_prompt: str, device) -> torch.Tensor:
         """
