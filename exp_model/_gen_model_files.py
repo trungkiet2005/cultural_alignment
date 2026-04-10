@@ -18,10 +18,10 @@ _INSTALL_PYPI = [
     'pip install --quiet "datasets>=3.4.1,<4.4.0"',
 ]
 
-# Gemma-4: gemma4-31b-unsloth.ipynb (transformers==5.5.0 + git Unsloth).
-# Git Unsloth often leaves transformers at 5.2.x — must force-upgrade *after* unsloth_zoo or
-# AutoConfig raises: model_type `gemma4` not recognized.
-_INSTALL_REF_GEMMA4 = [
+# Git Unsloth + transformers 5.5.0 (after zoo install). Use when 5.2.x breaks newest arch:
+# - Gemma-4 (CONFIG_MAPPING gemma4)
+# - Qwen3-MoE Coder, Llama-4-Scout (ROPE_INIT_FUNCTIONS / compiled cache vs transformers)
+_INSTALL_REF_GIT_TF55 = [
     "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
     "pip uninstall -y unsloth unsloth_zoo",
     'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
@@ -52,7 +52,8 @@ _INSTALL_REF_PHI_LLAMA32 = [
 
 INSTALL_PROFILES = {
     "pypi": _INSTALL_PYPI,
-    "ref_gemma4": _INSTALL_REF_GEMMA4,
+    "ref_gemma4": _INSTALL_REF_GIT_TF55,
+    "ref_git_tf55": _INSTALL_REF_GIT_TF55,
     "ref_qwen35": _INSTALL_REF_QWEN35,
     "ref_phi_llama32": _INSTALL_REF_PHI_LLAMA32,
 }
@@ -80,8 +81,8 @@ MODELS = [
     ("yi15_9b", "yi15_9b", "unsloth/Yi-1.5-9B-Chat-bnb-4bit", "Yi-1.5-9B-Chat (4-bit)", "pypi"),
     ("qwen3_8b", "qwen3_8b", "unsloth/Qwen3-8B-unsloth-bnb-4bit", "Qwen3-8B (4-bit)", "pypi"),
     ("gpt_oss_20b", "gpt_oss_20b", "unsloth/gpt-oss-20b-unsloth-bnb-4bit", "GPT-OSS-20B (4-bit)", "pypi"),
-    ("qwen3_coder_30b", "qwen3_coder_30b", "unsloth/Qwen3-Coder-30B-A3B-Instruct", "Qwen3-Coder-30B-A3B-Instruct (4-bit)", "pypi"),
-    ("llama4_scout", "llama4_scout", "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit", "Llama-4-Scout-17B-16E-Instruct (4-bit)", "pypi"),
+    ("qwen3_coder_30b", "qwen3_coder_30b", "unsloth/Qwen3-Coder-30B-A3B-Instruct", "Qwen3-Coder-30B-A3B-Instruct (MoE; TF 5.5 stack)", "ref_git_tf55"),
+    ("llama4_scout", "llama4_scout", "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit", "Llama-4-Scout-17B-16E-Instruct (TF 5.5 stack)", "ref_git_tf55"),
     ("llama33_70b", "llama33_70b", "unsloth/Llama-3.3-70B-Instruct-bnb-4bit", "Llama-3.3-70B-Instruct (4-bit)", "pypi"),
     # Qwen3-VL: same Unsloth/transformers generation as Qwen3_5_*_Vision notebooks (text-only path in repo).
     ("qwen3_vl_8b", "qwen3_vl_8b", "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit", "Qwen3-VL-8B-Instruct (4-bit)", "ref_qwen35"),
@@ -112,8 +113,8 @@ def _make_file(suffix: str, short: str, model_name: str, comment: str, profile: 
         ---------------
             !python exp_model/exp_{suffix}.py
 
-        Note: ref_* profiles pin transformers; run reference models in a fresh session or
-        expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
+        Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
+        (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
         """
 
         # ============================================================

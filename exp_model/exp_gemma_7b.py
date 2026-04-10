@@ -12,8 +12,8 @@ Usage on Kaggle
 ---------------
     !python exp_model/exp_gemma_7b.py
 
-Note: ref_* profiles pin transformers; run reference models in a fresh session or
-expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
+Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
+(e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
 """
 
 # ============================================================

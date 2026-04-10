@@ -41,6 +41,34 @@ def setup_seeds(seed: int = 42) -> None:
 # ── model loading ───────────────────────────────────────────────────────────
 
 
+def _transformers_version_tuple(ver: str) -> tuple:
+    out = []
+    for part in ver.split("+", 1)[0].split("."):
+        if part.isdigit():
+            out.append(int(part))
+        else:
+            break
+    return tuple((out + [0, 0, 0])[:3])
+
+
+def _clear_unsloth_compiled_cache() -> None:
+    """Stale patches under transformers 5.2 can KeyError (e.g. ROPE_INIT_FUNCTIONS['default'])."""
+    import shutil
+    from pathlib import Path
+
+    for base in (Path.cwd(), Path("/kaggle/working/cultural_alignment")):
+        d = base / "unsloth_compiled_cache"
+        if d.is_dir():
+            shutil.rmtree(d, ignore_errors=True)
+            print(f"[MODEL] Cleared Unsloth compile cache: {d}")
+
+
+def _needs_tf55_git_unsloth_moe_fix(model_name: str) -> bool:
+    """Qwen3-MoE Coder / Llama-4-Scout: need transformers>=5.5 + fresh compile (see ref_git_tf55)."""
+    ln = model_name.lower()
+    return ("qwen3-coder" in ln) or ("llama-4-scout" in ln)
+
+
 def load_model(
     model_name: str,
     max_seq_length: int = 2048,
@@ -54,17 +82,8 @@ def load_model(
     # Gemma-4 is loaded via FastModel in Unsloth notebooks; FastLanguageModel
     # may raise NotImplementedError on older wheels or use the wrong path.
     if "gemma-4" in model_name.lower():
-        def _tf_ver_tuple(ver: str):
-            out = []
-            for part in ver.split("+", 1)[0].split("."):
-                if part.isdigit():
-                    out.append(int(part))
-                else:
-                    break
-            return tuple((out + [0, 0, 0])[:3])
-
         _tv = transformers.__version__
-        if _tf_ver_tuple(_tv) < (5, 5, 0):
+        if _transformers_version_tuple(_tv) < (5, 5, 0):
             raise RuntimeError(
                 f"Gemma-4 needs transformers>=5.5.0 (CONFIG_MAPPING['gemma4']); "
                 f"this env has transformers=={_tv}. "
@@ -93,6 +112,17 @@ def load_model(
             print(f"[MODEL] warn: get_chat_template(gemma-4-thinking) failed: {exc}")
         setattr(tokenizer, "_moral_chat_content_mode", "gemma4")
     else:
+        if _needs_tf55_git_unsloth_moe_fix(model_name):
+            _tv = transformers.__version__
+            if _transformers_version_tuple(_tv) < (5, 5, 0):
+                raise RuntimeError(
+                    f"Qwen3-Coder / Llama-4-Scout MoE stacks need transformers>=5.5.0 with git Unsloth "
+                    f"(exp profile ref_git_tf55); this env has transformers=={_tv}. "
+                    "Pull latest repo and run e.g. exp_qwen3_coder_30b.py so _install_deps runs, "
+                    "or restart kernel after `pip install --upgrade --no-cache-dir transformers==5.5.0` "
+                    "following the ref_git_tf55 block."
+                )
+            _clear_unsloth_compiled_cache()
         from unsloth import FastLanguageModel
 
         model, tokenizer = FastLanguageModel.from_pretrained(

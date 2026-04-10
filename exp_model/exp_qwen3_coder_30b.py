@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-EXP-24 Dual-Pass Bootstrap IS — Qwen3-Coder-30B-A3B-Instruct (4-bit)
-====================================================================
+EXP-24 Dual-Pass Bootstrap IS — Qwen3-Coder-30B-A3B-Instruct (MoE; TF 5.5 stack)
+================================================================================
 
 Model  : unsloth/Qwen3-Coder-30B-A3B-Instruct
-Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+Profile: ref_git_tf55  (pip stack aligned with Reference_Notebook_Model where noted)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -12,8 +12,8 @@ Usage on Kaggle
 ---------------
     !python exp_model/exp_qwen3_coder_30b.py
 
-Note: ref_* profiles pin transformers; run reference models in a fresh session or
-expect conflicts if you mix Phi/Llama (4.56.x) with Qwen3.5 (5.2.x) in one kernel.
+Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
+(e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
 """
 
 # ============================================================
@@ -53,8 +53,10 @@ def _install_deps() -> None:
         return
     for cmd in [
         'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
-        'pip install --upgrade --no-deps unsloth',
-        'pip install -q unsloth_zoo',
+        'pip uninstall -y unsloth unsloth_zoo',
+        'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
+        'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
+        'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
