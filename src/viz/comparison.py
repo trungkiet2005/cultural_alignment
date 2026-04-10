@@ -90,14 +90,17 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
         mean_row.append(f"{mv:{fmt}}")
         mean_row.append(f"{ms:{fmt}}")
         mean_row.append(f"{md:+{fmt}}")
-    v_miss = [s.get("baseline_alignment", vanilla_metrics.get(s["country"], {})).get("mis", np.nan)
-              for s in all_summaries]
-    s_miss = [s["alignment"].get("mis", np.nan) for s in all_summaries]
-    v_miss = [x for x in v_miss if not np.isnan(x)]
-    s_miss = [x for x in s_miss if not np.isnan(x)]
-    if v_miss and s_miss:
-        mean_improv = (np.mean(v_miss) - np.mean(s_miss)) / np.mean(v_miss) * 100
-        mean_row.append(f"{mean_improv:+.1f}%")
+    # Mean of per-country relative MIS improvements (same definition as each row).
+    # Using (mean(v)-mean(s))/mean(v) would mix ratios and is not the average improvement.
+    improv_pcts = []
+    for s in all_summaries:
+        van_a = s.get("baseline_alignment", vanilla_metrics.get(s["country"], {}))
+        v_mis = van_a.get("mis", np.nan)
+        s_mis = s["alignment"].get("mis", np.nan)
+        if np.isfinite(v_mis) and np.isfinite(s_mis) and v_mis > 1e-12:
+            improv_pcts.append((v_mis - s_mis) / v_mis * 100.0)
+    if improv_pcts:
+        mean_row.append(f"{np.mean(improv_pcts):+.1f}%")
     else:
         mean_row.append("\u2014")
     rows.append(mean_row)
