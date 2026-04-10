@@ -80,7 +80,12 @@ MODELS = [
     ("llama3_8b", "llama3_8b", "unsloth/llama-3-8b-Instruct-bnb-4bit", "Llama-3-8B-Instruct (4-bit)", "pypi"),
     ("internlm25_7b", "internlm25_7b", "unsloth/internlm2_5-7b-chat-bnb-4bit", "InternLM2.5-7B-Chat (4-bit)", "pypi"),
     ("yi15_9b", "yi15_9b", "unsloth/Yi-1.5-9B-Chat-bnb-4bit", "Yi-1.5-9B-Chat (4-bit)", "pypi"),
+    # Qwen3 2507 + dense sweep (PyPI Unsloth)
+    ("qwen3_4b_instruct_2507", "qwen3_4b_instruct_2507", "unsloth/Qwen3-4B-Instruct-2507-unsloth-bnb-4bit", "Qwen3-4B-Instruct-2507 (4-bit)", "pypi"),
+    ("qwen3_4b_thinking_2507", "qwen3_4b_thinking_2507", "unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit", "Qwen3-4B-Thinking-2507 (4-bit)", "pypi"),
     ("qwen3_8b", "qwen3_8b", "unsloth/Qwen3-8B-unsloth-bnb-4bit", "Qwen3-8B (4-bit)", "pypi"),
+    ("qwen3_14b", "qwen3_14b", "unsloth/Qwen3-14B-unsloth-bnb-4bit", "Qwen3-14B (4-bit)", "pypi"),
+    ("qwen3_32b", "qwen3_32b", "unsloth/Qwen3-32B-unsloth-bnb-4bit", "Qwen3-32B (4-bit)", "pypi"),
     ("gpt_oss_20b", "gpt_oss_20b", "unsloth/gpt-oss-20b-unsloth-bnb-4bit", "GPT-OSS-20B (4-bit)", "pypi"),
     ("qwen3_coder_30b", "qwen3_coder_30b", "unsloth/Qwen3-Coder-30B-A3B-Instruct", "Qwen3-Coder-30B-A3B-Instruct (MoE; TF 5.5 stack)", "ref_git_tf55"),
     ("llama4_scout", "llama4_scout", "unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit", "Llama-4-Scout-17B-16E-Instruct (TF 5.5 stack)", "ref_git_tf55"),
