@@ -79,3 +79,12 @@ def test_total_is_budget_matches_exp09():
     from experiment_DM.exp24_dpbr_core import K_HALF
 
     assert K_HALF * 2 == 128
+
+
+def test_ess_anchor_blend_alpha_clips():
+    from experiment_DM.exp24_dpbr_core import ess_anchor_blend_alpha
+
+    rho = 0.1
+    assert ess_anchor_blend_alpha(0.05, rho) == pytest.approx(0.1)
+    assert ess_anchor_blend_alpha(0.25, rho) == pytest.approx(0.25)
+    assert ess_anchor_blend_alpha(1.2, rho) == pytest.approx(1.0)

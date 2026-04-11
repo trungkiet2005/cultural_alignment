@@ -237,6 +237,7 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
         ps  = PRIOR_STATE.get(country, BootstrapPriorState()).stats
         mea = lambda col: float(results_df[col].mean()) if col in results_df.columns else float("nan")
 
+        us = summary.get("utilitarianism_slope") or {}
         rows.append({
             "model": model_name, "method": f"{EXP_ID}_dual_pass", "country": country,
             **{f"align_{k}": v for k, v in summary["alignment"].items()},
@@ -245,6 +246,9 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
             "mean_reliability_r": mea("reliability_r"),
             "mean_bootstrap_var": mea("bootstrap_var"),
             "mean_ess_pass1": mea("ess_pass1"), "mean_ess_pass2": mea("ess_pass2"),
+            "mean_ess_anchor_alpha": mea("ess_anchor_alpha"),
+            "utilitarianism_slope_hat": float(us.get("slope_hat", float("nan"))),
+            "utilitarianism_slope_n": int(us.get("n_obs", 0) or 0),
         })
 
         pda = summary.get("per_dimension_alignment", {})

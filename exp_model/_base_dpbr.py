@@ -188,6 +188,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
     print(f"{'='*70}")
     print(f"[THEORY] K_half={K_HALF}×2={K_HALF*2} total  |  VAR_SCALE={VAR_SCALE}")
     print(f"[THEORY] r = exp(-(δ*₁-δ*₂)² / {VAR_SCALE})  →  δ* = r·(δ*₁+δ*₂)/2")
+    _ear = os.environ.get("EXP24_ESS_ANCHOR_REG", "1").strip().lower()
+    _ess_on = _ear not in ("0", "false", "no", "off")
+    print(f"[THEORY] ESS anchor blend: {'ON (δ_micro = α·anchor + (1-α)·δ_base + δ*)' if _ess_on else 'OFF (legacy δ_micro = anchor + δ*)'}")
 
     cfg     = _build_cfg(model_name, swa_root)
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
@@ -229,6 +232,15 @@ def run_for_model(model_name: str, model_short: str) -> None:
                 **{f"align_{k}": v for k, v in bl["alignment"].items()},
                 "flip_rate": float("nan"),
                 "n_scenarios": len(bl["results_df"]),
+                "final_delta_country": float("nan"),
+                "final_alpha_h": float("nan"),
+                "mean_reliability_r": float("nan"),
+                "mean_bootstrap_var": float("nan"),
+                "mean_ess_pass1": float("nan"),
+                "mean_ess_pass2": float("nan"),
+                "mean_ess_anchor_alpha": float("nan"),
+                "utilitarianism_slope_hat": float("nan"),
+                "utilitarianism_slope_n": 0,
             })
 
             # ── DPBR (EXP-24) ──
@@ -249,6 +261,7 @@ def run_for_model(model_name: str, model_short: str) -> None:
             )
             ps  = PRIOR_STATE.get(country, BootstrapPriorState()).stats
             mea = lambda col: float(results_df[col].mean()) if col in results_df.columns else float("nan")
+            us = summary.get("utilitarianism_slope") or {}
             rows.append({
                 "model": model_name, "method": dp_method, "country": country,
                 **{f"align_{k}": v for k, v in summary["alignment"].items()},
@@ -257,6 +270,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
                 "mean_reliability_r": mea("reliability_r"),
                 "mean_bootstrap_var": mea("bootstrap_var"),
                 "mean_ess_pass1": mea("ess_pass1"), "mean_ess_pass2": mea("ess_pass2"),
+                "mean_ess_anchor_alpha": mea("ess_anchor_alpha"),
+                "utilitarianism_slope_hat": float(us.get("slope_hat", float("nan"))),
+                "utilitarianism_slope_n": int(us.get("n_obs", 0) or 0),
             })
 
             pda = summary.get("per_dimension_alignment", {})

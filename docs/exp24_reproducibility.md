@@ -30,6 +30,7 @@ Set **before** Python imports `experiment_DM.exp24_dpbr_core` (e.g. in the shell
 |----------|--------|
 | `EXP24_VAR_SCALE` | Overrides `VAR_SCALE` (e.g. `0.02`, `0.08`). |
 | `EXP24_K_HALF` | Overrides half-pass sample count (must keep `2 * K_HALF` consistent with reporting). |
+| `EXP24_ESS_ANCHOR_REG` | `1` (default): ESS-adaptive anchor blend `δ = α·anchor + (1-α)·δ_base + δ*` with `α = clip(min(ESS₁,ESS₂), ρ, 1)` (EXP-05 / paper). `0`: legacy `δ = anchor + δ*` only. |
 
 Example (Linux / Kaggle):
 

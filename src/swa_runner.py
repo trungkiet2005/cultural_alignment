@@ -146,6 +146,7 @@ def run_country_experiment(
             "delta_star_1", "delta_star_2", "delta_opt_micro",
             "delta_country", "alpha_h", "prior_step",
             "p_spare_preferred_is_pass1_micro", "p_spare_preferred_is_pass2_micro",
+            "ess_anchor_alpha", "ess_anchor_reg_enabled",
         ):
             if _k not in pred:
                 continue

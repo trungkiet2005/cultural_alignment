@@ -31,6 +31,17 @@ BETA_EMA = 0.10
 K_HALF = int(os.environ.get("EXP24_K_HALF", "64"))  # samples per pass (2 × K_HALF = EXP-09 K)
 VAR_SCALE = float(os.environ.get("EXP24_VAR_SCALE", "0.04"))  # r = exp(-bootstrap_var / VAR_SCALE)
 
+# ESS-adaptive anchor blend (EXP-05 / paper §Limitations): ON by default — when IS quality is low,
+# interpolate anchor toward delta_base before adding delta_star. Disable: EXP24_ESS_ANCHOR_REG=0
+def _use_ess_anchor_reg() -> bool:
+    v = os.environ.get("EXP24_ESS_ANCHOR_REG", "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def ess_anchor_blend_alpha(ess_min: float, rho_eff: float) -> float:
+    """α = clip(ess_min, ρ, 1) with ess_min = min(ESS pass1, ESS pass2). See experiment_DM/exp05_anchor_regularization.py."""
+    return float(min(1.0, max(float(rho_eff), float(ess_min))))
+
 
 def dpbr_reliability_weight(
     delta_star_1: float,
@@ -86,6 +97,10 @@ class Exp24DualPassController(ImplicitSWAController):
     1. IS split into two independent passes (K_HALF each, same total K=128).
     2. Soft reliability: r = exp(-bootstrap_var / VAR_SCALE),
        delta_star = r · (delta_star_1 + delta_star_2) / 2
+
+    Plus (default ON): ESS-adaptive anchor blend (EXP-05 / paper):
+        δ_micro = α·anchor + (1-α)·δ_base + δ_star,  α = clip(min(ESS₁,ESS₂), ρ, 1).
+    Set EXP24_ESS_ANCHOR_REG=0 to use the legacy δ_micro = anchor + δ_star only.
     """
 
     def __init__(self, *args, country_iso: str = "UNKNOWN", **kwargs):
@@ -156,7 +171,15 @@ class Exp24DualPassController(ImplicitSWAController):
         r = dpbr_reliability_weight(float(ds1.item()), float(ds2.item()))
         delta_star = r * (ds1 + ds2) / 2.0
 
-        delta_opt_micro = float((anchor + delta_star).item())
+        ess_min = min(ess1, ess2)
+        if _use_ess_anchor_reg():
+            alpha_reg = ess_anchor_blend_alpha(ess_min, self.rho_eff)
+            delta_opt_micro = float(
+                (alpha_reg * anchor + (1.0 - alpha_reg) * delta_base + delta_star).item()
+            )
+        else:
+            alpha_reg = 1.0
+            delta_opt_micro = float((anchor + delta_star).item())
         prior = self._get_prior()
         delta_opt_final = prior.apply_prior(delta_opt_micro)
         prior.update(delta_opt_micro)
@@ -192,6 +215,8 @@ class Exp24DualPassController(ImplicitSWAController):
             "reliability_r": r,
             "ess_pass1": ess1,
             "ess_pass2": ess2,
+            "ess_anchor_alpha": alpha_reg,
+            "ess_anchor_reg_enabled": _use_ess_anchor_reg(),
             "delta_country": st["delta_country"],
             "alpha_h": st["alpha_h"],
             "prior_step": st["step"],

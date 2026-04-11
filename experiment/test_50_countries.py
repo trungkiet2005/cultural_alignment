@@ -154,6 +154,8 @@ from src.controller import ImplicitSWAController
 import src.swa_runner as _swa_runner_mod
 from src.swa_runner import run_country_experiment
 
+from experiment_DM.exp24_dpbr_core import _use_ess_anchor_reg, ess_anchor_blend_alpha
+
 # ============================================================================
 # Step 2: configuration
 # ============================================================================
@@ -312,7 +314,15 @@ class Exp24DualPassController(ImplicitSWAController):
         delta_star    = r * (ds1 + ds2) / 2.0                             # soft-weighted mean
         # ── End EXP-24 change ─────────────────────────────────────────────────
 
-        delta_opt_micro = float((anchor + delta_star).item())
+        ess_min = min(ess1, ess2)
+        if _use_ess_anchor_reg():
+            alpha_reg = ess_anchor_blend_alpha(ess_min, self.rho_eff)
+            delta_opt_micro = float(
+                (alpha_reg * anchor + (1.0 - alpha_reg) * delta_base + delta_star).item()
+            )
+        else:
+            alpha_reg = 1.0
+            delta_opt_micro = float((anchor + delta_star).item())
         prior           = self._get_prior()
         delta_opt_final = prior.apply_prior(delta_opt_micro)
         prior.update(delta_opt_micro)
@@ -337,6 +347,8 @@ class Exp24DualPassController(ImplicitSWAController):
             "delta_star_1": float(ds1.item()), "delta_star_2": float(ds2.item()),
             "bootstrap_var": bootstrap_var, "reliability_r": r,
             "ess_pass1": ess1, "ess_pass2": ess2,
+            "ess_anchor_alpha": alpha_reg,
+            "ess_anchor_reg_enabled": _use_ess_anchor_reg(),
             "delta_country": st["delta_country"], "alpha_h": st["alpha_h"],
             "prior_step": st["step"],
             "logit_temp_used": logit_temp, "n_personas": delta_agents.numel(),

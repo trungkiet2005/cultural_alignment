@@ -23,7 +23,7 @@ Below: limitations and theory caveats **stated in the paper**, whether **DPBR in
 |------------------|------------------|------------------------|
 | **Hyperparameter validation** (\(\lambda_{\text{coop}}, T_{\text{dec}}, T_{\text{cat}}\); \(\sigma_0\); \(\rho_{\text{eff}}\)) | **Yes** — EXP-24 uses same SWAConfig knobs + **`VAR_SCALE`** | **Sensitivity table** for `VAR_SCALE` and (if used) `EXP24_K_HALF`; document selection protocol (holdout / grid). |
 | **SocialValue egalitarian-anchor bias** (WVS personas don’t encode social-utility gradients) | **Yes** — same personas/AMCE target | **Category-routed expert personas** (`experiment_DM/exp08_category_routing.py`); **Social-Utility** persona extension described in paper. |
-| **ESS-adaptive anchor regularization** (theorem when base closer to human than anchor, ESS low) | **Not in core DPBR** — `exp24_dpbr_core` uses standard \(\delta_{\text{opt}}=\bar\delta+\delta^\star\) then hierarchical prior | **Compose** DPBR with **EXP-05 / grand-fusion** regularised update, or add optional flag after careful validation (see `experiment_DM/exp05_anchor_regularization.py`). |
+| **ESS-adaptive anchor regularization** (theorem when base closer to human than anchor, ESS low) | **In core DPBR (default)** — `δ_micro = α·anchor + (1-α)·δ_base + δ*` with `α = clip(min(ESS₁,ESS₂), ρ, 1)`; disable with `EXP24_ESS_ANCHOR_REG=0`. Same construction as `experiment_DM/exp05_anchor_regularization.py`. |
 | **Instruction-tuned over-correction** (anchor vs base direction) | **Yes** | Same **ESS-REG** idea; or **reduce** steering when \(r\) small (DPBR already shrinks \(\delta^\star\)). |
 | **Cross-lingual persona collapse** (e.g. Mistral + JP) | **Yes** — model/tokenizer issue | **Entropy-aware \(\sigma\)**, English personas, higher \(K\) (paper’s fix); not solved by DPBR alone. |
 | **JSD vs MIS**; JSD not magnitude-fair on simplex | **Yes** — same metrics in pipeline | Keep **MIS primary** in writing; report **per-dimension MAE** (already in code paths). |
@@ -52,7 +52,8 @@ Below: limitations and theory caveats **stated in the paper**, whether **DPBR in
 ## D. What EXP-24 already improves vs vanilla SWA-PTIS (paper Alg. 1)
 
 - **Soft reliability** instead of **binary** \(K_{\text{eff}}/K < \rho_{\text{eff}}\) **only** for the *combined* \(\delta^\star\): each pass still uses the **per-pass ESS guard**; disagreement **continuously** downweights the blended update.
-- **Documented** ablation hooks: `EXP24_VAR_SCALE`, `EXP24_K_HALF`, tests in `tests/test_exp24_dpbr.py`, `docs/exp24_reproducibility.md`.
+- **ESS-adaptive anchor blend** (EXP-05, on by default): when \(\min(\mathrm{ESS}_1,\mathrm{ESS}_2)\) is low, \(\delta_{\text{micro}}\) shifts toward \(\delta_{\text{base}}\) before the hierarchical prior.
+- **Documented** ablation hooks: `EXP24_VAR_SCALE`, `EXP24_K_HALF`, `EXP24_ESS_ANCHOR_REG`, tests in `tests/test_exp24_dpbr.py`, `docs/exp24_reproducibility.md`.
 
 ---
 
@@ -60,7 +61,7 @@ Below: limitations and theory caveats **stated in the paper**, whether **DPBR in
 
 1. **Theory/write-up:** State clearly that DPBR is a **heuristic variance-based reliability** on **two IS replicates**, not a **unbiased** IS estimator; connect to **bootstrap** intuition (already in `exp24_dual_pass_bootstrap.py` header).
 2. **Experiments:** `VAR_SCALE` sensitivity; **multi-seed** (e.g. 5 seeds) on **one** model × 5 countries for **CIs** on MIS.
-3. **Failure modes:** Reuse paper’s **ESS-REG** when \(\delta_{\text{base}}\) is empirically closer to human than \(\bar\delta\) on a **validation** slice — implement as **optional** branch or **separate** `exp_model` entry that imports `exp24_dpbr_core` + reg controller.
+3. **Failure modes:** ESS-REG is **in** `exp24_dpbr_core` (see `EXP24_ESS_ANCHOR_REG`). Optional: **conditional** REG only when validation shows \(\lVert\delta_{\text{base}}-\delta_h\rVert < \lVert\bar\delta-\delta_h\rVert\) (needs human \(\delta_h\) at train time).
 4. **Personas:** Pilot **EXP-08**-style routing for **SocialValue** + **Species** where paper shows largest gaps.
 5. **Metrics:** Always pair Utilitarianism JSD with **slope diagnostic** in tables where claims touch “utilitarianism”.
 
