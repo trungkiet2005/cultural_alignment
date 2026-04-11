@@ -21,6 +21,15 @@ Kaggle::
 
     !python experiment/exp_phi4_swa_persona_only.py
 
+Nếu vẫn lỗi Mistral3/tekken tokenizer, **Restart session** rồi chạy cell pip (script cũng tự cài,
+nhưng kernel cũ có thể đã ``import transformers`` bản 4.x)::
+
+    !python -m pip install -U --force-reinstall "transformers>=5.5.0,<6.0"
+
+Kiểm tra phiên bản (cần ``>=5.5``)::
+
+    !python -c "import importlib.metadata as m; print('transformers', m.version('transformers'))"
+
 Local / Jupyter: đặt ``MULTITP_DATA_PATH``, ``WVS_DATA_PATH``, ``HUMAN_AMCE_PATH``
 nếu cần; repo root được đoán từ ``cwd`` khi ``__file__`` không có (notebook).
 """
@@ -41,6 +50,23 @@ os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
+
+# Magistral / Mistral3 trên Hub chỉ có tekken.json — cần transformers>=5.5 (TOKENIZER_MAPPING + tokenizer).
+_TRANSFORMERS_SPEC_MAGISTRAL = "transformers>=5.5.0,<6.0"
+
+
+def _kaggle_upgrade_transformers_argv() -> list[str]:
+    """Lệnh tương đương cell notebook: ``!python -m pip install -U --force-reinstall "..."``."""
+    return [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "-U",
+        "--force-reinstall",
+        "--no-cache-dir",
+        _TRANSFORMERS_SPEC_MAGISTRAL,
+    ]
 
 
 def _on_kaggle() -> bool:
@@ -67,20 +93,64 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
-    for cmd in [
+    cmds = [
         "pip install -q bitsandbytes scipy tqdm",
         "pip install sentencepiece protobuf \"datasets==4.3.0\" \"huggingface_hub>=0.34.0\" hf_transfer",
         "pip install --no-deps unsloth_zoo bitsandbytes accelerate peft trl triton unsloth",
         "pip install --no-deps trl==0.22.2",
-        # Last: Magistral / Mistral3 needs transformers>=5.5 (TOKENIZER_MAPPING). Use -U --force-reinstall
-        # so we win over the Kaggle image pin (4.56.x) and anything pulled earlier; subprocess uses check=False.
-        "pip install -U --force-reinstall --no-cache-dir \"transformers>=5.5.0,<6.0\"",
-    ]:
+    ]
+    for cmd in cmds:
         subprocess.run(cmd, shell=True, check=False)
+    # Magistral / Mistral3: repo uses tekken.json only — needs transformers>=5.5. Must not fail silently.
+    print(
+        "[Kaggle deps] installing "
+        f"{_TRANSFORMERS_SPEC_MAGISTRAL!r} (required for Magistral / Mistral3 tokenizer)…"
+    )
+    subprocess.run(_kaggle_upgrade_transformers_argv(), check=True)
+
+
+def _verify_transformers_ge_55_kaggle() -> None:
+    if not _on_kaggle():
+        return
+    import importlib.metadata as md
+
+    ver = md.version("transformers").split("+", 1)[0]
+    parts = ver.split(".")
+    try:
+        major, minor = int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return
+    if major < 5 or (major == 5 and minor < 5):
+        raise RuntimeError(
+            f"[Kaggle] After pip, transformers=={ver} (need >=5.5.0). "
+            "Run manually (then **Session → Restart session**):\n  "
+            + " ".join(_kaggle_upgrade_transformers_argv())
+        )
+
+
+def _print_kaggle_transformers_version_banner() -> None:
+    """In phiên bản transformers sau pip; cảnh báo nếu kernel đã import sẵn bản cũ."""
+    if not _on_kaggle():
+        return
+    import importlib.metadata as md
+
+    disk = md.version("transformers")
+    print(f"[Kaggle deps] OK — site-packages transformers=={disk}")
+    mod = sys.modules.get("transformers")
+    if mod is None:
+        return
+    loaded = str(getattr(mod, "__version__", "?")).split("+", 1)[0]
+    if loaded != disk.split("+", 1)[0]:
+        print(
+            f"[Kaggle deps] WARNING: transformers already imported as {loaded!r} but disk has {disk!r}.\n"
+            "  → **Session → Restart session**, then re-run (or avoid `import transformers` before this script)."
+        )
 
 
 _ensure_repo()
 _install_deps()
+_verify_transformers_ge_55_kaggle()
+_print_kaggle_transformers_version_banner()
 
 import torch
 

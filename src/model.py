@@ -1,6 +1,7 @@
 """Model loading, tokenization helpers, and seed setup."""
 
 import os
+import sys
 
 # Unsloth calls `get_statistics()` → HF snapshot_download with a 120s cap; on
 # Kaggle this often times out (slow/blocked hub), falsely raising "HF is down".
@@ -241,6 +242,52 @@ def text_tokenizer(tok):
     return tok
 
 
+def _transformers_major_minor() -> tuple[int, int]:
+    import importlib.metadata as md
+
+    ver = md.version("transformers").split("+", 1)[0]
+    parts = ver.split(".")
+    return int(parts[0]), int(parts[1])
+
+
+def _loaded_transformers_major_minor() -> tuple[int, int] | None:
+    mod = sys.modules.get("transformers")
+    if mod is None:
+        return None
+    ver = getattr(mod, "__version__", "0.0").split("+", 1)[0]
+    parts = ver.split(".")
+    try:
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return None
+
+
+def _require_transformers_55_for_mistral3_tekken(*, context: str) -> None:
+    """Magistral uses ``tekken.json`` + Mistral3; needs transformers>=5.5 (tokenizer mapping).
+
+    After ``pip install`` in the same notebook, an **already-imported** transformers
+    (e.g. 4.56) stays stale — user must restart the kernel.
+    """
+    dm, dn = _transformers_major_minor()
+    if dm < 5 or (dm == 5 and dn < 5):
+        raise RuntimeError(
+            f"{context}: need transformers>=5.5.0 for Mistral3/tekken tokenizer; "
+            f"site-packages reports {dm}.{dn}.\n"
+            "Install: pip install -U --force-reinstall 'transformers>=5.5.0,<6.0'\n"
+            "On Kaggle: enable Internet, run that in a cell, then **Session → Restart** and re-run."
+        )
+    loaded = _loaded_transformers_major_minor()
+    if loaded is not None:
+        lm, ln = loaded
+        if lm < 5 or (lm == 5 and ln < 5):
+            raise RuntimeError(
+                f"{context}: this Python process already imported transformers {lm}.{ln}, "
+                f"but site-packages has {dm}.{dn}.\n"
+                "**Restart the Jupyter kernel** (Session → Restart), then re-run — "
+                "`pip install` alone cannot refresh an imported transformers."
+            )
+
+
 def _tokenizer_hub_for_local_weights(local_dir: str) -> str:
     """Upstream HF repo id to load tokenizer when a local snapshot omits tiktoken vocab files."""
     import json
@@ -279,6 +326,17 @@ def load_model_hf_native(
 
     _tok_kw = _hf_from_pretrained_token_kw()
     hub_override = os.environ.get("MORAL_TOKENIZER_HUB_ID", "").strip()
+    _mn_low = model_name.lower()
+    _need_mistral3_tekken = (
+        (os.path.isdir(model_name) and bool(_tokenizer_hub_for_local_weights(model_name)))
+        or (hub_override and "mistral" in hub_override.lower())
+        or "magistral" in _mn_low
+        or "mistral-small-2509" in _mn_low
+    )
+    if _need_mistral3_tekken:
+        _require_transformers_55_for_mistral3_tekken(
+            context="load_model_hf_native (Magistral / Mistral3 tekken tokenizer)",
+        )
 
     def _load_tokenizer(path_or_id: str):
         return AutoTokenizer.from_pretrained(
