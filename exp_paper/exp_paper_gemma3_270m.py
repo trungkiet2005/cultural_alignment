@@ -31,6 +31,7 @@ def _on_kaggle() -> bool:
 def _ensure_repo() -> str:
     here = os.getcwd()
     if os.path.isfile(os.path.join(here, "src", "controller.py")):
+        sys.path.insert(0, here)
         return here
     if not _on_kaggle():
         raise RuntimeError("Not on Kaggle and not inside the repo root.")
@@ -46,15 +47,6 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
-    try:
-        from kaggle_secrets import UserSecretsClient
-
-        _hf = UserSecretsClient().get_secret("HF_TOKEN")
-        if _hf:
-            os.environ["HF_TOKEN"] = _hf
-            os.environ["HUGGING_FACE_HUB_TOKEN"] = _hf
-    except Exception:
-        pass
     for cmd in [
         'pip install -q "numpy<2.3"',
         "pip install -q scipy tqdm sentencepiece protobuf",
@@ -65,6 +57,9 @@ def _install_deps() -> None:
 
 
 _ensure_repo()
+from src.hf_env import apply_hf_credentials  # noqa: E402
+
+apply_hf_credentials()
 _install_deps()
 
 MODEL_NAME = "google/gemma-3-270m-it"

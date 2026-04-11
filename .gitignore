@@ -1,5 +1,8 @@
 WVS_data/
 
+# Secrets and local env (never commit real tokens)
+.env
+
 __pycache__/
 *.py[cod]
 *$py.class
