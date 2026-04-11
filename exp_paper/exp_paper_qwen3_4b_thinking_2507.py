@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Qwen3-4B-Thinking-2507 (4-bit) — EXP-24 (DPBR), 20 countries
+Paper sweep — Qwen3-4B-Thinking-2507 (vLLM) — EXP-24 (DPBR), 20 countries
 ==========================================================================
 
-Model : unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit
+Model : Qwen/Qwen3-4B-Thinking-2507 (vLLM)
 Method: EXP-24 DPBR
 
 Kaggle:
@@ -16,8 +16,9 @@ import sys
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
+os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")
+if os.path.isdir("/kaggle/working"):
+    os.environ.setdefault("VLLM_GPU_MEMORY_UTILIZATION", "0.95")
 
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
@@ -45,10 +46,19 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    try:
+        from kaggle_secrets import UserSecretsClient
+
+        _hf = UserSecretsClient().get_secret("HF_TOKEN")
+        if _hf:
+            os.environ["HF_TOKEN"] = _hf
+            os.environ["HUGGING_FACE_HUB_TOKEN"] = _hf
+    except Exception:
+        pass
     for cmd in [
-        "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
-        "pip install --upgrade --no-deps unsloth",
-        "pip install -q unsloth_zoo",
+        'pip install -q "numpy<2.3"',
+        "pip install -q scipy tqdm sentencepiece protobuf",
+        "pip install -q vllm",
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
@@ -57,7 +67,7 @@ def _install_deps() -> None:
 _ensure_repo()
 _install_deps()
 
-MODEL_NAME = "unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit"
+MODEL_NAME = "Qwen/Qwen3-4B-Thinking-2507"
 MODEL_SHORT = "qwen3_4b_thinking_2507"
 
 from exp_paper.paper_countries import PAPER_20_COUNTRIES, RESULTS_BASE_EXP24_20C  # noqa: E402

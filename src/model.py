@@ -85,6 +85,103 @@ def _has_transformers_config_key(key: str) -> bool:
         return False
 
 
+def _model_backend() -> str:
+    return os.environ.get("MORAL_MODEL_BACKEND", "unsloth").strip().lower()
+
+
+def _resolve_vllm_hf_model_id(model_name: str) -> str:
+    """Map legacy Unsloth ids to upstream HF weights for vLLM (or pass through)."""
+    ovr = os.environ.get("MORAL_VLLM_HF_MODEL", "").strip()
+    if ovr:
+        return ovr
+    key = model_name.strip()
+    table = {
+        "unsloth/mistral-7b-instruct-v0.3-bnb-4bit": "mistralai/Mistral-7B-Instruct-v0.3",
+        "unsloth/Magistral-Small-2509-unsloth-bnb-4bit": "mistralai/Magistral-Small-2509",
+        "unsloth/Phi-3.5-mini-instruct": "microsoft/Phi-3.5-mini-instruct",
+        "unsloth/Phi-4": "microsoft/phi-4",
+        "unsloth/Llama-3.2-1B-Instruct": "meta-llama/Llama-3.2-1B-Instruct",
+        "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+        "unsloth/Llama-3.3-70B-Instruct-bnb-4bit": "meta-llama/Llama-3.3-70B-Instruct",
+        "unsloth/gemma-7b-it-bnb-4bit": "google/gemma-7b-it",
+        "unsloth/gemma-3-270m-it": "google/gemma-3-270m-it",
+        "unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit": "Qwen/Qwen3-4B-Thinking-2507",
+        "unsloth/Qwen3.5-0.8B": "Qwen/Qwen3.5-0.8B",
+    }
+    if key in table:
+        return table[key]
+    if "/" in key and not key.lower().startswith("unsloth/"):
+        return key
+    raise ValueError(
+        f"vLLM: unknown or Unsloth-only id {model_name!r}. Set MORAL_VLLM_HF_MODEL to the "
+        "HuggingFace repo id (e.g. org/model), or add a mapping in src/model.py::_resolve_vllm_hf_model_id."
+    )
+
+
+def _load_model_vllm(
+    model_name: str,
+    max_seq_length: int = 2048,
+    load_in_4bit: bool = True,
+):
+    from transformers import AutoTokenizer
+
+    from src.vllm_logit_model import VllmCausalLogitModel
+
+    hf_id = _resolve_vllm_hf_model_id(model_name)
+    print(f"[MODEL] Loading {hf_id} via vLLM (config key was {model_name!r})...")
+
+    tokenizer = AutoTokenizer.from_pretrained(hf_id, trust_remote_code=True)
+    _tt = text_tokenizer(tokenizer)
+    if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
+        _tt.pad_token = _tt.eos_token
+        _tt.pad_token_id = _tt.eos_token_id
+    try:
+        tokenizer.padding_side = "left"
+    except Exception:
+        pass
+    _tt.padding_side = "left"
+    setattr(tokenizer, "_moral_chat_content_mode", "string")
+
+    try:
+        from vllm import LLM
+    except ImportError as exc:
+        raise ImportError(
+            "MORAL_MODEL_BACKEND=vllm requires the vllm package (pip install vllm)."
+        ) from exc
+
+    gpu_mem = float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.92"))
+    llm_kw: dict = {
+        "model": hf_id,
+        "max_model_len": max_seq_length,
+        "trust_remote_code": True,
+        "gpu_memory_utilization": gpu_mem,
+    }
+    dtype = os.environ.get("VLLM_DTYPE", "").strip()
+    if dtype:
+        llm_kw["dtype"] = dtype
+    quant = os.environ.get("VLLM_QUANTIZATION", "").strip()
+    if quant:
+        llm_kw["quantization"] = quant
+    elif load_in_4bit:
+        print(
+            "[MODEL] note: vLLM ignores load_in_4bit; use full weights or set VLLM_QUANTIZATION "
+            "(e.g. awq, gptq) if you need compressed weights."
+        )
+
+    tp = os.environ.get("VLLM_TENSOR_PARALLEL_SIZE", "").strip()
+    if tp:
+        llm_kw["tensor_parallel_size"] = max(1, int(tp))
+
+    llm = LLM(**llm_kw)
+    vocab = getattr(tokenizer, "vocab_size", None) or len(tokenizer)
+    wrapper = VllmCausalLogitModel(
+        llm, pad_token_id=tokenizer.pad_token_id, vocab_size=int(vocab)
+    )
+    wrapper._tokenizer_ref = tokenizer
+    print(f"[MODEL] vLLM engine ready (vocab_size={vocab}).")
+    return wrapper, tokenizer
+
+
 def text_tokenizer(tok):
     """Return the HF tokenizer used for plain text.
 
@@ -103,9 +200,15 @@ def load_model(
     max_seq_length: int = 2048,
     load_in_4bit: bool = True,
 ):
-    """Load a model via Unsloth and return *(model, tokenizer)*."""
+    """Load a model and return *(model, tokenizer)*.
+
+    Backend is ``unsloth`` (default) or ``vLLM`` when ``MORAL_MODEL_BACKEND=vllm``.
+    """
     import transformers
     transformers.logging.set_verbosity_error()
+
+    if _model_backend() == "vllm":
+        return _load_model_vllm(model_name, max_seq_length, load_in_4bit)
 
     print(f"[MODEL] Loading {model_name} via Unsloth...")
     # Gemma-4 is loaded via FastModel in Unsloth notebooks; FastLanguageModel

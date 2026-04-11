@@ -6,6 +6,8 @@ Paper sweep — Qwen3-VL-8B-Instruct (4-bit) — EXP-24 (DPBR), 20 countries
 Model : unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit
 Method: EXP-24 DPBR
 
+Note: Vision-language — keep Unsloth; vLLM backend in this repo targets causal LMs only.
+
 Kaggle:
     !python exp_paper/exp_paper_qwen3_vl_8b.py
 """

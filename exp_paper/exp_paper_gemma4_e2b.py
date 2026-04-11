@@ -6,6 +6,8 @@ Paper sweep — Gemma-4-E2B-IT — EXP-24 (DPBR), 20 countries
 Model : unsloth/gemma-4-E2B-it
 Method: EXP-24 DPBR
 
+Note: Gemma 4 multimodal — keep Unsloth (``MORAL_MODEL_BACKEND`` unset); vLLM text-only path not used here.
+
 Kaggle:
     !python exp_paper/exp_paper_gemma4_e2b.py
 """
