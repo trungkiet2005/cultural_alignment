@@ -63,6 +63,19 @@ def mirror_hf_token_aliases() -> None:
         os.environ["HF_TOKEN"] = os.environ["HUGGING_FACE_HUB_TOKEN"]
 
 
+def _huggingface_hub_login_from_env() -> None:
+    """Register HF token with huggingface_hub (gated models need this + accepted license)."""
+    t = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()
+    if not t:
+        return
+    try:
+        from huggingface_hub import login
+
+        login(token=t, add_to_git_credential_helper=False)
+    except Exception:
+        pass
+
+
 def apply_hf_credentials() -> None:
     """Call after ``chdir`` to repo root (e.g. right after ``_ensure_repo()``)."""
     if os.path.isdir("/kaggle/working"):
@@ -71,6 +84,7 @@ def apply_hf_credentials() -> None:
     load_dotenv_repo()
     apply_kaggle_hf_secret_if_missing()
     mirror_hf_token_aliases()
+    _huggingface_hub_login_from_env()
     try:
         from src.vllm_env import apply_vllm_runtime_defaults
 

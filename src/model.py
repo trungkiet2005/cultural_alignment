@@ -89,6 +89,12 @@ def _model_backend() -> str:
     return os.environ.get("MORAL_MODEL_BACKEND", "unsloth").strip().lower()
 
 
+def _hf_from_pretrained_token_kw() -> dict:
+    """Token for ``from_pretrained`` (Gemma/Llama gated repos). Uses ``HF_TOKEN`` / ``HUGGING_FACE_HUB_TOKEN``."""
+    t = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()
+    return {"token": t if t else True}
+
+
 def _resolve_vllm_hf_model_id(model_name: str) -> str:
     """Map legacy Unsloth ids to upstream HF weights for vLLM (or pass through)."""
     ovr = os.environ.get("MORAL_VLLM_HF_MODEL", "").strip()
@@ -136,7 +142,9 @@ def _load_model_vllm(
     print(f"[MODEL] Loading {hf_id} via vLLM (config key was {model_name!r})...")
 
     _t0 = time.perf_counter()
-    tokenizer = AutoTokenizer.from_pretrained(hf_id, trust_remote_code=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        hf_id, trust_remote_code=True, **_hf_from_pretrained_token_kw()
+    )
     print(f"[MODEL] Tokenizer ready in {time.perf_counter() - _t0:.1f}s")
     _tt = text_tokenizer(tokenizer)
     if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
@@ -241,12 +249,16 @@ def load_model_hf_native(
 
     print(f"[MODEL] Loading {model_name} via Hugging Face transformers (native, no Unsloth)...")
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    _tok_kw = _hf_from_pretrained_token_kw()
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name, trust_remote_code=True, **_tok_kw
+    )
 
     attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
     common_kw: dict = {
         "trust_remote_code": True,
         "device_map": "auto",
+        **_tok_kw,
     }
     if attn_impl:
         common_kw["attn_implementation"] = attn_impl

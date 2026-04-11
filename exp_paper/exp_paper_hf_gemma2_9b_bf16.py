@@ -9,7 +9,12 @@ Method: EXP-24 DPBR
 Kaggle:
     !python exp_paper/exp_paper_hf_gemma2_9b_bf16.py
 
-Access: accept Gemma license on HF; set HF_TOKEN if needed.
+Access (required or you get 401 / GatedRepoError):
+
+1. On https://huggingface.co/google/gemma-2-9b-it — accept the Gemma license.
+2. Kaggle → Add-ons → Secrets → create **HF_TOKEN** with a read token from
+   https://huggingface.co/settings/tokens (same account that accepted the license).
+
 VRAM: ~18–22 GB bf16.
 """
 
@@ -57,8 +62,8 @@ def _install_deps() -> None:
 _ensure_repo()
 from src.hf_env import apply_hf_credentials  # noqa: E402
 
-apply_hf_credentials()
 _install_deps()
+apply_hf_credentials()
 
 MODEL_NAME = "google/gemma-2-9b-it"
 MODEL_SHORT = "hf_gemma2_9b_bf16"
