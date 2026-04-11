@@ -3,8 +3,8 @@
 EXP-24 Dual-Pass Bootstrap IS — Gemma-3N-E4B-IT — Gemma3N_(4B)_Audio.ipynb
 ============================================================================
 
-Model  : unsloth/gemma-3n-E4B-it
-Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+Model  : unsloth/gemma-3n-E4B-it  (FastModel — see src/model.py)
+Profile: ref_gemma3n  (Reference_Notebook_Model/Gemma3N_(4B)_Audio.ipynb: transformers 4.56.x + timm)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -49,10 +49,14 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    # Match Gemma3N_(4B)_Audio.ipynb: `--no-deps unsloth` then pin transformers, then timm/torchcodec.
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
-        'pip install --upgrade --no-deps unsloth',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf accelerate peft trl triton',
+        'pip install -q --upgrade --no-deps unsloth',
         'pip install -q unsloth_zoo',
+        'pip install -q "transformers==4.56.2"',
+        'pip install -q torchcodec',
+        'pip install -q --no-deps --upgrade timm',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)

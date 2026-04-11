@@ -12,6 +12,8 @@ Usage on Kaggle
 ---------------
     !python exp_model/exp_24/exp_gemma4_31b.py
 
+VRAM: 31B instruct needs a large GPU (same class as the notebook’s A100 note). T4 16GB will OOM.
+
 Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
 (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
 """
@@ -52,12 +54,13 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    # Align with gemma4-31b-unsloth.ipynb (uv): torchcodec + timm + unsloth_zoo>=2026.4.6 + TF 5.5 + PyPI unsloth.
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf torchcodec timm',
         'pip uninstall -y unsloth unsloth_zoo',
-        'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
-        'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
-        'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
+        'pip install -q "transformers==5.5.0"',
+        'pip install -q "unsloth_zoo>=2026.4.6"',
+        'pip install -q --upgrade --no-deps unsloth',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)

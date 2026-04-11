@@ -85,6 +85,19 @@ def _has_transformers_config_key(key: str) -> bool:
         return False
 
 
+def text_tokenizer(tok):
+    """Return the HF tokenizer used for plain text.
+
+    Vision-Language `Processor` objects wrap the text tokenizer at `.tokenizer`;
+    calling `processor(string)` routes through multimodal code and may treat text
+    as image URLs. Always use this for `.encode` / `.decode` of chat strings.
+    """
+    inner = getattr(tok, "tokenizer", None)
+    if inner is not None and callable(getattr(inner, "encode", None)):
+        return inner
+    return tok
+
+
 def load_model(
     model_name: str,
     max_seq_length: int = 2048,
@@ -129,6 +142,19 @@ def load_model(
         except Exception as exc:
             print(f"[MODEL] warn: get_chat_template(gemma-4-thinking) failed: {exc}")
         setattr(tokenizer, "_moral_chat_content_mode", "gemma4")
+    elif "gemma-3n" in model_name.lower():
+        # Reference_Notebook_Model/Gemma3N_(4B)_Audio.ipynb — Gemma 3N uses FastModel + Processor,
+        # not FastLanguageModel (which fails or mis-loads this family).
+        from unsloth import FastModel
+
+        model, tokenizer = FastModel.from_pretrained(
+            model_name=model_name,
+            max_seq_length=max_seq_length,
+            dtype=None,
+            load_in_4bit=load_in_4bit,
+        )
+        FastModel.for_inference(model)
+        setattr(tokenizer, "_moral_chat_content_mode", "string")
     else:
         if _needs_tf55_git_unsloth_moe_fix(model_name):
             _tv = transformers.__version__
@@ -153,25 +179,18 @@ def load_model(
         )
         FastLanguageModel.for_inference(model)
         setattr(tokenizer, "_moral_chat_content_mode", "string")
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.padding_side = "left"
+    # Processor (Gemma 3N / VL) keeps pad/eos on the inner text tokenizer.
+    _tt = text_tokenizer(tokenizer)
+    if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
+        _tt.pad_token = _tt.eos_token
+        _tt.pad_token_id = _tt.eos_token_id
+    try:
+        tokenizer.padding_side = "left"
+    except Exception:
+        pass
+    _tt.padding_side = "left"
     print(f"[MODEL] Loaded. VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
     return model, tokenizer
-
-
-def text_tokenizer(tok):
-    """Return the HF tokenizer used for plain text.
-
-    Vision-Language `Processor` objects wrap the text tokenizer at `.tokenizer`;
-    calling `processor(string)` routes through multimodal code and may treat text
-    as image URLs. Always use this for `.encode` / `.decode` of chat strings.
-    """
-    inner = getattr(tok, "tokenizer", None)
-    if inner is not None and callable(getattr(inner, "encode", None)):
-        return inner
-    return tok
 
 
 def encode_text_to_tensor(
@@ -202,6 +221,16 @@ class ChatTemplateHelper:
         # Detect once and fold the system prompt into the first user turn.
         self.supports_system = self._probe_system_role()
 
+    def _chat_template_target(self):
+        """Prefer Processor/outer tokenizer; fall back to inner text tokenizer (Gemma 3N)."""
+        tok = self.tokenizer
+        if callable(getattr(tok, "apply_chat_template", None)):
+            return tok
+        inner = text_tokenizer(tok)
+        if callable(getattr(inner, "apply_chat_template", None)):
+            return inner
+        return tok
+
     def _as_turn_content(self, text: str):
         """Plain string (most models) or Gemma-4 multimodal text block."""
         if self.content_mode == "gemma4":
@@ -209,9 +238,10 @@ class ChatTemplateHelper:
         return text
 
     def _probe_system_role(self) -> bool:
+        ct = self._chat_template_target()
         if self.content_mode == "gemma4":
             try:
-                self.tokenizer.apply_chat_template(
+                ct.apply_chat_template(
                     [
                         {"role": "system", "content": self._as_turn_content("x")},
                         {"role": "user", "content": self._as_turn_content("y")},
@@ -222,7 +252,7 @@ class ChatTemplateHelper:
             except Exception:
                 return False
         try:
-            self.tokenizer.apply_chat_template(
+            ct.apply_chat_template(
                 [{"role": "system", "content": "x"},
                  {"role": "user", "content": "y"}],
                 tokenize=False, add_generation_prompt=False,
@@ -245,8 +275,9 @@ class ChatTemplateHelper:
         Tokenise [system + empty user turn] so we can later concatenate
         the actual user query.  Returns shape (1, seq_len).
         """
+        ct = self._chat_template_target()
         messages = self._messages(system_prompt, "")
-        full = self.tokenizer.apply_chat_template(
+        full = ct.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=False,
         )
         # Find where the empty user content sits and keep everything before it
@@ -255,7 +286,7 @@ class ChatTemplateHelper:
         # thing and also a version with a sentinel to locate the split point.
         sentinel = "___SPLIT___"
         messages_s = self._messages(system_prompt, sentinel)
-        full_s = self.tokenizer.apply_chat_template(
+        full_s = ct.apply_chat_template(
             messages_s, tokenize=False, add_generation_prompt=False,
         )
         idx = full_s.find(sentinel)
@@ -277,7 +308,7 @@ class ChatTemplateHelper:
         """
         sentinel = "___SPLIT___"
         messages_before = self._messages("S", sentinel)
-        full_before = self.tokenizer.apply_chat_template(
+        full_before = self._chat_template_target().apply_chat_template(
             messages_before, tokenize=False, add_generation_prompt=True,
         )
         # Everything from the sentinel onward (including gen prompt) is the

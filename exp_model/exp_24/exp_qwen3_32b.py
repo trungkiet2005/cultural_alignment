@@ -4,7 +4,7 @@ EXP-24 Dual-Pass Bootstrap IS — Qwen3-32B (4-bit)
 =================================================
 
 Model  : unsloth/Qwen3-32B-unsloth-bnb-4bit
-Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+Profile: ref_qwen3  (Reference_Notebook_Model/Qwen3_(14B)_Reasoning_Conversational.ipynb)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -12,8 +12,11 @@ Usage on Kaggle
 ---------------
     !python exp_model/exp_24/exp_qwen3_32b.py
 
+VRAM: 32B @ 4-bit needs a large GPU (often ~24GB+ for weights + activations at seq 2048).
+Use A100 40GB/80GB or H100; a single T4 (16GB) will typically OOM.
+
 Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
-(e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
+(e.g. ref_qwen3 TF 4.56.x vs Qwen3.5 ref_qwen35 TF 5.2.x vs ref_gemma4 TF 5.5.x).
 """
 
 # ============================================================

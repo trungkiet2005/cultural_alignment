@@ -4,13 +4,16 @@ EXP-24 Dual-Pass Bootstrap IS — Llama-3.3-70B-Instruct (4-bit)
 ==============================================================
 
 Model  : unsloth/Llama-3.3-70B-Instruct-bnb-4bit
-Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+Profile: ref_llama33  (Reference_Notebook_Model/Llama3_2_* : FastLanguageModel + transformers 4.56.x)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
 Usage on Kaggle
 ---------------
     !python exp_model/exp_24/exp_llama33_70b.py
+
+VRAM: 4-bit 70B needs a large GPU (≈40GB+ effective). Prefer A100 80GB / H100; a single T4
+(16GB) will not load this checkpoint.
 
 Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
 (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
@@ -53,9 +56,10 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
-        'pip install --upgrade --no-deps unsloth',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf accelerate',
+        'pip install -q --upgrade --no-deps unsloth',
         'pip install -q unsloth_zoo',
+        'pip install -q "transformers==4.56.2"',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)

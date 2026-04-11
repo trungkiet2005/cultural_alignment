@@ -12,6 +12,8 @@ Usage on Kaggle
 ---------------
     !python exp_model/exp_24/exp_llama4_scout.py
 
+VRAM: MoE Scout (bnb-4bit) still needs substantial GPU memory; use A100-class or larger if load fails.
+
 Note: ref_* profiles pin transformers; use a fresh Kaggle session when switching families
 (e.g. Phi/Llama 4.56.x vs Qwen3.5 5.2.x vs ref_git_tf55/ref_gemma4 5.5.x).
 """
