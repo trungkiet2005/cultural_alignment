@@ -55,6 +55,7 @@ def run_country_experiment(
         pt_kappa=cfg.pt_kappa,
         decision_temperature=cfg.decision_temperature,
         assistant_lang=lang,
+        country_iso=country_iso,
     )
 
     # Debug: print 3 sample prompts with model prediction (logit extraction)
@@ -144,6 +145,7 @@ def run_country_experiment(
             "reliability_r", "bootstrap_var", "ess_pass1", "ess_pass2",
             "delta_star_1", "delta_star_2", "delta_opt_micro",
             "delta_country", "alpha_h", "prior_step",
+            "p_spare_preferred_is_pass1_micro", "p_spare_preferred_is_pass2_micro",
         ):
             if _k not in pred:
                 continue

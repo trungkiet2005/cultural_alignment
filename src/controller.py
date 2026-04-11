@@ -77,12 +77,14 @@ class ImplicitSWAController:
         pt_kappa: float = 2.25,
         decision_temperature: float = 1.0,
         assistant_lang: str = "en",
+        country_iso: str = "UNKNOWN",
     ):
         self.model = model
         self.tokenizer = tokenizer
         self.personas = personas
         self.N = len(personas)
         self.assistant_lang = assistant_lang
+        self.country_iso = country_iso
         self.lambda_coop = lambda_coop
         # alpha_ctl is retained for backward-compatible config loading but is
         # no longer used by the utility (see _is_solve_decision docstring).

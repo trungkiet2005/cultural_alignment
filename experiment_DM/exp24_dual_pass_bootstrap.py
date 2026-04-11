@@ -129,7 +129,6 @@ import pandas as pd
 
 from experiment_DM.exp24_dpbr_core import (
     BootstrapPriorState,
-    Exp24DualPassController,
     K_HALF,
     PRIOR_STATE,
     VAR_SCALE,
@@ -226,13 +225,9 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
         scen = _load_scen(cfg, country)
         personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
 
-        orig_init = Exp24DualPassController.__init__
-        def patched_init(self, *a, country=country, **kw): orig_init(self, *a, country=country, **kw)
-        Exp24DualPassController.__init__ = patched_init
         patch_swa_runner_controller()
 
         results_df, summary = run_country_experiment(model, tokenizer, country, personas, scen, cfg)
-        Exp24DualPassController.__init__ = orig_init
 
         results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
         append_rows_csv(str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),

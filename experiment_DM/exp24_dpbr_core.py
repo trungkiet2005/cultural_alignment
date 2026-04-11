@@ -6,11 +6,15 @@ Shared by:
   - exp_model/_base_dpbr.py                   (per-model sweep + vanilla)
 
 Do not duplicate this controller elsewhere; import from here.
+
+Ablations: set ``EXP24_VAR_SCALE`` / ``EXP24_K_HALF`` in the environment **before**
+importing this module (see ``docs/exp24_reproducibility.md``).
 """
 
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+import os
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -23,9 +27,20 @@ N_WARMUP = 50
 DECAY_TAU = 100
 BETA_EMA = 0.10
 
-# EXP-24 dual-pass IS
-K_HALF = 64  # samples per pass (2 × K_HALF = 128 = EXP-09 total K)
-VAR_SCALE = 0.04  # r = exp(-bootstrap_var / VAR_SCALE)
+# EXP-24 dual-pass IS — override for ablations via env (before first import of this module)
+K_HALF = int(os.environ.get("EXP24_K_HALF", "64"))  # samples per pass (2 × K_HALF = EXP-09 K)
+VAR_SCALE = float(os.environ.get("EXP24_VAR_SCALE", "0.04"))  # r = exp(-bootstrap_var / VAR_SCALE)
+
+
+def dpbr_reliability_weight(
+    delta_star_1: float,
+    delta_star_2: float,
+    var_scale: Optional[float] = None,
+) -> float:
+    """Paper-facing helper: r = exp(-(δ*₁-δ*₂)² / s) with bootstrap_var = (δ*₁-δ*₂)²."""
+    s = float(var_scale if var_scale is not None else VAR_SCALE)
+    bv = (delta_star_1 - delta_star_2) ** 2
+    return float(np.exp(-bv / s))
 
 
 class BootstrapPriorState:
@@ -73,9 +88,9 @@ class Exp24DualPassController(ImplicitSWAController):
        delta_star = r · (delta_star_1 + delta_star_2) / 2
     """
 
-    def __init__(self, *args, country: str = "UNKNOWN", **kwargs):
-        super().__init__(*args, **kwargs)
-        self.country = country
+    def __init__(self, *args, country_iso: str = "UNKNOWN", **kwargs):
+        super().__init__(*args, country_iso=country_iso, **kwargs)
+        self.country = country_iso  # prior-state key (EXP-09 hierarchical prior)
 
     def _get_prior(self) -> BootstrapPriorState:
         if self.country not in PRIOR_STATE:
@@ -138,7 +153,7 @@ class Exp24DualPassController(ImplicitSWAController):
         ds2, ess2 = self._single_is_pass(delta_base, delta_agents, anchor, sigma, K_HALF, device)
 
         bootstrap_var = float((ds1 - ds2).pow(2).item())
-        r = float(np.exp(-bootstrap_var / VAR_SCALE))
+        r = dpbr_reliability_weight(float(ds1.item()), float(ds2.item()))
         delta_star = r * (ds1 + ds2) / 2.0
 
         delta_opt_micro = float((anchor + delta_star).item())
@@ -150,6 +165,15 @@ class Exp24DualPassController(ImplicitSWAController):
         p_right = torch.sigmoid(torch.tensor(delta_opt_final / self.decision_temperature)).item()
         p_pref = p_right if preferred_on_right else 1.0 - p_right
         variance = float(delta_agents.var(unbiased=True).item()) if delta_agents.numel() > 1 else 0.0
+
+        # Diagnostics: micro-only decisions from each IS pass (no hierarchical prior). For analysis / ablations.
+        def _p_pref_micro(d_s: torch.Tensor) -> float:
+            dm = float((anchor + d_s).item())
+            pr = torch.sigmoid(torch.tensor(dm / self.decision_temperature)).item()
+            return pr if preferred_on_right else 1.0 - pr
+
+        p_pref_micro_1 = _p_pref_micro(ds1)
+        p_pref_micro_2 = _p_pref_micro(ds2)
 
         return {
             "p_right": p_right,
@@ -175,8 +199,8 @@ class Exp24DualPassController(ImplicitSWAController):
             "n_personas": delta_agents.numel(),
             "agent_decision_gaps": delta_agents.tolist(),
             "agent_rewards": (delta_agents - delta_base).tolist(),
-            "p_spare_preferred_pass1": p_pref,
-            "p_spare_preferred_pass2": p_pref,
+            "p_spare_preferred_is_pass1_micro": p_pref_micro_1,
+            "p_spare_preferred_is_pass2_micro": p_pref_micro_2,
             "positional_bias": 0.0,
         }
 

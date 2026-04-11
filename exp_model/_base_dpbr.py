@@ -24,7 +24,6 @@ except Exception:
 
 from experiment_DM.exp24_dpbr_core import (
     BootstrapPriorState,
-    Exp24DualPassController,
     K_HALF,
     PRIOR_STATE,
     VAR_SCALE,
@@ -236,14 +235,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
             PRIOR_STATE.clear()
             PRIOR_STATE[country] = BootstrapPriorState()
             print(f"  [DPBR] Dual-pass bootstrap IS …")
-            orig_init = Exp24DualPassController.__init__
-            def patched_init(self, *a, country=country, **kw):
-                orig_init(self, *a, country=country, **kw)
-            Exp24DualPassController.__init__ = patched_init
             patch_swa_runner_controller()
 
             results_df, summary = run_country_experiment(model, tokenizer, country, personas, scen, cfg)
-            Exp24DualPassController.__init__ = orig_init
 
             results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
             append_rows_csv(

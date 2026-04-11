@@ -243,9 +243,9 @@ class Exp24DualPassController(ImplicitSWAController):
     Country prior update and prior mixing identical to EXP-09.
     """
 
-    def __init__(self, *args, country: str = "UNKNOWN", **kwargs):
-        super().__init__(*args, **kwargs)
-        self.country = country
+    def __init__(self, *args, country_iso: str = "UNKNOWN", **kwargs):
+        super().__init__(*args, country_iso=country_iso, **kwargs)
+        self.country = country_iso
 
     def _get_prior(self) -> BootstrapPriorState:
         if self.country not in _PRIOR_STATE:
@@ -322,6 +322,11 @@ class Exp24DualPassController(ImplicitSWAController):
         p_pref  = p_right if preferred_on_right else 1.0 - p_right
         variance = float(delta_agents.var(unbiased=True).item()) if delta_agents.numel() > 1 else 0.0
 
+        def _p_pref_micro(d_s: torch.Tensor) -> float:
+            dm = float((anchor + d_s).item())
+            pr = torch.sigmoid(torch.tensor(dm / self.decision_temperature)).item()
+            return pr if preferred_on_right else 1.0 - pr
+
         return {
             "p_right": p_right, "p_left": 1.0 - p_right, "p_spare_preferred": p_pref,
             "variance": variance, "sigma_used": sigma,
@@ -337,7 +342,8 @@ class Exp24DualPassController(ImplicitSWAController):
             "logit_temp_used": logit_temp, "n_personas": delta_agents.numel(),
             "agent_decision_gaps": delta_agents.tolist(),
             "agent_rewards": (delta_agents - delta_base).tolist(),
-            "p_spare_preferred_pass1": p_pref, "p_spare_preferred_pass2": p_pref,
+            "p_spare_preferred_is_pass1_micro": _p_pref_micro(ds1),
+            "p_spare_preferred_is_pass2_micro": _p_pref_micro(ds2),
             "positional_bias": 0.0,
         }
 
@@ -431,13 +437,9 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
         scen = _load_scen(cfg, country)
         personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
 
-        orig_init = Exp24DualPassController.__init__
-        def patched_init(self, *a, country=country, **kw): orig_init(self, *a, country=country, **kw)
-        Exp24DualPassController.__init__ = patched_init
         _swa_runner_mod.ImplicitSWAController = Exp24DualPassController
 
         results_df, summary = run_country_experiment(model, tokenizer, country, personas, scen, cfg)
-        Exp24DualPassController.__init__ = orig_init
 
         results_df.to_csv(out_dir / f"swa_results_{country}.csv", index=False)
         append_rows_csv(str(Path(CMP_ROOT) / "per_dim_breakdown.csv"),
