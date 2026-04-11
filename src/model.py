@@ -235,6 +235,28 @@ def text_tokenizer(tok):
     return tok
 
 
+def _tokenizer_hub_for_local_weights(local_dir: str) -> str:
+    """Upstream HF repo id to load tokenizer when a local snapshot omits tiktoken vocab files."""
+    import json
+    from pathlib import Path
+
+    p = Path(local_dir) / "config.json"
+    if not p.is_file():
+        return ""
+    try:
+        cfg = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    mt = (cfg.get("model_type") or "").lower()
+    arch = " ".join(str(a) for a in (cfg.get("architectures") or [])).lower()
+    if "mistral3" in mt or "mistral3" in arch:
+        return (
+            os.environ.get("MORAL_TOKENIZER_HUB_ID", "").strip()
+            or "mistralai/Magistral-Small-2509"
+        )
+    return ""
+
+
 def load_model_hf_native(
     model_name: str,
     max_seq_length: int = 2048,
@@ -250,27 +272,31 @@ def load_model_hf_native(
     print(f"[MODEL] Loading {model_name} via Hugging Face transformers (native, no Unsloth)...")
 
     _tok_kw = _hf_from_pretrained_token_kw()
-    try:
-        tokenizer = AutoTokenizer.from_pretrained(
-            model_name, trust_remote_code=True, **_tok_kw
-        )
-    except KeyError as exc:
-        # Magistral / Mistral3: older transformers ship Mistral3Config for the model but omit
-        # Mistral3Config from TOKENIZER_MAPPING → AutoTokenizer fails. Tokenizer files alone work.
-        _key = exc.args[0] if exc.args else None
-        _name = getattr(_key, "__name__", "") if _key is not None else ""
-        if _name == "Mistral3Config" or "Mistral3Config" in str(exc):
-            from transformers import PreTrainedTokenizerFast
+    hub_override = os.environ.get("MORAL_TOKENIZER_HUB_ID", "").strip()
 
-            print(
-                "[MODEL] AutoTokenizer skipped Mistral3Config mapping; "
-                "loading PreTrainedTokenizerFast from tokenizer files…"
-            )
-            tokenizer = PreTrainedTokenizerFast.from_pretrained(
-                model_name, trust_remote_code=True, **_tok_kw
-            )
-        else:
-            raise
+    def _load_tokenizer(path_or_id: str):
+        return AutoTokenizer.from_pretrained(
+            path_or_id, trust_remote_code=True, **_tok_kw
+        )
+
+    if hub_override:
+        print(f"[MODEL] Tokenizer from MORAL_TOKENIZER_HUB_ID={hub_override!r} (weights from {model_name!r})")
+        tokenizer = _load_tokenizer(hub_override)
+    else:
+        try:
+            tokenizer = _load_tokenizer(model_name)
+        except Exception as first_exc:
+            hub = ""
+            if os.path.isdir(model_name):
+                hub = _tokenizer_hub_for_local_weights(model_name)
+            if hub:
+                print(
+                    f"[MODEL] Local tokenizer failed ({type(first_exc).__name__}); "
+                    f"loading tokenizer from Hub {hub!r} (weights stay local)…"
+                )
+                tokenizer = _load_tokenizer(hub)
+            else:
+                raise first_exc
 
     attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
     common_kw: dict = {

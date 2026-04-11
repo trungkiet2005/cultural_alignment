@@ -14,6 +14,8 @@ load từ ``/kaggle/input/models/mistral-ai/.../1`` khi thư mục đó tồn t�
 Hub ``unsloth/Magistral-Small-2509-unsloth-bnb-4bit``. Với **đường dẫn thư mục local**,
 dùng ``load_model_hf_native`` (Unsloth hay lỗi Mistral3 → nhánh vision / image processor).
 Override: ``SWA_PERSONA_ONLY_MODEL``, ``SWA_PERSONA_ONLY_KAGGLE_WEIGHTS``, ``SWA_PERSONA_ONLY_SHORT``.
+Kaggle cài ``transformers>=5.5`` (Mistral3 tokenizer). Nếu bundle thiếu tiktoken, tokenizer tải từ
+Hub ``mistralai/Magistral-Small-2509`` (cần mạng / ``HF_TOKEN``). Ghi đè: ``MORAL_TOKENIZER_HUB_ID``.
 
 Kaggle::
 
@@ -69,7 +71,9 @@ def _install_deps() -> None:
         "pip install -q bitsandbytes scipy tqdm",
         "pip install sentencepiece protobuf \"datasets==4.3.0\" \"huggingface_hub>=0.34.0\" hf_transfer",
         "pip install --no-deps unsloth_zoo bitsandbytes accelerate peft trl triton unsloth",
-        "pip install transformers==4.56.2",
+        # Magistral / Mistral3: need TOKENIZER_MAPPING + tokenizer stack newer than 4.56; Kaggle Models
+        # bundle often lacks tiktoken blob → tokenizer loaded from Hub while weights stay local.
+        "pip install \"transformers>=5.5.0,<6.0\"",
         "pip install --no-deps trl==0.22.2",
     ]:
         subprocess.run(cmd, shell=True, check=False)
