@@ -5,6 +5,7 @@ EXP-24 Dual-Pass Bootstrap IS — CodeGemma-7B — CodeGemma_(7B)_Conversational
 
 Model  : unsloth/codegemma-7b-bnb-4bit
 Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+         CodeGemma needs ChatML via Unsloth get_chat_template — applied in src/model.py load_model.
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 

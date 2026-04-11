@@ -186,6 +186,25 @@ def load_model(
             load_in_4bit=load_in_4bit,
             **_extra_kw,
         )
+        # CodeGemma: HF tokenizer ships without `chat_template`; Unsloth notebook applies ChatML
+        # via get_chat_template before inference (Reference_Notebook_Model/CodeGemma_(7B)_Conversational.ipynb).
+        if "codegemma" in model_name.lower():
+            try:
+                from unsloth.chat_templates import get_chat_template
+
+                tokenizer = get_chat_template(
+                    tokenizer,
+                    chat_template="chatml",
+                    mapping={
+                        "role": "from",
+                        "content": "value",
+                        "user": "human",
+                        "assistant": "gpt",
+                    },
+                    map_eos_token=True,
+                )
+            except Exception as exc:
+                print(f"[MODEL] warn: get_chat_template(chatml) for CodeGemma failed: {exc}")
         FastLanguageModel.for_inference(model)
         setattr(tokenizer, "_moral_chat_content_mode", "string")
     # Processor (Gemma 3N / VL) keeps pad/eos on the inner text tokenizer.
