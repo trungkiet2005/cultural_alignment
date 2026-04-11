@@ -17,6 +17,7 @@ Artifacts:
 - `[EXP-24-QWEN35_08B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/qwen35_08b/compare`
 - `[EXP-24-MISTRAL_V03] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/mistral_v03/compare`
 - `[EXP-24-GPT_OSS_20B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/gpt_oss_20b/compare`
+- `[EXP-24-MAGISTRAL_SMALL_2509] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/magistral_small_2509/compare`
 
 ---
 
@@ -1473,6 +1474,113 @@ Artifacts:
 | gpt-oss-20b-unsloth-bnb-4bit | THA | Species_Humans | 79.7 | 49.8 | **29.9** |
 | gpt-oss-20b-unsloth-bnb-4bit | USA | Species_Humans | 79.2 | 49.7 | **29.5** |
 | gpt-oss-20b-unsloth-bnb-4bit | VNM | Species_Humans | 77.7 | 49.8 | **27.9** |
+
+---
+
+#### EXP-24-MAGISTRAL_SMALL_2509 Full Metrics
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Magistral-Small-2509 | ARG | 0.3422 | 0.0464 | +0.601 | 12.41 | 21.3% |
+| Magistral-Small-2509 | BGD | 0.3614 | 0.0470 | +0.625 | 13.06 | 16.8% |
+| Magistral-Small-2509 | BRA | 0.3188 | 0.0510 | +0.333 | 11.14 | 19.7% |
+| Magistral-Small-2509 | CHN | 0.2932 | 0.0499 | +0.711 | 10.16 | 25.2% |
+| Magistral-Small-2509 | COL | 0.3686 | 0.0546 | +0.386 | 12.85 | 21.6% |
+| Magistral-Small-2509 | DEU | 0.3445 | 0.0451 | +0.724 | 12.01 | 19.7% |
+| Magistral-Small-2509 | ETH | 0.4717 | 0.0538 | +0.655 | 17.05 | 15.8% |
+| Magistral-Small-2509 | GBR | 0.3837 | 0.0484 | +0.674 | 14.05 | 17.1% |
+| Magistral-Small-2509 | IDN | 0.3443 | 0.0588 | +0.511 | 11.52 | 21.9% |
+| Magistral-Small-2509 | IRN | 0.4012 | 0.0547 | +0.637 | 14.10 | 27.1% |
+| Magistral-Small-2509 | JPN | 0.2646 | 0.0542 | +0.709 | 8.63 | 20.3% |
+| Magistral-Small-2509 | KGZ | 0.3534 | 0.0480 | +0.633 | 12.62 | 17.1% |
+| Magistral-Small-2509 | MEX | 0.3327 | 0.0403 | +0.707 | 12.37 | 20.6% |
+| Magistral-Small-2509 | MMR | 0.3647 | 0.0621 | +0.457 | 12.53 | 19.4% |
+| Magistral-Small-2509 | MYS | 0.3127 | 0.0428 | +0.683 | 11.31 | 17.1% |
+| Magistral-Small-2509 | ROU | 0.3628 | 0.0429 | +0.708 | 13.35 | 16.1% |
+| Magistral-Small-2509 | SRB | 0.3715 | 0.0446 | +0.670 | 13.65 | 18.7% |
+| Magistral-Small-2509 | THA | 0.2949 | 0.0410 | +0.738 | 10.49 | 17.4% |
+| Magistral-Small-2509 | USA | 0.3741 | 0.0422 | +0.731 | 13.99 | 20.3% |
+| Magistral-Small-2509 | VNM | 0.3473 | 0.0500 | +0.589 | 12.32 | 25.5% |
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-MAGISTRAL_SMALL_2509 vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | EXP-24-MAGISTRAL_SMALL_2509 MIS | Δ | Improv% | Win? |
+|:------|:-------:|:-----------:|:-------------------------------:|:-:|:-------:|:----:|
+| Magistral-Small-2509 | ARG | 0.3642 | 0.3422 | +0.0219 | **+6.03%** | ✅ |
+| Magistral-Small-2509 | BGD | 0.4496 | 0.3614 | +0.0881 | **+19.61%** | ✅ |
+| Magistral-Small-2509 | BRA | 0.4115 | 0.3188 | +0.0928 | **+22.54%** | ✅ |
+| Magistral-Small-2509 | CHN | 0.3673 | 0.2932 | +0.0742 | **+20.19%** | ✅ |
+| Magistral-Small-2509 | COL | 0.4127 | 0.3686 | +0.0440 | **+10.67%** | ✅ |
+| Magistral-Small-2509 | DEU | 0.2645 | 0.3445 | -0.0800 | **-30.26%** | ❌ |
+| Magistral-Small-2509 | ETH | 0.4624 | 0.4717 | -0.0092 | **-1.99%** | ❌ |
+| Magistral-Small-2509 | GBR | 0.4422 | 0.3837 | +0.0585 | **+13.23%** | ✅ |
+| Magistral-Small-2509 | IDN | 0.2834 | 0.3443 | -0.0609 | **-21.48%** | ❌ |
+| Magistral-Small-2509 | IRN | 0.4271 | 0.4012 | +0.0259 | **+6.06%** | ✅ |
+| Magistral-Small-2509 | JPN | 0.3406 | 0.2646 | +0.0761 | **+22.33%** | ✅ |
+| Magistral-Small-2509 | KGZ | 0.4603 | 0.3534 | +0.1069 | **+23.23%** | ✅ |
+| Magistral-Small-2509 | MEX | 0.3488 | 0.3327 | +0.0161 | **+4.61%** | ✅ |
+| Magistral-Small-2509 | MMR | 0.4962 | 0.3647 | +0.1314 | **+26.49%** | ✅ |
+| Magistral-Small-2509 | MYS | 0.4430 | 0.3127 | +0.1303 | **+29.42%** | ✅ |
+| Magistral-Small-2509 | ROU | 0.4463 | 0.3628 | +0.0835 | **+18.71%** | ✅ |
+| Magistral-Small-2509 | SRB | 0.4634 | 0.3715 | +0.0918 | **+19.82%** | ✅ |
+| Magistral-Small-2509 | THA | 0.4058 | 0.2949 | +0.1110 | **+27.34%** | ✅ |
+| Magistral-Small-2509 | USA | 0.4480 | 0.3741 | +0.0739 | **+16.50%** | ✅ |
+| Magistral-Small-2509 | VNM | 0.3239 | 0.3473 | -0.0234 | **-7.24%** | ❌ |
+
+- **Magistral-Small-2509** Win Rate: **16/20** | Vanilla=0.4031 → EXP-24-MAGISTRAL_SMALL_2509=0.3504 | Macro Δ: **+13.06%**
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-MAGISTRAL_SMALL_2509 vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | EXP-24-MAGISTRAL_SMALL_2509 MIS | Δ | Improv% | Win? |
+|:------|:-------:|:----------:|:-------------------------------:|:-:|:-------:|:----:|
+| Magistral-Small-2509 | BRA | 0.4362 | 0.3188 | +0.1174 | **+26.92%** | ✅ |
+| Magistral-Small-2509 | CHN | 0.5067 | 0.2932 | +0.2135 | **+42.14%** | ✅ |
+| Magistral-Small-2509 | DEU | 0.4942 | 0.3445 | +0.1497 | **+30.29%** | ✅ |
+| Magistral-Small-2509 | JPN | 0.3502 | 0.2646 | +0.0856 | **+24.45%** | ✅ |
+| Magistral-Small-2509 | USA | 0.5984 | 0.3741 | +0.2243 | **+37.48%** | ✅ |
+
+- **Magistral-Small-2509** Win Rate: **5/5** | EXP-01=0.4771 → EXP-24-MAGISTRAL_SMALL_2509=0.3190 | Macro Δ: **+33.14%**
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-MAGISTRAL_SMALL_2509 Leaderboard Entry
+
+| Rank | Method | Coverage | Mean MIS ↓ | Notes |
+|:---:|:-------|:--------:|-----------:|:------|
+| ? | **EXP-24-MAGISTRAL_SMALL_2509** | 1 models × 20 countries | **0.3504** | MIS↓ JSD=0.0489 r=+0.624 Flip=19.9% |
+
+**DPBR summary:** Mean MIS=0.3504, r=+0.624, Flip=19.9%, rel_r=0.973 · *(EXP-09 SOTA: 0.3975 | EXP-24 multi-model ref: 0.3969)*
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-MAGISTRAL_SMALL_2509 Per-Dimension Worst Errors
+
+| Model | Country | Worst Dim | Human | Model | Abs err (pp) |
+|:------|:-------:|:----------|:-----:|:-----:|:------------:|
+| Magistral-Small-2509 | ARG | SocialValue_High | 68.5 | 45.8 | **22.8** |
+| Magistral-Small-2509 | BGD | SocialValue_High | 68.1 | 45.6 | **22.5** |
+| Magistral-Small-2509 | BRA | Age_Young | 73.6 | 53.8 | **19.7** |
+| Magistral-Small-2509 | CHN | SocialValue_High | 66.7 | 45.2 | **21.5** |
+| Magistral-Small-2509 | COL | SocialValue_High | 72.7 | 46.4 | **26.3** |
+| Magistral-Small-2509 | DEU | Species_Humans | 82.4 | 61.6 | **20.9** |
+| Magistral-Small-2509 | ETH | Species_Humans | 93.9 | 66.5 | **27.3** |
+| Magistral-Small-2509 | GBR | SocialValue_High | 67.7 | 43.6 | **24.0** |
+| Magistral-Small-2509 | IDN | SocialValue_High | 69.0 | 43.4 | **25.6** |
+| Magistral-Small-2509 | IRN | Age_Young | 73.7 | 51.6 | **22.1** |
+| Magistral-Small-2509 | JPN | SocialValue_High | 65.9 | 44.5 | **21.4** |
+| Magistral-Small-2509 | KGZ | SocialValue_High | 68.7 | 45.9 | **22.8** |
+| Magistral-Small-2509 | MEX | SocialValue_High | 69.6 | 47.1 | **22.5** |
+| Magistral-Small-2509 | MMR | Utilitarianism_More | 78.7 | 54.9 | **23.8** |
+| Magistral-Small-2509 | MYS | SocialValue_High | 67.4 | 45.8 | **21.7** |
+| Magistral-Small-2509 | ROU | SocialValue_High | 67.6 | 46.0 | **21.5** |
+| Magistral-Small-2509 | SRB | SocialValue_High | 67.3 | 45.9 | **21.4** |
+| Magistral-Small-2509 | THA | SocialValue_High | 65.1 | 46.6 | **18.5** |
+| Magistral-Small-2509 | USA | SocialValue_High | 67.9 | 46.3 | **21.6** |
+| Magistral-Small-2509 | VNM | Age_Young | 72.7 | 47.2 | **25.5** |
 
 ---
 
