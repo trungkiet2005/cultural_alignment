@@ -59,7 +59,7 @@ RESULTS_BASE = "/kaggle/working/cultural_alignment/results/exp09_model_sweep"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 HUMAN_AMCE_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
-PREFLIGHT_TIMEOUT_MINUTES = int(os.environ.get("EXP09_PREFLIGHT_TIMEOUT_MINUTES", "15"))
+PREFLIGHT_TIMEOUT_MINUTES = int(os.environ.get("EXP09_PREFLIGHT_TIMEOUT_MINUTES", "8"))
 
 
 class CountryPriorState:
