@@ -1,4 +1,12 @@
-"""Kaggle clone + PyPI Unsloth stack for EXP-24 HF full-precision (bf16) scripts."""
+"""
+Reference copy of the Kaggle bootstrap (clone repo + pip Unsloth).
+
+Each ``exp_*.py`` in this folder inlines the same logic so a notebook can run
+without ``from exp_model...`` before ``sys.path`` includes the repo root.
+
+Do not import this module from notebook cells unless the repo is already on
+``sys.path`` (e.g. after ``%cd /kaggle/working/cultural_alignment``).
+"""
 
 import os
 import subprocess
