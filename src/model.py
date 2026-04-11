@@ -155,6 +155,32 @@ def load_model(
         )
         FastModel.for_inference(model)
         setattr(tokenizer, "_moral_chat_content_mode", "string")
+    elif "llama-4-scout" in model_name.lower():
+        # HF: Llama4ForConditionalGeneration (image-text-to-text), not LlamaForCausalLM.
+        # FastLanguageModel targets causal LMs only → Unsloth preflight hits "No config file found".
+        _tv = transformers.__version__
+        if _transformers_version_tuple(_tv) < (5, 5, 0) and not _has_transformers_config_key(
+            "llama4"
+        ):
+            raise RuntimeError(
+                f"Llama-4-Scout needs transformers>=5.5.0 (CONFIG_MAPPING['llama4']); "
+                f"this env has transformers=={_tv}. "
+                "Use the ref_git_tf55 pip block in exp_llama4_scout.py (fresh Kaggle session)."
+            )
+        if _needs_tf55_git_unsloth_moe_fix(model_name):
+            _clear_unsloth_compiled_cache()
+        from unsloth import FastModel
+
+        model, tokenizer = FastModel.from_pretrained(
+            model_name=model_name,
+            max_seq_length=max_seq_length,
+            dtype=None,
+            load_in_4bit=load_in_4bit,
+            trust_remote_code=True,
+            attn_implementation="eager",
+        )
+        FastModel.for_inference(model)
+        setattr(tokenizer, "_moral_chat_content_mode", "string")
     else:
         if _needs_tf55_git_unsloth_moe_fix(model_name):
             _tv = transformers.__version__
@@ -174,18 +200,14 @@ def load_model(
         # MoE / custom HF modeling: without trust_remote_code, Unsloth's AutoConfig/PeftConfig
         # both fail; the loader then calls get_transformers_model_type(None) and surfaces a
         # misleading "No config file found" (see unsloth/models/loader.py before the combined error).
-        # Pass trust_remote_code / use_exact_model_name as real parameters (not only **kwargs).
         ln = model_name.lower()
-        _moe_remote = "nemotron" in ln or "llama-4-scout" in ln
-        _scout_exact = "llama-4-scout" in ln
+        _moe_remote = "nemotron" in ln
         fm_kw: dict = {
             "model_name": model_name,
             "max_seq_length": max_seq_length,
             "dtype": torch.bfloat16,
             "load_in_4bit": load_in_4bit,
             "trust_remote_code": _moe_remote,
-            # Avoid get_model_name remapping for Scout bnb-4bit ids (ref_git_tf55 / Kaggle).
-            "use_exact_model_name": _scout_exact,
         }
         if _moe_remote:
             fm_kw["attn_implementation"] = "eager"
