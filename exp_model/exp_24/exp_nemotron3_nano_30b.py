@@ -6,6 +6,7 @@ EXP-24 Dual-Pass Bootstrap IS — Nemotron-3-Nano-30B-A3B
 Model  : unsloth/Nemotron-3-Nano-30B-A3B
 Profile: pypi  (pip stack aligned with Reference_Notebook_Model/new)
 Notebook: Reference_Notebook_Model/new/unsloth-nemotron-3-nano-30b-a3b.ipynb
+         (uses trust_remote_code=True + attn eager — mirrored in src/model.py load_model)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 

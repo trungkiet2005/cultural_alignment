@@ -171,11 +171,20 @@ def load_model(
             _clear_unsloth_compiled_cache()
         from unsloth import FastLanguageModel
 
+        # Nemotron-3-Nano (MoE): HF repo ships custom modeling_nemotron_h.py; without
+        # trust_remote_code, Unsloth's pre-check can fail with "No config file found"
+        # (see Reference_Notebook_Model/new/unsloth-nemotron-3-nano-30b-a3b.ipynb).
+        _extra_kw: dict = {}
+        if "nemotron" in model_name.lower():
+            _extra_kw["trust_remote_code"] = True
+            _extra_kw["attn_implementation"] = "eager"
+
         model, tokenizer = FastLanguageModel.from_pretrained(
             model_name=model_name,
             max_seq_length=max_seq_length,
             dtype=torch.bfloat16,
             load_in_4bit=load_in_4bit,
+            **_extra_kw,
         )
         FastLanguageModel.for_inference(model)
         setattr(tokenizer, "_moral_chat_content_mode", "string")
