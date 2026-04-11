@@ -14,6 +14,7 @@ Call ``set_decision_tokens(a_id, b_id)`` before ``forward`` (see ``baseline_runn
 from __future__ import annotations
 
 import os
+import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
@@ -193,8 +194,14 @@ def load_model_vllm(
         kw["max_num_seqs"] = int(mi)
 
     print(f"[MODEL] Loading {model_name} via vLLM LLM(...)...")
+    print(
+        "[MODEL] vLLM engine + weights (often 2–15+ min first run) — timing from LLM() start…"
+    )
+    _t_llm = time.perf_counter()
     llm = LLM(**kw)
+    print(f"[MODEL] vLLM LLM() done in {time.perf_counter() - _t_llm:.1f}s")
 
+    _t_tok = time.perf_counter()
     tok = llm.get_tokenizer()
     _tt = text_tokenizer(tok)
     if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
@@ -210,6 +217,7 @@ def load_model_vllm(
         pass
 
     setattr(tok, "_moral_chat_content_mode", "string")
+    print(f"[MODEL] vLLM tokenizer bridge ready in {time.perf_counter() - _t_tok:.1f}s")
 
     pad_id = int(getattr(_tt, "pad_token_id", 0) or 0)
     vocab_size = int(llm.llm_engine.model_config.get_vocab_size())

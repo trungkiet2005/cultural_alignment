@@ -7,6 +7,7 @@ import os
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 import random as _rng
+import time
 
 import numpy as np
 import torch
@@ -128,7 +129,9 @@ def _load_model_vllm(
     hf_id = _resolve_vllm_hf_model_id(model_name)
     print(f"[MODEL] Loading {hf_id} via vLLM (config key was {model_name!r})...")
 
+    _t0 = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(hf_id, trust_remote_code=True)
+    print(f"[MODEL] Tokenizer ready in {time.perf_counter() - _t0:.1f}s")
     _tt = text_tokenizer(tokenizer)
     if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
         _tt.pad_token = _tt.eos_token
@@ -190,7 +193,13 @@ def _load_model_vllm(
     if tp:
         llm_kw["tensor_parallel_size"] = max(1, int(tp))
 
+    print(
+        "[MODEL] Building vLLM engine + loading weights (often 2–15+ min first run; "
+        "watch FlashAttention / GPU load lines above)…"
+    )
+    _t_llm = time.perf_counter()
     llm = LLM(**llm_kw)
+    print(f"[MODEL] vLLM LLM() done in {time.perf_counter() - _t_llm:.1f}s")
     vocab = getattr(tokenizer, "vocab_size", None) or len(tokenizer)
     wrapper = VllmCausalLogitModel(
         llm, pad_token_id=tokenizer.pad_token_id, vocab_size=int(vocab)
