@@ -98,10 +98,10 @@ def _free_model_cache(model_name: str) -> None:
                 print(f"[CLEANUP] error: {exc}")
 
 
-def _build_cfg(model_name: str, swa_root: str) -> SWAConfig:
+def _build_cfg(model_name: str, swa_root: str, *, load_in_4bit: bool = True) -> SWAConfig:
     return SWAConfig(
         model_name=model_name, n_scenarios=N_SCENARIOS, batch_size=BATCH_SIZE,
-        target_countries=list(TARGET_COUNTRIES), load_in_4bit=True, use_real_data=True,
+        target_countries=list(TARGET_COUNTRIES), load_in_4bit=load_in_4bit, use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH, wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH, output_dir=swa_root,
         lambda_coop=_lambda_coop_from_env(), K_samples=128,
@@ -133,8 +133,11 @@ def _write_preflight_error_flag(flag_path: Path, message: str) -> None:
     print(f"[PREFLIGHT] wrote error flag: {flag_path}")
 
 
-def _preflight_model_load(model_name: str, timeout_minutes: int) -> tuple[bool, str]:
+def _preflight_model_load(
+    model_name: str, timeout_minutes: int, *, load_in_4bit: bool = True
+) -> tuple[bool, str]:
     timeout_seconds = max(1, timeout_minutes) * 60
+    _lb = "True" if load_in_4bit else "False"
     code = f"""
 import gc
 import os
@@ -144,7 +147,7 @@ os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 from src.model import load_model
-model, tokenizer = load_model("{model_name}", max_seq_length=2048, load_in_4bit=True)
+model, tokenizer = load_model("{model_name}", max_seq_length=2048, load_in_4bit={_lb})
 del model, tokenizer
 gc.collect()
 if torch.cuda.is_available():
@@ -179,10 +182,21 @@ def _abort_kaggle_run(reason: str) -> None:
 
 
 # ─── Core run function ─────────────────────────────────────────────────────────
-def run_for_model(model_name: str, model_short: str) -> None:
+def run_for_model(
+    model_name: str,
+    model_short: str,
+    *,
+    load_in_4bit: bool = True,
+) -> None:
     """
     Full EXP-24 run for a single model.
     Called directly from each per-model entry script.
+
+    Parameters
+    ----------
+    load_in_4bit
+        If True (default), load 4-bit quantized weights (bitsandbytes).
+        If False, load full bf16 via Unsloth (needs enough VRAM — ~16–20 GB for 7–9B).
     """
     _seed = _exp24_seed()
     setup_seeds(_seed)
@@ -201,16 +215,19 @@ def run_for_model(model_name: str, model_short: str) -> None:
     _ear = os.environ.get("EXP24_ESS_ANCHOR_REG", "1").strip().lower()
     _ess_on = _ear not in ("0", "false", "no", "off")
     print(f"[THEORY] ESS anchor blend: {'ON (δ_micro = α·anchor + (1-α)·δ_base + δ*)' if _ess_on else 'OFF (legacy δ_micro = anchor + δ*)'}")
-    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}")
+    _q = "4-bit" if load_in_4bit else "bf16 (full, no quant)"
+    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}  weights={_q}")
 
-    cfg     = _build_cfg(model_name, swa_root)
+    cfg     = _build_cfg(model_name, swa_root, load_in_4bit=load_in_4bit)
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg.output_dir = str(out_dir)
     preflight_flag = out_dir / "preflight_error.flag"
 
     print(f"[PREFLIGHT] checking model load with timeout={PREFLIGHT_TIMEOUT_MINUTES} minute(s)")
-    ok, message = _preflight_model_load(model_name, PREFLIGHT_TIMEOUT_MINUTES)
+    ok, message = _preflight_model_load(
+        model_name, PREFLIGHT_TIMEOUT_MINUTES, load_in_4bit=load_in_4bit
+    )
     if not ok:
         _write_preflight_error_flag(preflight_flag, message)
         _abort_kaggle_run(message)
@@ -218,7 +235,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
         preflight_flag.unlink(missing_ok=True)
     print("[PREFLIGHT] PASS")
 
-    model, tokenizer = load_model(model_name, max_seq_length=2048, load_in_4bit=True)
+    model, tokenizer = load_model(
+        model_name, max_seq_length=2048, load_in_4bit=load_in_4bit
+    )
 
     rows: List[dict] = []
     dp_method = f"{exp_id}_dual_pass"

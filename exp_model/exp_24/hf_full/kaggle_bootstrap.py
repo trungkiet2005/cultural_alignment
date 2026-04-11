@@ -1,0 +1,49 @@
+"""Kaggle clone + PyPI Unsloth stack for EXP-24 HF full-precision (bf16) scripts."""
+
+import os
+import subprocess
+import sys
+
+REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
+REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
+
+
+def setup_torch_env() -> None:
+    os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+    os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+    os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
+    os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
+
+
+def on_kaggle() -> bool:
+    return os.path.isdir("/kaggle/working")
+
+
+def ensure_repo() -> str:
+    """Return repo root; clone on Kaggle if needed."""
+    setup_torch_env()
+    here = os.getcwd()
+    if os.path.isfile(os.path.join(here, "src", "controller.py")):
+        return here
+    if not on_kaggle():
+        raise RuntimeError("Not on Kaggle and not inside the repo root.")
+    if not os.path.isdir(REPO_DIR_KAGGLE):
+        subprocess.run(
+            ["git", "clone", "--depth", "1", REPO_URL, REPO_DIR_KAGGLE],
+            check=True,
+        )
+    os.chdir(REPO_DIR_KAGGLE)
+    sys.path.insert(0, REPO_DIR_KAGGLE)
+    return REPO_DIR_KAGGLE
+
+
+def install_pypi_unsloth() -> None:
+    if not on_kaggle():
+        return
+    for cmd in [
+        "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
+        "pip install --upgrade --no-deps unsloth",
+        "pip install -q unsloth_zoo",
+        'pip install --quiet "datasets>=3.4.1,<4.4.0"',
+    ]:
+        subprocess.run(cmd, shell=True, check=False)

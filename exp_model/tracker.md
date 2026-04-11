@@ -25,15 +25,17 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 | 12 | EXP-24-LLAMA32_1B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.2-1B | 1 model x 5 countries | 0.4761 | 0.0586 | -0.558 | 17.16 | 0.76% | Win vs vanilla: 1/5, macro +1.14% |
 | 13 | EXP-09-LLAMA32_1B | Hierarchical IS | Llama-3.2-1B | 1 model x 5 countries | 0.4762 | 0.0586 | -0.570 | 17.17 | 0.84% | Win vs vanilla: 1/5, macro +1.11% |
 | 14 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
-| 15 | EXP-24-CODEGEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | codegemma-7b-bnb-4bit | 1 model x 5 countries | 0.4705 | 0.0573 | -0.269 | 16.98 | 18.3% | Win vs vanilla: 2/5, macro -0.47%; pypi Unsloth (TF 5.2.0), ChatML via `load_model` |
+| 15 | EXP-24-CODEGEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | codegemma-7b-bnb-4bit | 1 model x 5 countries | 0.4705 | 0.0573 | -0.269 | 17.18 | 18.3% | Win vs vanilla: 2/5, macro -0.47%; pypi Unsloth (TF 5.2.0), ChatML via `load_model` |
 | 16 | EXP-24-PHI3_MEDIUM | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3-medium-4k-instruct | 1 model x 5 countries | 0.3989 | 0.0641 | +0.330 | 13.95 | 17.1% | Win vs vanilla: 1/5, macro -1.21%; ref_phi_llama32 (TF 4.56.2) |
 | 17 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
 | 18 | EXP-24-QWEN2_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2-7B | 1 model x 5 countries | 0.3946 | 0.0523 | +0.194 | 13.60 | 16.03% | Win vs vanilla: 2/5, macro -3.53% |
 | 19 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
 | 20 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
-| 21 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
-| 22 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
-| 23 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
+| 21 | EXP-24-GEMMA4_31B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-31B-it | 1 model x 5 countries | 0.4219 | 0.0516 | +0.296 | 15.16 | 22.6% | Win vs vanilla: 1/5, macro -12.85%; ref_gemma4; `gemma4-31b-unsloth.ipynb`; ~19 GB VRAM |
+| 22 | EXP-24-ERNIE45_21B_A3B | Dual-Pass Bootstrap IS Reliability (DPBR) | ERNIE-4.5-21B-A3B-PT | 1 model x 5 countries | 0.3607 | 0.0556 | +0.358 | 12.45 | 18.3% | Win vs vanilla: 2/5, macro -21.98%; Ref `new/unslothERNIE-4.5-21B-A3B-PT.ipynb`; ~42 GB VRAM (H100 log) |
+| 23 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
+| 24 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
+| 25 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
 
 ---
 
@@ -384,6 +386,90 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 - vs **EXP-01**: **3/5** wins (**CHN**, **JPN**, **USA**); **BRA** / **DEU** below EXP-01 on this table.
 - **Age_Young** and **Species_Humans** dominate worst-dimension errors.
 - Aggregate: DPBR mean MIS **0.4260**, mean JSD **0.0642**, mean Pearson **+0.423**, mean flip **10.6%**, mean `rel_r` **0.815** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+
+---
+
+## Run: EXP-24-GEMMA4_31B
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/exp_gemma4_31b.py`
+- Model: `unsloth/gemma-4-31B-it` (`MODEL_SHORT`: `gemma4_31b`)
+- Notebook: `Reference_Notebook_Model/gemma4-31b-unsloth.ipynb`
+- Profile: **ref_gemma4** — `torchcodec`, `timm`, `transformers==5.5.0`, `unsloth_zoo>=2026.4.6`, PyPI `unsloth`; `datasets` 3.4.x–4.4.x.
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/gemma4_31b/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Gemma4 patching”); Transformers **5.5.0**; Torch **2.9.0+cu126**; bfloat16; ~**19.14 GB** VRAM; decision token ids **A=236776 (`'A'`), B=236799 (`'B'`)** (same id family as Gemma 3 in tracker). Vanilla uses Gemma-4 turn format (`<bos><|turn>user` … `<|turn>model`). Flash Attention 2 warning → **Xformers** / no FA2 in log.
+
+### Vanilla baseline (token-logit, no personas / no IS)
+
+| Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ |
+|:-------:|:-----:|:-----:|:-----------:|:-----:|
+| BRA | 0.2635 | 0.0458 | +0.449 | 8.45 |
+| CHN | 0.4693 | 0.0555 | +0.522 | 17.38 |
+| DEU | 0.2477 | 0.0429 | +0.824 | 8.01 |
+| JPN | 0.4717 | 0.0780 | +0.045 | 15.95 |
+| USA | 0.4169 | 0.0628 | +0.588 | 14.74 |
+
+- Mean vanilla MIS: **0.3738**
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| gemma-4-31B-it | BRA | 0.2638 | 0.0180 | +0.927 | 10.34 | 16.8% |
+| gemma-4-31B-it | CHN | 0.4564 | 0.0741 | -0.400 | 14.95 | 24.8% |
+| gemma-4-31B-it | DEU | 0.4785 | 0.0645 | +0.304 | 16.89 | 24.8% |
+| gemma-4-31B-it | JPN | 0.4880 | 0.0562 | +0.088 | 17.97 | 27.4% |
+| gemma-4-31B-it | USA | 0.4227 | 0.0452 | +0.561 | 15.64 | 19.4% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| gemma-4-31B-it | BRA | 0.2635 | 0.2638 | -0.0002 | -0.09% | ❌ |
+| gemma-4-31B-it | CHN | 0.4693 | 0.4564 | +0.0130 | +2.76% | ✅ |
+| gemma-4-31B-it | DEU | 0.2477 | 0.4785 | -0.2307 | -93.13% | ❌ |
+| gemma-4-31B-it | JPN | 0.4717 | 0.4880 | -0.0163 | -3.46% | ❌ |
+| gemma-4-31B-it | USA | 0.4169 | 0.4227 | -0.0058 | -1.39% | ❌ |
+
+- Win rate: **1/5**
+- Mean vanilla MIS: **0.3738**
+- Mean DPBR MIS: **0.4219**
+- Macro improvement: **-12.85%**
+- Mean per-row improvement (micro): **-19.06%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|---------:|----------------:|--------:|:----:|
+| gemma-4-31B-it | BRA | 0.3655 | 0.2638 | +0.1017 | +27.83% | ✅ |
+| gemma-4-31B-it | CHN | 0.4536 | 0.4564 | -0.0028 | -0.61% | ❌ |
+| gemma-4-31B-it | DEU | 0.3289 | 0.4785 | -0.1496 | -45.47% | ❌ |
+| gemma-4-31B-it | JPN | 0.4667 | 0.4880 | -0.0213 | -4.57% | ❌ |
+| gemma-4-31B-it | USA | 0.6038 | 0.4227 | +0.1811 | +29.99% | ✅ |
+
+- Win rate vs EXP-01: **2/5**
+- Mean EXP-01 MIS: **0.4437**
+- Mean DPBR MIS: **0.4219**
+- Macro improvement vs EXP-01: **+4.92%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| gemma-4-31B-it | BRA | Age_Young | 73.6 | 59.2 | 14.3 |
+| gemma-4-31B-it | CHN | Species_Humans | 83.0 | 47.4 | 35.6 |
+| gemma-4-31B-it | DEU | Species_Humans | 82.4 | 45.0 | 37.4 |
+| gemma-4-31B-it | JPN | Species_Humans | 79.8 | 46.6 | 33.2 |
+| gemma-4-31B-it | USA | Utilitarianism_More | 76.6 | 50.3 | 26.2 |
+
+### Notes
+
+- **DPBR vs vanilla**: only **CHN** wins; **DEU** collapses (vanilla MIS **0.2477** → DPBR **0.4785**). **BRA** essentially tied.
+- vs **EXP-01**: **2/5** (**BRA**, **USA**).
+- Aggregate: DPBR mean MIS **0.4219**, mean JSD **0.0516**, mean Pearson **+0.296**, mean flip **22.6%**, mean `rel_r` **0.965** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Latency ~**650–810 ms**/scenario in log (vs ~**320 ms** for smaller ERNIE run on same class GPU).
+- Worst residuals: **Species_Humans** (**CHN**, **DEU**, **JPN**) or **Utilitarianism_More** / **Age** (**USA**, **BRA**).
 
 ---
 
@@ -1152,7 +1238,19 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 - Profile: **pypi** — `pip install --upgrade --no-deps unsloth`; `pip install -q unsloth_zoo`; `datasets` 3.4.x–4.4.x; align with Reference_Notebook_Model / CodeGemma_(7B)_Conversational.ipynb where noted. **ChatML** applied via `get_chat_template` in `src/model.py` `load_model`.
 - Method: Dual-Pass Bootstrap IS Reliability (DPBR)
 - Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/codegemma_7b/compare`
-- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Gemma patching”); Transformers **5.2.0**; Torch **2.9.0+cu126**; ~**5.6 GB** VRAM at load; decision tokens **A=235280, B=235305** (same id pair across langs in log). Pip may warn **xformers** (optional) / `bigframes` / `google-adk` deps.
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Gemma patching”); Transformers **5.2.0**; Torch **2.9.0+cu126**; bfloat16; ~**5.63 GB** VRAM at load; ChatML in vanilla: `<bos><|im_start|>system` … `<|im_start|>user` … `<|im_start|>assistant`; decision tokens **A=235280 (`'A'`), B=235305 (`'B'`)** (same ids across langs). Pip may warn **xformers** (optional; Unsloth lists it) / `bigframes` / `google-adk` deps.
+
+### Vanilla baseline (token-logit, no personas / no IS)
+
+| Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ |
+|:-------:|:-----:|:-----:|:-----------:|:-----:|
+| BRA | 0.4192 | 0.0492 | -0.841 | 15.40 |
+| CHN | 0.4678 | 0.0588 | +0.801 | 16.68 |
+| DEU | 0.5017 | 0.0624 | +0.258 | 18.04 |
+| JPN | 0.4417 | 0.0550 | +0.822 | 15.89 |
+| USA | 0.5111 | 0.0544 | +0.463 | 18.95 |
+
+- Mean vanilla MIS: **0.4683**
 
 ### Full Metrics (DPBR)
 
@@ -1209,6 +1307,7 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 
 - DPBR slightly hurts on average vs vanilla (**2/5** wins; macro **-0.47%**). Best gains: **JPN**, **BRA**; worst: **DEU**, **CHN**.
 - **Species_Humans** is the top worst-dimension row in **4/5** countries; **Age_Young** dominates in **BRA**.
+- Latency ~**155–186 ms**/scenario in log (DPBR forward).
 - Aggregate: DPBR mean MIS **0.4705**, mean JSD **0.0573**, mean Pearson **-0.269**, mean flip **18.3%**, mean `rel_r` **0.980** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
 
 ---
@@ -1312,6 +1411,77 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 
 - Similar behavior to EXP-09 on this model; only CHN is a clear win vs vanilla.
 - Species_Humans remains the dominant failure mode in 4/5 countries.
+
+---
+
+## Run: EXP-24-ERNIE45_21B_A3B
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/exp_ernie45_21b_a3b.py`
+- Model: `unsloth/ERNIE-4.5-21B-A3B-PT` (`MODEL_SHORT`: `ernie45_21b_a3b`)
+- Notebook: `Reference_Notebook_Model/new/unslothERNIE-4.5-21B-A3B-PT.ipynb`
+- Profile: **pypi** — `bitsandbytes`, `scipy`, `tqdm`, `sentencepiece`, `protobuf`; `pip install --upgrade --no-deps unsloth`, `unsloth_zoo`, pin `transformers==4.56.2` (align with notebook), `datasets` 3.4.x–4.4.x.
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/ernie45_21b_a3b/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Ernie4_5_MoE patching”); Transformers **5.2.0** (run log; env may differ from pin order); Torch **2.9.0+cu126**; bfloat16; ~**41.97 GB** VRAM; decision token ids **A=355 (`' A'`), B=408 (`' B'`)**. Pip may warn optional **xformers** / `bigframes` / `google-adk` deps. Chat wrapper: `<|begin_of_sentence|>` … `User:` / `Assistant:`.
+
+### Vanilla baseline (token-logit, no personas / no IS)
+
+| Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ |
+|:-------:|:-----:|:-----:|:-----------:|:-----:|
+| BRA | 0.3540 | 0.0650 | -0.160 | 13.34 |
+| CHN | 0.3269 | 0.0841 | +0.804 | 12.17 |
+| DEU | 0.2175 | 0.0557 | +0.684 | 6.48 |
+| JPN | 0.2708 | 0.0718 | +0.533 | 8.48 |
+| USA | 0.3095 | 0.0730 | +0.735 | 10.17 |
+
+- Mean vanilla MIS: **0.2957**
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| ERNIE-4.5-21B-A3B-PT | BRA | 0.3390 | 0.0563 | +0.087 | 12.16 | 19.0% |
+| ERNIE-4.5-21B-A3B-PT | CHN | 0.3140 | 0.0552 | +0.578 | 10.55 | 16.1% |
+| ERNIE-4.5-21B-A3B-PT | DEU | 0.3832 | 0.0614 | +0.245 | 12.63 | 17.7% |
+| ERNIE-4.5-21B-A3B-PT | JPN | 0.3924 | 0.0644 | +0.190 | 13.01 | 25.5% |
+| ERNIE-4.5-21B-A3B-PT | USA | 0.3750 | 0.0406 | +0.691 | 13.92 | 13.2% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| ERNIE-4.5-21B-A3B-PT | BRA | 0.3540 | 0.3390 | +0.0150 | +4.24% | ✅ |
+| ERNIE-4.5-21B-A3B-PT | CHN | 0.3269 | 0.3140 | +0.0129 | +3.94% | ✅ |
+| ERNIE-4.5-21B-A3B-PT | DEU | 0.2175 | 0.3832 | -0.1658 | -76.23% | ❌ |
+| ERNIE-4.5-21B-A3B-PT | JPN | 0.2708 | 0.3924 | -0.1216 | -44.89% | ❌ |
+| ERNIE-4.5-21B-A3B-PT | USA | 0.3095 | 0.3750 | -0.0656 | -21.18% | ❌ |
+
+- Win rate: **2/5**
+- Mean vanilla MIS: **0.2957**
+- Mean DPBR MIS: **0.3607**
+- Macro improvement: **-21.98%**
+- Mean per-row improvement (micro): **-26.82%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+- Not reported in this run (`try_load_reference_comparison` returned no matching slice).
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| ERNIE-4.5-21B-A3B-PT | BRA | Age_Young | 73.6 | 50.5 | 23.1 |
+| ERNIE-4.5-21B-A3B-PT | CHN | Species_Humans | 83.0 | 63.3 | 19.7 |
+| ERNIE-4.5-21B-A3B-PT | DEU | Species_Humans | 82.4 | 55.7 | 26.8 |
+| ERNIE-4.5-21B-A3B-PT | JPN | Species_Humans | 79.8 | 54.1 | 25.8 |
+| ERNIE-4.5-21B-A3B-PT | USA | Age_Young | 74.5 | 50.6 | 24.0 |
+
+### Notes
+
+- **DPBR vs vanilla**: wins only **BRA** and **CHN**; **DEU**/**JPN**/**USA** regress strongly — vanilla MIS was already low on **DEU**/**JPN** (especially DEU **0.2175**), similar pattern to other models with “too good” vanilla baselines.
+- Aggregate: DPBR mean MIS **0.3607**, mean JSD **0.0556**, mean Pearson **+0.358**, mean flip **18.3%**, mean `rel_r` **0.924** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Worst residuals: **Age_Young** (**USA**, **BRA**) or **Species_Humans** (**DEU**, **JPN**, **CHN**).
 
 ---
 
