@@ -22,7 +22,7 @@ os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")
 if os.path.isdir("/kaggle/working"):
-    os.environ.setdefault("VLLM_GPU_MEMORY_UTILIZATION", "0.95")
+    os.environ.setdefault("MORAL_VLLM_GPU_MEM", "0.95")
 
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
@@ -53,7 +53,9 @@ def _install_deps() -> None:
         return
     for cmd in [
         'pip install -q "numpy<2.3"',
-        "pip install -q scipy tqdm sentencepiece protobuf",
+        "pip uninstall -y -q tensorflow tensorflow-cpu tf_keras 2>/dev/null || true",
+        'pip install -q --upgrade "protobuf>=5.29.6,<6" "grpcio>=1.68" "googleapis-common-protos>=1.66"',
+        "pip install -q scipy tqdm sentencepiece",
         "pip install -q vllm",
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:

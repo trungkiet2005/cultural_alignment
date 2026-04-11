@@ -10,7 +10,9 @@ def apply_vllm_runtime_defaults() -> None:
     os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
     if os.path.isdir("/kaggle/working"):
         os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
-        os.environ.setdefault("VLLM_ENFORCE_EAGER", "1")
+        # Avoid protobuf C API mismatch (MessageFactory.GetPrototype) with TF/XLA on Kaggle images.
+        os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 
 def vllm_preflight_os_environ_lines() -> str:
@@ -23,5 +25,5 @@ os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
-os.environ.setdefault("VLLM_ENFORCE_EAGER", "1")
+os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
 """.strip()

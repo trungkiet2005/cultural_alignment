@@ -160,17 +160,21 @@ def load_model_vllm(
 
     os.environ.setdefault("VLLM_LOGGING_LEVEL", "ERROR")
 
-    eager = os.environ.get("VLLM_ENFORCE_EAGER", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
+    _eager_raw = os.environ.get("MORAL_VLLM_ENFORCE_EAGER") or os.environ.get(
+        "VLLM_ENFORCE_EAGER", "1"
+    )
+    eager = _eager_raw.strip().lower() not in ("0", "false", "no")
+    _gpu = (
+        os.environ.get("MORAL_VLLM_GPU_MEM")
+        or os.environ.get("VLLM_GPU_MEMORY_UTILIZATION")
+        or "0.90"
     )
     kw: dict = {
         "model": model_name,
         "trust_remote_code": True,
         "max_model_len": int(max_seq_length),
         "dtype": "bfloat16",
-        "gpu_memory_utilization": float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.90")),
+        "gpu_memory_utilization": float(_gpu),
         "enforce_eager": eager,
         "tensor_parallel_size": int(os.environ.get("VLLM_TP", "1")),
     }

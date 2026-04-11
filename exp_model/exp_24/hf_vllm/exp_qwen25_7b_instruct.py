@@ -17,9 +17,9 @@ Usage (Kaggle, CUDA)
 Env (optional)
 --------------
     EXP24_VLLM_PREFLIGHT=1   — subprocess preflight loads model once before the main run (slow).
-    VLLM_GPU_MEMORY_UTILIZATION=0.9
+    MORAL_VLLM_GPU_MEM=0.9   — VRAM fraction (avoid VLLM_* names; v0.19 warns on unknown VLLM_* env).
     VLLM_TP=1
-    VLLM_ENFORCE_EAGER=1
+    MORAL_VLLM_ENFORCE_EAGER=1
 """
 
 import os

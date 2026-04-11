@@ -151,12 +151,15 @@ def _load_model_vllm(
             "MORAL_MODEL_BACKEND=vllm requires the vllm package (pip install vllm)."
         ) from exc
 
-    gpu_mem = float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.92"))
-    eager = os.environ.get("VLLM_ENFORCE_EAGER", "1").strip().lower() not in (
-        "0",
-        "false",
-        "no",
+    gpu_mem = float(
+        os.environ.get("MORAL_VLLM_GPU_MEM")
+        or os.environ.get("VLLM_GPU_MEMORY_UTILIZATION")
+        or "0.92"
     )
+    _eager_raw = os.environ.get("MORAL_VLLM_ENFORCE_EAGER") or os.environ.get(
+        "VLLM_ENFORCE_EAGER", "1"
+    )
+    eager = _eager_raw.strip().lower() not in ("0", "false", "no")
     llm_kw: dict = {
         "model": hf_id,
         "max_model_len": max_seq_length,

@@ -65,6 +65,9 @@ def mirror_hf_token_aliases() -> None:
 
 def apply_hf_credentials() -> None:
     """Call after ``chdir`` to repo root (e.g. right after ``_ensure_repo()``)."""
+    if os.path.isdir("/kaggle/working"):
+        os.environ.setdefault("PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION", "python")
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
     load_dotenv_repo()
     apply_kaggle_hf_secret_if_missing()
     mirror_hf_token_aliases()
