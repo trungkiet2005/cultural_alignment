@@ -54,6 +54,7 @@ def _install_deps() -> None:
     for cmd in [
         'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
         'pip uninstall -y unsloth unsloth_zoo',
+        'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
         'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
         'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
         'pip install --upgrade --no-cache-dir "transformers==5.5.0"',

@@ -5,7 +5,7 @@ EXP-24 Dual-Pass Bootstrap IS — Llama-4-Scout-17B-16E-Instruct (TF 5.5 stack)
 
 Model  : unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit
 Profile: ref_git_tf55  (pip stack aligned with Reference_Notebook_Model where noted)
-         load_model passes trust_remote_code for Llama-4-Scout (Unsloth “No config file found” otherwise).
+         load_model passes trust_remote_code + use_exact_model_name for Llama-4-Scout (Unsloth “No config file found” otherwise).
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -55,9 +55,12 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    # Pin transformers before Unsloth so resolver/install does not briefly use 4.x/5.2 for Llama-4.
+    # Re-pin after Unsloth in case the meta-package touches versions.
     for cmd in [
         'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
         'pip uninstall -y unsloth unsloth_zoo',
+        'pip install --upgrade --no-cache-dir "transformers==5.5.0"',
         'pip install --upgrade --no-cache-dir "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"',
         'pip install --upgrade --no-cache-dir "git+https://github.com/unslothai/unsloth-zoo.git"',
         'pip install --upgrade --no-cache-dir "transformers==5.5.0"',

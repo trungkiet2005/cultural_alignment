@@ -171,21 +171,26 @@ def load_model(
             _clear_unsloth_compiled_cache()
         from unsloth import FastLanguageModel
 
-        # MoE / custom HF modeling: without trust_remote_code, Unsloth's pre-check can fail with
-        # "No config file found" (Nemotron: modeling_nemotron_h.py; Llama-4-Scout: ref_git_tf55).
-        _extra_kw: dict = {}
+        # MoE / custom HF modeling: without trust_remote_code, Unsloth's AutoConfig/PeftConfig
+        # both fail; the loader then calls get_transformers_model_type(None) and surfaces a
+        # misleading "No config file found" (see unsloth/models/loader.py before the combined error).
+        # Pass trust_remote_code / use_exact_model_name as real parameters (not only **kwargs).
         ln = model_name.lower()
-        if "nemotron" in ln or "llama-4-scout" in ln:
-            _extra_kw["trust_remote_code"] = True
-            _extra_kw["attn_implementation"] = "eager"
+        _moe_remote = "nemotron" in ln or "llama-4-scout" in ln
+        _scout_exact = "llama-4-scout" in ln
+        fm_kw: dict = {
+            "model_name": model_name,
+            "max_seq_length": max_seq_length,
+            "dtype": torch.bfloat16,
+            "load_in_4bit": load_in_4bit,
+            "trust_remote_code": _moe_remote,
+            # Avoid get_model_name remapping for Scout bnb-4bit ids (ref_git_tf55 / Kaggle).
+            "use_exact_model_name": _scout_exact,
+        }
+        if _moe_remote:
+            fm_kw["attn_implementation"] = "eager"
 
-        model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name=model_name,
-            max_seq_length=max_seq_length,
-            dtype=torch.bfloat16,
-            load_in_4bit=load_in_4bit,
-            **_extra_kw,
-        )
+        model, tokenizer = FastLanguageModel.from_pretrained(**fm_kw)
         # CodeGemma: HF tokenizer ships without `chat_template`; Unsloth notebook applies ChatML
         # via get_chat_template before inference (Reference_Notebook_Model/CodeGemma_(7B)_Conversational.ipynb).
         if "codegemma" in model_name.lower():
