@@ -8,6 +8,10 @@ Method: EXP-24 DPBR
 
 Kaggle:
     !python exp_paper/exp_paper_qwen35_08b.py
+
+vLLM (``export MORAL_MODEL_BACKEND=vllm``): if FlashInfer / Ninja reports
+``cannot find -lcuda``, set ``MORAL_VLLM_LIBCUDA_DIR`` to the folder containing
+``libcuda.so`` or ``libcuda.so.1`` (often ``/usr/lib/x86_64-linux-gnu`` on Linux).
 """
 
 import os

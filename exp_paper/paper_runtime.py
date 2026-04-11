@@ -26,8 +26,13 @@ def configure_paper_env(*, vllm_gpu_mem_default: str = "0.95") -> None:
     os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
     os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
     os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-    if paper_backend() == "vllm" and on_kaggle():
-        os.environ.setdefault("MORAL_VLLM_GPU_MEM", vllm_gpu_mem_default)
+    if paper_backend() == "vllm":
+        # FlashInfer JIT links with ``-lcuda``; set LIBRARY_PATH/LDFLAGS before vLLM import.
+        from src.vllm_env import apply_vllm_runtime_defaults
+
+        apply_vllm_runtime_defaults()
+        if on_kaggle():
+            os.environ.setdefault("MORAL_VLLM_GPU_MEM", vllm_gpu_mem_default)
 
 
 def install_paper_kaggle_deps() -> None:

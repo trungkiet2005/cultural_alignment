@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 from pathlib import Path
 
 
@@ -78,6 +79,33 @@ def _prepend_path_list(env_key: str, *dirs: str) -> None:
         os.environ[env_key] = ":".join(parts)
 
 
+def _ldconfig_libcuda_dir() -> str | None:
+    """Best-effort: parse ``ldconfig -p`` for ``libcuda.so`` (Linux driver / toolkit)."""
+    if os.name != "posix":
+        return None
+    try:
+        p = subprocess.run(
+            ["ldconfig", "-p"],
+            capture_output=True,
+            text=True,
+            timeout=8,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    out = p.stdout or ""
+    for line in out.splitlines():
+        if "libcuda.so" not in line or "=>" not in line:
+            continue
+        rhs = line.split("=>", 1)[-1].strip()
+        if not rhs:
+            continue
+        parent = str(Path(rhs).resolve().parent)
+        if os.path.isdir(parent):
+            return parent
+    return None
+
+
 def _ensure_libcuda_dir_for_linker() -> str | None:
     """Return a directory where ``ld -lcuda`` can resolve ``libcuda.so``.
 
@@ -96,10 +124,14 @@ def _ensure_libcuda_dir_for_linker() -> str | None:
         return None
 
     custom = os.environ.get("MORAL_VLLM_LIBCUDA_DIR", "").strip()
+    _ld = _ldconfig_libcuda_dir()
     candidates = (
         [custom]
         if custom
         else [
+            _ld,
+            "/usr/local/nvidia/lib64",
+            "/usr/lib/nvidia",
             "/usr/lib/x86_64-linux-gnu",
             "/usr/lib64",
             "/usr/local/cuda/lib64/stubs",
@@ -146,6 +178,12 @@ def apply_vllm_runtime_defaults() -> None:
     if libcuda_dir:
         _prepend_path_list("LIBRARY_PATH", libcuda_dir)
         _prepend_path_list("LD_LIBRARY_PATH", libcuda_dir)
+        # Ninja / nvcc sometimes invoke ``ld`` without inheriting gcc's LIBRARY_PATH semantics;
+        # ``LDFLAGS`` is picked up more reliably for ``-lcuda`` during FlashInfer JIT.
+        prev = (os.environ.get("LDFLAGS") or "").strip()
+        flag = f"-L{libcuda_dir}"
+        if flag not in prev:
+            os.environ["LDFLAGS"] = f"{flag} {prev}".strip()
         print(
             f"[vLLM env] FlashInfer link fix: prepended LIBRARY_PATH/LD_LIBRARY_PATH with {libcuda_dir!r} "
             "(see MORAL_VLLM_LIBCUDA_DIR / MORAL_VLLM_SKIP_LIBCUDA_PATH_FIX)."
