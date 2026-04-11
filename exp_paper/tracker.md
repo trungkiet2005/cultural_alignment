@@ -16,6 +16,7 @@ Artifacts:
 - `[EXP-24-QWEN25_7B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/qwen25_7b/compare`
 - `[EXP-24-QWEN35_08B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/qwen35_08b/compare`
 - `[EXP-24-MISTRAL_V03] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/mistral_v03/compare`
+- `[EXP-24-GPT_OSS_20B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/gpt_oss_20b/compare`
 
 ---
 
@@ -1372,6 +1373,106 @@ Artifacts:
 | Mistral-7B | THA | Species_Humans | 79.7 | 50.1 | **29.6** |
 | Mistral-7B | USA | Age_Young | 74.5 | 43.1 | **31.4** |
 | Mistral-7B | VNM | Age_Young | 72.7 | 50.3 | **22.4** |
+
+---
+
+#### EXP-24-GPT_OSS_20B Full Metrics
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| gpt-oss-20b-unsloth-bnb-4bit | ARG | 0.4531 | 0.0450 | +0.658 | 17.08 | 41.9% |
+| gpt-oss-20b-unsloth-bnb-4bit | BGD | 0.4772 | 0.0565 | -0.263 | 17.38 | 31.9% |
+| gpt-oss-20b-unsloth-bnb-4bit | BRA | 0.4177 | 0.0500 | -0.422 | 15.29 | 35.8% |
+| gpt-oss-20b-unsloth-bnb-4bit | CHN | 0.4553 | 0.0547 | +0.684 | 16.37 | 23.2% |
+| gpt-oss-20b-unsloth-bnb-4bit | COL | 0.4868 | 0.0467 | -0.250 | 18.44 | 31.6% |
+| gpt-oss-20b-unsloth-bnb-4bit | DEU | 0.5051 | 0.0632 | -0.110 | 18.01 | 36.8% |
+| gpt-oss-20b-unsloth-bnb-4bit | ETH | 0.6054 | 0.0668 | +0.340 | 21.78 | 39.0% |
+| gpt-oss-20b-unsloth-bnb-4bit | GBR | 0.5215 | 0.0573 | +0.055 | 19.21 | 32.9% |
+| gpt-oss-20b-unsloth-bnb-4bit | IDN | 0.4656 | 0.0515 | -0.525 | 17.24 | 40.3% |
+| gpt-oss-20b-unsloth-bnb-4bit | IRN | 0.5141 | 0.0694 | -0.573 | 17.92 | 27.7% |
+| gpt-oss-20b-unsloth-bnb-4bit | JPN | 0.4409 | 0.0538 | +0.669 | 15.92 | 43.5% |
+| gpt-oss-20b-unsloth-bnb-4bit | KGZ | 0.4863 | 0.0580 | -0.277 | 17.67 | 42.3% |
+| gpt-oss-20b-unsloth-bnb-4bit | MEX | 0.4798 | 0.0476 | -0.101 | 18.10 | 34.8% |
+| gpt-oss-20b-unsloth-bnb-4bit | MMR | 0.4717 | 0.0675 | -0.700 | 16.25 | 44.2% |
+| gpt-oss-20b-unsloth-bnb-4bit | MYS | 0.4394 | 0.0496 | +0.212 | 16.21 | 35.8% |
+| gpt-oss-20b-unsloth-bnb-4bit | ROU | 0.5078 | 0.0584 | -0.457 | 18.57 | 29.7% |
+| gpt-oss-20b-unsloth-bnb-4bit | SRB | 0.5091 | 0.0568 | -0.764 | 18.76 | 43.5% |
+| gpt-oss-20b-unsloth-bnb-4bit | THA | 0.4408 | 0.0588 | -0.419 | 15.59 | 47.7% |
+| gpt-oss-20b-unsloth-bnb-4bit | USA | 0.5075 | 0.0553 | -0.123 | 18.74 | 49.7% |
+| gpt-oss-20b-unsloth-bnb-4bit | VNM | 0.4796 | 0.0493 | +0.266 | 17.95 | 35.5% |
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-GPT_OSS_20B vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | EXP-24-GPT_OSS_20B MIS | Δ | Improv% | Win? |
+|:------|:-------:|:-----------:|:----------------------:|:-:|:-------:|:----:|
+| gpt-oss-20b-unsloth-bnb-4bit | ARG | 0.4477 | 0.4531 | -0.0054 | **-1.22%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | BGD | 0.5027 | 0.4772 | +0.0256 | **+5.09%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | BRA | 0.4439 | 0.4177 | +0.0262 | **+5.90%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | CHN | 0.4304 | 0.4553 | -0.0249 | **-5.79%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | COL | 0.4716 | 0.4868 | -0.0152 | **-3.21%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | DEU | 0.5116 | 0.5051 | +0.0065 | **+1.28%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | ETH | 0.6257 | 0.6054 | +0.0203 | **+3.25%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | GBR | 0.5019 | 0.5215 | -0.0196 | **-3.90%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | IDN | 0.4205 | 0.4656 | -0.0451 | **-10.71%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | IRN | 0.5452 | 0.5141 | +0.0311 | **+5.70%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | JPN | 0.4195 | 0.4409 | -0.0214 | **-5.09%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | KGZ | 0.5064 | 0.4863 | +0.0202 | **+3.98%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | MEX | 0.4718 | 0.4798 | -0.0079 | **-1.68%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | MMR | 0.5010 | 0.4717 | +0.0293 | **+5.85%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | MYS | 0.4664 | 0.4394 | +0.0270 | **+5.80%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | ROU | 0.5245 | 0.5078 | +0.0167 | **+3.19%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | SRB | 0.5277 | 0.5091 | +0.0186 | **+3.52%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | THA | 0.4544 | 0.4408 | +0.0136 | **+2.99%** | ✅ |
+| gpt-oss-20b-unsloth-bnb-4bit | USA | 0.4937 | 0.5075 | -0.0138 | **-2.80%** | ❌ |
+| gpt-oss-20b-unsloth-bnb-4bit | VNM | 0.6097 | 0.4796 | +0.1301 | **+21.34%** | ✅ |
+
+- **gpt-oss-20b-unsloth-bnb-4bit** Win Rate: **12/20** | Vanilla=0.4938 → EXP-24-GPT_OSS_20B=0.4832 | Macro Δ: **+2.15%**
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-GPT_OSS_20B vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | EXP-24-GPT_OSS_20B MIS | Δ | Improv% | Win? |
+|:------|:-------:|:----------:|:----------------------:|:-:|:-------:|:----:|
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-GPT_OSS_20B Leaderboard Entry
+
+| Rank | Method | Coverage | Mean MIS ↓ | Notes |
+|:---:|:-------|:--------:|-----------:|:------|
+| ? | **EXP-24-GPT_OSS_20B** | 1 models × 20 countries | **0.4832** | MIS↓ JSD=0.0558 r=-0.105 Flip=37.4% |
+
+**DPBR summary:** Mean MIS=0.4832, r=-0.105, Flip=37.4%, rel_r=0.991 · *(EXP-09 SOTA: 0.3975 | EXP-24 multi-model ref: 0.3969)*
+
+────────────────────────────────────────────────────────────────────────────────
+
+#### EXP-24-GPT_OSS_20B Per-Dimension Worst Errors
+
+| Model | Country | Worst Dim | Human | Model | Abs err (pp) |
+|:------|:-------:|:----------|:-----:|:-----:|:------------:|
+| gpt-oss-20b-unsloth-bnb-4bit | ARG | Age_Young | 75.1 | 49.9 | **25.2** |
+| gpt-oss-20b-unsloth-bnb-4bit | BGD | Species_Humans | 78.5 | 50.0 | **28.5** |
+| gpt-oss-20b-unsloth-bnb-4bit | BRA | Age_Young | 73.6 | 49.8 | **23.8** |
+| gpt-oss-20b-unsloth-bnb-4bit | CHN | Species_Humans | 83.0 | 51.1 | **31.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | COL | Utilitarianism_More | 75.8 | 49.2 | **26.6** |
+| gpt-oss-20b-unsloth-bnb-4bit | DEU | Species_Humans | 82.4 | 50.4 | **32.0** |
+| gpt-oss-20b-unsloth-bnb-4bit | ETH | Species_Humans | 93.9 | 50.0 | **43.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | GBR | Species_Humans | 79.9 | 49.4 | **30.5** |
+| gpt-oss-20b-unsloth-bnb-4bit | IDN | Species_Humans | 77.4 | 49.8 | **27.6** |
+| gpt-oss-20b-unsloth-bnb-4bit | IRN | Species_Humans | 84.0 | 50.0 | **33.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | JPN | Species_Humans | 79.8 | 50.1 | **29.7** |
+| gpt-oss-20b-unsloth-bnb-4bit | KGZ | Species_Humans | 78.7 | 49.5 | **29.3** |
+| gpt-oss-20b-unsloth-bnb-4bit | MEX | Age_Young | 75.2 | 50.3 | **24.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | MMR | Utilitarianism_More | 78.7 | 49.7 | **29.0** |
+| gpt-oss-20b-unsloth-bnb-4bit | MYS | Species_Humans | 76.6 | 49.8 | **26.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | ROU | Species_Humans | 80.1 | 49.4 | **30.8** |
+| gpt-oss-20b-unsloth-bnb-4bit | SRB | Species_Humans | 77.7 | 49.6 | **28.2** |
+| gpt-oss-20b-unsloth-bnb-4bit | THA | Species_Humans | 79.7 | 49.8 | **29.9** |
+| gpt-oss-20b-unsloth-bnb-4bit | USA | Species_Humans | 79.2 | 49.7 | **29.5** |
+| gpt-oss-20b-unsloth-bnb-4bit | VNM | Species_Humans | 77.7 | 49.8 | **27.9** |
 
 ---
 
