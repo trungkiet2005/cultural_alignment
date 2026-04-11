@@ -14,23 +14,24 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 | 1 | EXP-24-PHI_4 | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-4 | 1 model x 5 countries | **0.2462** | 0.0619 | +0.692 | 7.93 | 16.83% | Win vs vanilla: 4/5, macro +34.35% |
 | 2 | EXP-24-QWEN3_VL_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-VL-8B | 1 model x 5 countries | **0.3813** | 0.0871 | +0.446 | 11.81 | 15.15% | Win vs vanilla: 4/5, macro +23.74% |
 | 3 | EXP-24-LLAMA31_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.1-8B-Instruct-bnb-4bit | 1 model x 5 countries | 0.4550 | 0.0657 | +0.127 | 15.90 | 17.70% | Win vs vanilla: 5/5, macro +16.88% |
-| 4 | EXP-24-GEMMA4_E2B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-E2B-it | 1 model x 5 countries | **0.4260** | 0.0642 | +0.423 | 15.16 | 10.6% | Win vs vanilla: 4/5, macro +11.57%; ref_gemma4 stack (TF 5.5.0) |
-| 5 | EXP-24-PHI35_MINI | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3.5-mini-instruct | 1 model x 5 countries | 0.5447 | 0.1228 | -0.363 | 18.66 | 15.5% | Win vs vanilla: 4/5, macro +7.27%; ref_phi_llama32 (TF 4.56.2) |
-| 6 | EXP-09-MISTRAL_V03 | Hierarchical IS | mistral-7b-instruct-v0.3-bnb-4bit | 1 model x 5 countries | **0.4284** | 0.0958 | -0.686 | 15.55 | 16.9% | Win vs vanilla: 5/5, macro +5.87%; PyPI Unsloth |
-| 7 | EXP-24-QWEN35_08B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-0.8B | 1 model x 5 countries | 0.4708 | 0.0485 | -0.504 | 16.93 | 6.50% | Win vs vanilla: 4/5, macro +3.22% |
-| 8 | EXP-24-GEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-7b-it-bnb-4bit | 1 model x 5 countries | 0.4315 | 0.0575 | -0.477 | 14.76 | 11.22% | Win vs vanilla: 3/5, macro +2.46% |
-| 9 | EXP-24-GEMMA3_270M | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-3-270m-it | 1 model x 5 countries | 0.4620 | 0.0549 | +0.332 | 16.75 | 7.90% | Win vs vanilla: 4/5, macro +1.32% |
-| 10 | EXP-24-LLAMA32_1B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.2-1B | 1 model x 5 countries | 0.4761 | 0.0586 | -0.558 | 17.16 | 0.76% | Win vs vanilla: 1/5, macro +1.14% |
-| 11 | EXP-09-LLAMA32_1B | Hierarchical IS | Llama-3.2-1B | 1 model x 5 countries | 0.4762 | 0.0586 | -0.570 | 17.17 | 0.84% | Win vs vanilla: 1/5, macro +1.11% |
-| 12 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
-| 13 | EXP-24-PHI3_MEDIUM | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3-medium-4k-instruct | 1 model x 5 countries | 0.3989 | 0.0641 | +0.330 | 13.95 | 17.1% | Win vs vanilla: 1/5, macro -1.21%; ref_phi_llama32 (TF 4.56.2) |
-| 14 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
-| 15 | EXP-24-QWEN2_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2-7B | 1 model x 5 countries | 0.3946 | 0.0523 | +0.194 | 13.60 | 16.03% | Win vs vanilla: 2/5, macro -3.53% |
-| 16 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
-| 17 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
-| 18 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
-| 19 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
-| 20 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
+| 4 | EXP-24-MAGISTRAL_SMALL_2509 | Dual-Pass Bootstrap IS Reliability (DPBR) | Magistral-Small-2509-unsloth-bnb-4bit | 1 model x 5 countries | **0.3167** | 0.0502 | +0.697 | 10.96 | 19.5% | Win vs vanilla: 4/5, macro +13.56%; pypi TF 5.2.0 (Ref notebook new) |
+| 5 | EXP-24-GEMMA4_E2B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-E2B-it | 1 model x 5 countries | **0.4260** | 0.0642 | +0.423 | 15.16 | 10.6% | Win vs vanilla: 4/5, macro +11.57%; ref_gemma4 stack (TF 5.5.0) |
+| 6 | EXP-24-PHI35_MINI | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3.5-mini-instruct | 1 model x 5 countries | 0.5447 | 0.1228 | -0.363 | 18.66 | 15.5% | Win vs vanilla: 4/5, macro +7.27%; ref_phi_llama32 (TF 4.56.2) |
+| 7 | EXP-09-MISTRAL_V03 | Hierarchical IS | mistral-7b-instruct-v0.3-bnb-4bit | 1 model x 5 countries | **0.4284** | 0.0958 | -0.686 | 15.55 | 16.9% | Win vs vanilla: 5/5, macro +5.87%; PyPI Unsloth |
+| 8 | EXP-24-QWEN35_08B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-0.8B | 1 model x 5 countries | 0.4708 | 0.0485 | -0.504 | 16.93 | 6.50% | Win vs vanilla: 4/5, macro +3.22% |
+| 9 | EXP-24-GEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-7b-it-bnb-4bit | 1 model x 5 countries | 0.4315 | 0.0575 | -0.477 | 14.76 | 11.22% | Win vs vanilla: 3/5, macro +2.46% |
+| 10 | EXP-24-GEMMA3_270M | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-3-270m-it | 1 model x 5 countries | 0.4620 | 0.0549 | +0.332 | 16.75 | 7.90% | Win vs vanilla: 4/5, macro +1.32% |
+| 11 | EXP-24-LLAMA32_1B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.2-1B | 1 model x 5 countries | 0.4761 | 0.0586 | -0.558 | 17.16 | 0.76% | Win vs vanilla: 1/5, macro +1.14% |
+| 12 | EXP-09-LLAMA32_1B | Hierarchical IS | Llama-3.2-1B | 1 model x 5 countries | 0.4762 | 0.0586 | -0.570 | 17.17 | 0.84% | Win vs vanilla: 1/5, macro +1.11% |
+| 13 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
+| 14 | EXP-24-PHI3_MEDIUM | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3-medium-4k-instruct | 1 model x 5 countries | 0.3989 | 0.0641 | +0.330 | 13.95 | 17.1% | Win vs vanilla: 1/5, macro -1.21%; ref_phi_llama32 (TF 4.56.2) |
+| 15 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
+| 16 | EXP-24-QWEN2_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2-7B | 1 model x 5 countries | 0.3946 | 0.0523 | +0.194 | 13.60 | 16.03% | Win vs vanilla: 2/5, macro -3.53% |
+| 17 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
+| 18 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
+| 19 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
+| 20 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
+| 21 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
 
 ---
 
@@ -641,6 +642,64 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 - DPBR improves over vanilla in **all five** countries; largest gains in **CHN** and **USA** (vanilla MIS was very high there).
 - Aggregate from run: DPBR mean MIS **0.4550**, mean JSD **0.0657**, mean Pearson **+0.127**, mean flip **17.7%**, mean `rel_r` **0.976** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
 - Worst dimensions are **Age_Young** (USA, BRA) or **SocialValue_High** (CHN) or **Species_Humans** (DEU, JPN).
+
+---
+
+## Run: EXP-24-MAGISTRAL_SMALL_2509
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/exp_magistral_small_2509.py`
+- Model: `unsloth/Magistral-Small-2509-unsloth-bnb-4bit` (`MODEL_SHORT`: `magistral_small_2509`)
+- Profile: **pypi** — `bitsandbytes`, `scipy`, `tqdm`, `sentencepiece`, `protobuf`; `pip install --upgrade --no-deps unsloth`, `unsloth_zoo`, `datasets` 3.4.x–4.4.x; align with `Reference_Notebook_Model/new/unsloth-magistral-small-2509-unsloth-bnb-4bit.ipynb`.
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/magistral_small_2509/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Mistral patching”); Transformers **5.2.0**; Torch **2.9.0+cu126**; bfloat16; ~**15.07 GB** VRAM; decision token ids **A=1065, B=1066**. Pip may warn optional **xformers** / `bigframes` / `google-adk` vs `google-cloud-bigquery-storage` (non-fatal). Log: `FA [Xformers = None. FA2 = False]`.
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Magistral-Small-2509-unsloth-bnb-4bit | BRA | 0.3203 | 0.0529 | +0.441 | 10.76 | 18.1% |
+| Magistral-Small-2509-unsloth-bnb-4bit | CHN | 0.2944 | 0.0512 | +0.757 | 9.86 | 23.5% |
+| Magistral-Small-2509-unsloth-bnb-4bit | DEU | 0.3096 | 0.0392 | +0.799 | 10.89 | 19.0% |
+| Magistral-Small-2509-unsloth-bnb-4bit | JPN | 0.2864 | 0.0639 | +0.709 | 9.28 | 18.4% |
+| Magistral-Small-2509-unsloth-bnb-4bit | USA | 0.3728 | 0.0436 | +0.777 | 14.00 | 18.4% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| Magistral-Small-2509-unsloth-bnb-4bit | BRA | 0.4115 | 0.3203 | +0.0912 | +22.16% | ✅ |
+| Magistral-Small-2509-unsloth-bnb-4bit | CHN | 0.3673 | 0.2944 | +0.0729 | +19.86% | ✅ |
+| Magistral-Small-2509-unsloth-bnb-4bit | DEU | 0.2645 | 0.3096 | -0.0451 | -17.07% | ❌ |
+| Magistral-Small-2509-unsloth-bnb-4bit | JPN | 0.3406 | 0.2864 | +0.0542 | +15.92% | ✅ |
+| Magistral-Small-2509-unsloth-bnb-4bit | USA | 0.4480 | 0.3728 | +0.0753 | +16.80% | ✅ |
+
+- Win rate: **4/5**
+- Mean vanilla MIS: **0.3664**
+- Mean DPBR MIS: **0.3167**
+- Macro improvement: **+13.56%**
+- Mean per-row improvement (micro): **+11.53%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+- Not reported in this run (`try_load_reference_comparison` returned no matching slice).
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Magistral-Small-2509-unsloth-bnb-4bit | BRA | Age_Young | 73.6 | 52.3 | 21.2 |
+| Magistral-Small-2509-unsloth-bnb-4bit | CHN | SocialValue_High | 66.7 | 45.8 | 21.0 |
+| Magistral-Small-2509-unsloth-bnb-4bit | DEU | Species_Humans | 82.4 | 63.0 | 19.5 |
+| Magistral-Small-2509-unsloth-bnb-4bit | JPN | SocialValue_High | 65.9 | 41.4 | 24.5 |
+| Magistral-Small-2509-unsloth-bnb-4bit | USA | SocialValue_High | 67.9 | 46.0 | 21.9 |
+
+### Notes
+
+- **DPBR vs vanilla**: wins **USA, CHN, JPN, BRA**; only **DEU** regresses (vanilla MIS was already strong at **0.2645**).
+- Aggregate: DPBR mean MIS **0.3167**, mean JSD **0.0502**, mean Pearson **+0.697**, mean flip **19.5%**, mean `rel_r` **0.960** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Worst dimensions: **SocialValue_High** (**USA**, **CHN**, **JPN**), **Age_Young** (**BRA**), **Species_Humans** (**DEU**).
 
 ---
 
