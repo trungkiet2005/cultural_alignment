@@ -480,6 +480,51 @@ def encode_text_to_tensor(
     return torch.tensor([ids], dtype=torch.long, device=device)
 
 
+def _coerce_chat_template_ids(raw) -> list:
+    """Convert apply_chat_template(tokenize=…) output to a Python list of int ids."""
+    if isinstance(raw, torch.Tensor):
+        raw = raw.detach().cpu().flatten().tolist()
+    if isinstance(raw, np.ndarray):
+        raw = raw.astype(np.int64).flatten().tolist()
+    if isinstance(raw, (list, tuple)):
+        return [int(x) for x in raw]
+    raise TypeError(f"expected token id sequence, got {type(raw)!r}")
+
+
+def _is_chat_template_id_sequence(raw) -> bool:
+    """True when chat-template output is already token ids (some Unsloth builds)."""
+    if isinstance(raw, torch.Tensor) and raw.numel() > 0:
+        return not raw.dtype.is_floating_point
+    if isinstance(raw, np.ndarray) and raw.size > 0:
+        return bool(np.issubdtype(raw.dtype, np.integer))
+    if isinstance(raw, (list, tuple)) and len(raw) > 0:
+        try:
+            int(raw[0])
+        except (TypeError, ValueError):
+            return False
+        return True
+    return False
+
+
+def _lcp_token_ids(a: list, b: list) -> list:
+    """Longest common prefix of two equal-length token lists (used for chat splits)."""
+    n = min(len(a), len(b))
+    i = 0
+    while i < n and a[i] == b[i]:
+        i += 1
+    return a[:i]
+
+
+def _find_subseq(haystack: list, needle: list) -> int:
+    if not needle:
+        return 0
+    last = len(haystack) - len(needle) + 1
+    for i in range(max(last, 0)):
+        if haystack[i : i + len(needle)] == needle:
+            return i
+    return -1
+
+
 # ── chat-template helper ────────────────────────────────────────────────────
 
 
@@ -498,6 +543,19 @@ class ChatTemplateHelper:
         # Some chat templates (e.g. Gemma) don't accept a "system" role.
         # Detect once and fold the system prompt into the first user turn.
         self.supports_system = self._probe_system_role()
+        # Unsloth / certain tokenizers return token-id lists even when tokenize=False.
+        self.chat_template_returns_ids = self._probe_chat_template_returns_ids()
+
+    def _probe_chat_template_returns_ids(self) -> bool:
+        ct = self._chat_template_target()
+        try:
+            msgs = self._messages("probe_sys", "probe_user")
+            r = self._apply_chat_template(
+                ct, msgs, tokenize=False, add_generation_prompt=False
+            )
+        except Exception:
+            return False
+        return _is_chat_template_id_sequence(r)
 
     def _chat_template_target(self):
         """Prefer Processor/outer tokenizer; fall back to inner text tokenizer (Gemma 3N)."""
@@ -624,24 +682,92 @@ class ChatTemplateHelper:
         full = self._apply_chat_template(
             ct, messages, tokenize=False, add_generation_prompt=False
         )
-        # Find where the empty user content sits and keep everything before it
-        # (including the user-role header). We strip the trailing empty content.
-        # Different templates render "" differently, so we tokenise the full
-        # thing and also a version with a sentinel to locate the split point.
         sentinel = "___SPLIT___"
         messages_s = self._messages(system_prompt, sentinel)
         full_s = self._apply_chat_template(
             ct, messages_s, tokenize=False, add_generation_prompt=False
         )
+
+        if _is_chat_template_id_sequence(full) and _is_chat_template_id_sequence(full_s):
+            prefix_ids = _lcp_token_ids(
+                _coerce_chat_template_ids(full),
+                _coerce_chat_template_ids(full_s),
+            )
+            return torch.tensor([prefix_ids], dtype=torch.long, device=device)
+
+        if not isinstance(full, str) or not isinstance(full_s, str):
+            tt = text_tokenizer(ct)
+            full = (
+                full
+                if isinstance(full, str)
+                else tt.decode(_coerce_chat_template_ids(full), skip_special_tokens=False)
+            )
+            full_s = (
+                full_s
+                if isinstance(full_s, str)
+                else tt.decode(
+                    _coerce_chat_template_ids(full_s), skip_special_tokens=False
+                )
+            )
+
         idx = full_s.find(sentinel)
         if idx == -1:
-            # Fallback: just use system-only
             prefix_text = full
         else:
-            prefix_text = full_s[:idx]
+            prefix_text = full[:idx]
 
         return encode_text_to_tensor(
             self.tokenizer, prefix_text, device, add_special_tokens=False
+        )
+
+    def query_suffix_ids(self, user_content: str, *, add_generation_prompt: bool) -> list:
+        """User-turn + optional generation prompt as token ids (ids-mode templates)."""
+        ct = self._chat_template_target()
+        tt = text_tokenizer(self.tokenizer)
+        sentinel = "___SPLIT___"
+        messages_before = self._messages("S", sentinel)
+        templated = self._apply_chat_template(
+            ct,
+            messages_before,
+            tokenize=True,
+            add_generation_prompt=add_generation_prompt,
+        )
+        if isinstance(templated, str):
+            idx = templated.find(sentinel)
+            if idx < 0:
+                return tt.encode(user_content, add_special_tokens=False)
+            suffix = templated[idx:].replace(sentinel, user_content)
+            return tt.encode(suffix, add_special_tokens=False)
+        ids = _coerce_chat_template_ids(templated)
+        sent_ids = tt.encode(sentinel, add_special_tokens=False)
+        i = _find_subseq(ids, sent_ids)
+        if i < 0:
+            return tt.encode(user_content, add_special_tokens=False)
+        user_ids = tt.encode(user_content, add_special_tokens=False)
+        # Match string path: suffix from sentinel onward → user_content + tail after sentinel.
+        tail = ids[i + len(sent_ids) :]
+        return user_ids + tail
+
+    def query_suffix_to_tensor(self, user_content: str, device) -> torch.Tensor:
+        ids = self.query_suffix_ids(user_content, add_generation_prompt=True)
+        return torch.tensor([ids], dtype=torch.long, device=device)
+
+    def decode_query_suffix_str_for_ab_probe(self, user_content: str) -> str:
+        """Decoded suffix string for appending 'A'/'B' (BPE boundary logic)."""
+        tt = text_tokenizer(self.tokenizer)
+        if self.chat_template_returns_ids:
+            ids = self.query_suffix_ids(user_content, add_generation_prompt=True)
+            return tt.decode(ids, skip_special_tokens=False)
+        return self.format_query_with_suffix(user_content)
+
+    def encode_query_suffix(self, user_content: str, device) -> torch.Tensor:
+        if self.chat_template_returns_ids:
+            return self.query_suffix_to_tensor(user_content, device)
+        return encode_text_to_tensor(
+            self.tokenizer,
+            self.format_query_with_suffix(user_content),
+            device,
+            add_special_tokens=False,
         )
 
     def format_query_with_suffix(self, user_content: str) -> str:
@@ -651,6 +777,12 @@ class ChatTemplateHelper:
         plus the assistant header (generation prompt).
         """
         sentinel = "___SPLIT___"
+        if self.chat_template_returns_ids:
+            tt = text_tokenizer(self.tokenizer)
+            return tt.decode(
+                self.query_suffix_ids(user_content, add_generation_prompt=True),
+                skip_special_tokens=False,
+            )
         messages_before = self._messages("S", sentinel)
         full_before = self._apply_chat_template(
             self._chat_template_target(),
@@ -658,6 +790,11 @@ class ChatTemplateHelper:
             tokenize=False,
             add_generation_prompt=True,
         )
+        if _is_chat_template_id_sequence(full_before):
+            tt = text_tokenizer(self.tokenizer)
+            full_before = tt.decode(
+                _coerce_chat_template_ids(full_before), skip_special_tokens=False
+            )
         # Everything from the sentinel onward (including gen prompt) is the
         # "query suffix template".  We replace sentinel with actual content.
         idx = full_before.find(sentinel)

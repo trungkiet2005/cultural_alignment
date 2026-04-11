@@ -32,7 +32,7 @@ from src.i18n import (
     PROMPT_FRAME_I18N,
     SCENARIO_FRAME_I18N,
 )
-from src.model import ChatTemplateHelper, encode_text_to_tensor, gather_last_logits, text_tokenizer
+from src.model import ChatTemplateHelper, gather_last_logits, text_tokenizer
 
 
 # ============================================================================
@@ -141,7 +141,7 @@ class ImplicitSWAController:
         frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
         # Dummy scenario — the answer suffix is what matters, not the content.
         user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
-        formatted = self.chat_helper.format_query_with_suffix(user_content)
+        formatted = self.chat_helper.decode_query_suffix_str_for_ab_probe(user_content)
 
         tt = text_tokenizer(self.tokenizer)
         base_ids = tt.encode(formatted, add_special_tokens=False)
@@ -424,10 +424,7 @@ class ImplicitSWAController:
         )
         frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
         user_content = frame.format(scenario=user_query)
-        formatted = self.chat_helper.format_query_with_suffix(user_content)
-        query_ids = encode_text_to_tensor(
-            self.tokenizer, formatted, self.device, add_special_tokens=False
-        )
+        query_ids = self.chat_helper.encode_query_suffix(user_content, self.device)
 
         z_base, z_agents = self._evaluate_all_agents(
             query_ids, lang, logit_temp=logit_temp)

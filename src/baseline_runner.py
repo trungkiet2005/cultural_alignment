@@ -12,7 +12,6 @@ from src.constants import COUNTRY_LANG
 from src.i18n import BASE_ASSISTANT_I18N, PROMPT_FRAME_I18N
 from src.model import (
     ChatTemplateHelper,
-    encode_text_to_tensor,
     gather_last_logits,
     gather_last_logits_one_row,
     text_tokenizer,
@@ -33,7 +32,7 @@ def resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang):
     """
     frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
     user_content = frame.format(scenario="DUMMY_SCENARIO_FOR_TOKEN_RESOLUTION")
-    formatted = chat_helper.format_query_with_suffix(user_content)
+    formatted = chat_helper.decode_query_suffix_str_for_ab_probe(user_content)
 
     tt = text_tokenizer(tokenizer)
     base_ids = tt.encode(formatted, add_special_tokens=False)
@@ -111,10 +110,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         if not prompt:
             continue
         user_content = frame.format(scenario=prompt)
-        formatted = chat_helper.format_query_with_suffix(user_content)
-        query_ids = encode_text_to_tensor(
-            tokenizer, formatted, device, add_special_tokens=False
-        )
+        query_ids = chat_helper.encode_query_suffix(user_content, device)
         full_ids = torch.cat([base_ids, query_ids], dim=1)
         rows_data.append((row, full_ids, bool(row.get("preferred_on_right", 1))))
 
