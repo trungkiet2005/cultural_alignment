@@ -19,6 +19,270 @@
 | 8 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
 | 9 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
 | 10 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
+| 11 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
+| 12 | EXP-24-LLAMA31_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.1-8B-Instruct-bnb-4bit | 1 model x 5 countries | 0.4550 | 0.0657 | +0.127 | 15.90 | 17.70% | Win vs vanilla: 5/5, macro +16.88% |
+| 13 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
+| 14 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
+
+---
+
+## Run: EXP-09-QWEN3_4B_THINKING_2507
+
+- Date: 2026-04-11
+- Script: `exp_model/exp9/exp_qwen3_4b_thinking_2507.py`
+- Model: `unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit`
+- Method: Hierarchical IS with Country-Level Prior (EXP-09)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp09_model_sweep/qwen3_4b_thinking_2507/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (PyPI); Transformers **5.2.0**; bfloat16; ~**3.58 GB** VRAM; synthetic pad `<|PAD_TOKEN|>`; vanilla prompts expose **thinking** slots (`<redacted_thinking>` in logs); pip may warn optional **xformers** / BigQuery deps.
+
+### Full Metrics (Hierarchical IS)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | BRA | 0.4161 | 0.0482 | +0.100 | 15.32 | 16.1% |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | CHN | 0.4712 | 0.0590 | -0.091 | 16.83 | 26.8% |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | DEU | 0.5028 | 0.0623 | +0.342 | 17.96 | 26.1% |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | JPN | 0.4423 | 0.0548 | +0.126 | 15.92 | 10.0% |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | USA | 0.5107 | 0.0549 | +0.182 | 18.91 | 9.7% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | Hierarchical IS MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|--------------------:|----------------:|--------:|:----:|
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | BRA | 0.4168 | 0.4161 | +0.0007 | +0.17% | ✅ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | CHN | 0.4705 | 0.4712 | -0.0008 | -0.16% | ❌ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | DEU | 0.5138 | 0.5028 | +0.0110 | +2.13% | ✅ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | JPN | 0.4454 | 0.4423 | +0.0031 | +0.70% | ✅ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | USA | 0.5093 | 0.5107 | -0.0015 | -0.29% | ❌ |
+
+- Win rate: **3/5**
+- Mean vanilla MIS: **0.4712**
+- Mean Hierarchical IS MIS: **0.4686**
+- Macro improvement: **+0.53%**
+- Mean per-row improvement (micro): **+0.51%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | Hierarchical IS MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|--------------------:|----------------:|--------:|:----:|
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | BRA | 0.4025 | 0.4161 | -0.0136 | -3.39% | ❌ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | CHN | 0.4078 | 0.4712 | -0.0634 | -15.55% | ❌ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | DEU | 0.3424 | 0.5028 | -0.1604 | -46.85% | ❌ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | JPN | 0.2802 | 0.4423 | -0.1621 | -57.84% | ❌ |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | USA | 0.3677 | 0.5107 | -0.1430 | -38.89% | ❌ |
+
+- Win rate vs EXP-01: **0/5**
+- Mean EXP-01 MIS: **0.3601**
+- Mean Hierarchical IS MIS: **0.4686**
+- Macro improvement vs EXP-01: **-30.13%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | BRA | Utilitarianism_More | 73.7 | 49.8 | 23.9 |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | CHN | Species_Humans | 83.0 | 49.8 | 33.1 |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | DEU | Species_Humans | 82.4 | 50.1 | 32.4 |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | JPN | Species_Humans | 79.8 | 49.8 | 30.0 |
+| Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | USA | Species_Humans | 79.2 | 49.9 | 29.3 |
+
+### Notes
+
+- Net **small gain** vs vanilla on average (**+0.53%** macro): wins **BRA, DEU, JPN**; tiny regressions **CHN, USA**.
+- Underperforms **EXP-01** on all five countries (0/5).
+- **Species_Humans** is worst dim in 4/5 countries; **BRA** worst is **Utilitarianism_More**.
+- High flip in **CHN/DEU** (~27%) vs **USA/JPN** (~10%); aggregate from report: mean JSD **0.0559**, mean Pearson **+0.132**, mean flip **17.7%**.
+
+---
+
+## Run: EXP-09-QWEN3_14B
+
+- Date: 2026-04-11
+- Script: `exp_model/exp9/exp_qwen3_14b.py`
+- Model: `unsloth/Qwen3-14B-unsloth-bnb-4bit`
+- Method: Hierarchical IS with Country-Level Prior (EXP-09)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp09_model_sweep/qwen3_14b/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (PyPI); Transformers **5.2.0**; bfloat16; ~**11.19 GB** VRAM; model uses synthetic pad token `<|PAD_TOKEN|>` when none is set; pip may warn optional **xformers** / unrelated BigQuery deps.
+
+### Full Metrics (Hierarchical IS)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen3-14B-unsloth-bnb-4bit | BRA | 0.4129 | 0.0489 | -0.117 | 15.14 | 13.9% |
+| Qwen3-14B-unsloth-bnb-4bit | CHN | 0.4681 | 0.0596 | -0.239 | 16.64 | 0.6% |
+| Qwen3-14B-unsloth-bnb-4bit | DEU | 0.5001 | 0.0632 | -0.153 | 17.77 | 13.2% |
+| Qwen3-14B-unsloth-bnb-4bit | JPN | 0.4390 | 0.0559 | -0.603 | 15.70 | 11.9% |
+| Qwen3-14B-unsloth-bnb-4bit | USA | 0.5031 | 0.0542 | +0.447 | 18.61 | 16.5% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | Hierarchical IS MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|--------------------:|----------------:|--------:|:----:|
+| Qwen3-14B-unsloth-bnb-4bit | BRA | 0.4135 | 0.4129 | +0.0006 | +0.15% | ✅ |
+| Qwen3-14B-unsloth-bnb-4bit | CHN | 0.4267 | 0.4681 | -0.0414 | -9.70% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | DEU | 0.5040 | 0.5001 | +0.0040 | +0.79% | ✅ |
+| Qwen3-14B-unsloth-bnb-4bit | JPN | 0.3720 | 0.4390 | -0.0670 | -18.00% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | USA | 0.5093 | 0.5031 | +0.0062 | +1.21% | ✅ |
+
+- Win rate: **3/5**
+- Mean vanilla MIS: **0.4451**
+- Mean Hierarchical IS MIS: **0.4646**
+- Macro improvement: **-4.39%**
+- Mean per-row improvement (micro): **-5.11%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | Hierarchical IS MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|--------------------:|----------------:|--------:|:----:|
+| Qwen3-14B-unsloth-bnb-4bit | BRA | 0.4025 | 0.4129 | -0.0104 | -2.58% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | CHN | 0.4078 | 0.4681 | -0.0603 | -14.78% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | DEU | 0.3424 | 0.5001 | -0.1577 | -46.05% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | JPN | 0.2802 | 0.4390 | -0.1588 | -56.68% | ❌ |
+| Qwen3-14B-unsloth-bnb-4bit | USA | 0.3677 | 0.5031 | -0.1354 | -36.83% | ❌ |
+
+- Win rate vs EXP-01: **0/5**
+- Mean EXP-01 MIS: **0.3601**
+- Mean Hierarchical IS MIS: **0.4646**
+- Macro improvement vs EXP-01: **-29.02%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Qwen3-14B-unsloth-bnb-4bit | BRA | Age_Young | 73.6 | 49.8 | 23.8 |
+| Qwen3-14B-unsloth-bnb-4bit | CHN | Species_Humans | 83.0 | 49.7 | 33.3 |
+| Qwen3-14B-unsloth-bnb-4bit | DEU | Species_Humans | 82.4 | 49.7 | 32.7 |
+| Qwen3-14B-unsloth-bnb-4bit | JPN | Species_Humans | 79.8 | 49.8 | 30.0 |
+| Qwen3-14B-unsloth-bnb-4bit | USA | Species_Humans | 79.2 | 50.0 | 29.2 |
+
+### Notes
+
+- Hierarchical IS is slightly worse than vanilla on average (**-4.39%** macro): clear regressions in **CHN** and **JPN**; small wins in **USA**, **DEU**, **BRA**.
+- Underperforms **EXP-01** everywhere in this run (0/5).
+- **Species_Humans** dominates worst-error in 4/5 countries (BRA is **Age_Young**).
+- Aggregate from log summary: mean JSD **0.0563**, mean Pearson **−0.133**, mean flip **11.2%**.
+
+---
+
+## Run: EXP-24-LLAMA31_8B
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/exp_llama31_8b.py`
+- Model: `unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit`
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/llama31_8b/compare`
+- Environment (Kaggle): 2× Tesla T4; Unsloth **2026.4.4** (PyPI `pip install --upgrade --no-deps unsloth`); Transformers **5.2.0**; float16 path (no bfloat16 on T4); ~**5.75 GB** VRAM; pip may warn missing optional `xformers` / unrelated `google-cloud-bigquery-storage` conflicts.
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Meta-Llama-3.1-8B-Instruct (4-bit) | BRA | 0.4010 | 0.0546 | +0.009 | 14.30 | 18.1% |
+| Meta-Llama-3.1-8B-Instruct (4-bit) | CHN | 0.4490 | 0.0836 | +0.181 | 14.51 | 17.1% |
+| Meta-Llama-3.1-8B-Instruct (4-bit) | DEU | 0.4741 | 0.0573 | +0.474 | 17.01 | 17.4% |
+| Meta-Llama-3.1-8B-Instruct (4-bit) | JPN | 0.4321 | 0.0627 | -0.164 | 14.97 | 17.7% |
+| Meta-Llama-3.1-8B-Instruct (4-bit) | USA | 0.5185 | 0.0707 | +0.132 | 18.71 | 18.4% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| Meta-Llama-3.1-8B | BRA | 0.4343 | 0.4010 | +0.0333 | +7.66% | ✅ |
+| Meta-Llama-3.1-8B | CHN | 0.6702 | 0.4490 | +0.2212 | +33.00% | ✅ |
+| Meta-Llama-3.1-8B | DEU | 0.4945 | 0.4741 | +0.0203 | +4.11% | ✅ |
+| Meta-Llama-3.1-8B | JPN | 0.4540 | 0.4321 | +0.0219 | +4.83% | ✅ |
+| Meta-Llama-3.1-8B | USA | 0.6837 | 0.5185 | +0.1652 | +24.16% | ✅ |
+
+- Win rate: **5/5**
+- Mean vanilla MIS: **0.5473**
+- Mean DPBR MIS: **0.4550**
+- Macro improvement: **+16.88%**
+- Mean per-row improvement (micro): **+14.75%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Meta-Llama-3.1-8B | BRA | Age_Young | 73.6 | 46.4 | 27.2 |
+| Meta-Llama-3.1-8B | CHN | SocialValue_High | 66.7 | 36.1 | 30.6 |
+| Meta-Llama-3.1-8B | DEU | Species_Humans | 82.4 | 53.8 | 28.6 |
+| Meta-Llama-3.1-8B | JPN | Species_Humans | 79.8 | 51.0 | 28.8 |
+| Meta-Llama-3.1-8B | USA | Age_Young | 74.5 | 43.1 | 31.5 |
+
+### Notes
+
+- DPBR improves over vanilla in **all five** countries; largest gains in **CHN** and **USA** (vanilla MIS was very high there).
+- Aggregate from run: DPBR mean MIS **0.4550**, mean JSD **0.0657**, mean Pearson **+0.127**, mean flip **17.7%**, mean `rel_r` **0.976** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Worst dimensions are **Age_Young** (USA, BRA) or **SocialValue_High** (CHN) or **Species_Humans** (DEU, JPN).
+
+---
+
+## Run: EXP-24-QWEN35_2B
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/exp_qwen35_2b.py`
+- Model: `unsloth/Qwen3.5-2B`
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/qwen35_2b/compare`
+- Environment (Kaggle): 2× Tesla T4; Unsloth 2026.4.4 (git); `transformers==5.2.0`, `trl==0.22.2`, `datasets` 4.3.x; model load uses float32 on this GPU path (Unsloth warning: float16 unsuitable for qwen3_5 on T4).
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen3.5-2B | BRA | 0.4245 | 0.0502 | -0.131 | 15.60 | 17.1% |
+| Qwen3.5-2B | CHN | 0.4411 | 0.0662 | -0.165 | 14.90 | 17.1% |
+| Qwen3.5-2B | DEU | 0.4780 | 0.0634 | -0.050 | 16.71 | 19.4% |
+| Qwen3.5-2B | JPN | 0.4364 | 0.0563 | -0.001 | 15.59 | 6.8% |
+| Qwen3.5-2B | USA | 0.4855 | 0.0544 | +0.182 | 17.83 | 11.0% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| Qwen3.5-2B | BRA | 0.4155 | 0.4245 | -0.0089 | -2.15% | ❌ |
+| Qwen3.5-2B | CHN | 0.4405 | 0.4411 | -0.0006 | -0.13% | ❌ |
+| Qwen3.5-2B | DEU | 0.4404 | 0.4780 | -0.0376 | -8.54% | ❌ |
+| Qwen3.5-2B | JPN | 0.4530 | 0.4364 | +0.0166 | +3.65% | ✅ |
+| Qwen3.5-2B | USA | 0.4442 | 0.4855 | -0.0413 | -9.29% | ❌ |
+
+- Win rate: **1/5**
+- Mean vanilla MIS: **0.4387**
+- Mean method MIS: **0.4531**
+- Macro improvement: **-3.27%**
+- Mean per-row improvement (micro): **-3.29%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|---------:|----------------:|--------:|:----:|
+| Qwen3.5-2B | BRA | 0.4025 | 0.4245 | -0.0220 | -5.46% | ❌ |
+| Qwen3.5-2B | CHN | 0.4078 | 0.4411 | -0.0333 | -8.16% | ❌ |
+| Qwen3.5-2B | DEU | 0.3424 | 0.4780 | -0.1356 | -39.60% | ❌ |
+| Qwen3.5-2B | JPN | 0.2802 | 0.4364 | -0.1562 | -55.75% | ❌ |
+| Qwen3.5-2B | USA | 0.3677 | 0.4855 | -0.1178 | -32.04% | ❌ |
+
+- Win rate vs EXP-01: **0/5**
+- Mean EXP-01 MIS: **0.3601**
+- Mean method MIS: **0.4531**
+- Macro improvement vs EXP-01: **-25.82%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Qwen3.5-2B | BRA | Age_Young | 73.6 | 49.8 | 23.8 |
+| Qwen3.5-2B | CHN | Species_Humans | 83.0 | 51.2 | 31.8 |
+| Qwen3.5-2B | DEU | Species_Humans | 82.4 | 50.2 | 32.3 |
+| Qwen3.5-2B | JPN | Species_Humans | 79.8 | 51.4 | 28.4 |
+| Qwen3.5-2B | USA | Species_Humans | 79.2 | 52.1 | 27.1 |
+
+### Notes
+
+- DPBR underperforms vanilla in 4/5 countries, with only JPN improving.
+- DPBR underperforms EXP-01 across all countries in this run (0/5 vs EXP-01).
+- Species_Humans is the worst dimension in 4/5 countries (BRA worst is Age_Young).
+- Aggregate line from run: DPBR mean MIS **0.4531**, mean JSD **0.0581**, mean Pearson **−0.033**, mean flip **14.3%**, mean `rel_r` **0.992** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
 
 ---
 
