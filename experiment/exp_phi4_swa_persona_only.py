@@ -21,14 +21,15 @@ Kaggle::
 
     !python experiment/exp_phi4_swa_persona_only.py
 
-Nếu vẫn lỗi Mistral3/tekken tokenizer, **Restart session** rồi chạy cell pip (script cũng tự cài,
-nhưng kernel cũ có thể đã ``import transformers`` bản 4.x)::
+Nếu vẫn lỗi Mistral3/tekken hoặc scipy/numpy, **Restart session** rồi chạy **hai** lệnh (transformers
+kéo ``numpy 2.4`` sẽ làm **scipy** trên Kaggle gãy — script dùng ``--no-deps`` + ghim ``numpy<2.3``)::
 
-    !python -m pip install -U --force-reinstall "transformers>=5.5.0,<6.0"
+    !python -m pip install -U --force-reinstall --no-cache-dir "transformers==5.5.0" --no-deps
+    !python -m pip install --no-cache-dir "numpy>=2.0.2,<2.3" "fsspec>=2023.5.0,<=2025.9.0" "huggingface-hub>=1.5.0,<2" "tokenizers>=0.22.0,<=0.23.0" safetensors "regex>=2024.0" tqdm pyyaml packaging filelock typer typing-extensions
 
-Kiểm tra phiên bản (cần ``>=5.5``)::
+Kiểm tra phiên bản (cần ``transformers>=5.5``, ``numpy<2.3``)::
 
-    !python -c "import importlib.metadata as m; print('transformers', m.version('transformers'))"
+    !python -c "import importlib.metadata as m; print('transformers', m.version('transformers'), 'numpy', m.version('numpy'))"
 
 Local / Jupyter: đặt ``MULTITP_DATA_PATH``, ``WVS_DATA_PATH``, ``HUMAN_AMCE_PATH``
 nếu cần; repo root được đoán từ ``cwd`` khi ``__file__`` không có (notebook).
@@ -51,12 +52,13 @@ os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
 
-# Magistral / Mistral3 trên Hub chỉ có tekken.json — cần transformers>=5.5 (TOKENIZER_MAPPING + tokenizer).
-_TRANSFORMERS_SPEC_MAGISTRAL = "transformers>=5.5.0,<6.0"
+# Magistral / Mistral3: tekken cần transformers>=5.5. Unsloth wheel Kaggle kêu ``<=5.5.0`` — không dùng 5.5.1+.
+# numpy: cài kèm --no-deps + ghim ``numpy<2.3`` (tránh scipy gãy).
+_TRANSFORMERS_SPEC_MAGISTRAL = "transformers==5.5.0"
 
 
 def _kaggle_upgrade_transformers_argv() -> list[str]:
-    """Lệnh tương đương cell notebook: ``!python -m pip install -U --force-reinstall "..."``."""
+    """Chỉ bước 1 (wheel transformers, không kéo numpy 2.4). Dùng cùng `_kaggle_transformers_peer_argv`."""
     return [
         sys.executable,
         "-m",
@@ -66,7 +68,52 @@ def _kaggle_upgrade_transformers_argv() -> list[str]:
         "--force-reinstall",
         "--no-cache-dir",
         _TRANSFORMERS_SPEC_MAGISTRAL,
+        "--no-deps",
     ]
+
+
+def _kaggle_transformers_peer_argv() -> list[str]:
+    """Peer deps cho transformers 5.5 + ghim numpy/fsspec để scipy/opencv/tf trên Kaggle không gãy."""
+    return [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        "--no-cache-dir",
+        "huggingface-hub>=1.5.0,<2",
+        "tokenizers>=0.22.0,<=0.23.0",
+        "safetensors>=0.4.3",
+        "regex>=2024.0",
+        "tqdm",
+        "pyyaml",
+        "packaging",
+        "filelock",
+        "typer",
+        "typing-extensions",
+        # transformers mặc định kéo numpy 2.4.x → scipy Kaggle lỗi `_center` / umath
+        "numpy>=2.0.2,<2.3",
+        # datasets 4.3 yêu cầu fsspec<=2025.9.0
+        "fsspec>=2023.5.0,<=2025.9.0",
+    ]
+
+
+def _kaggle_transformers_install_hint_text() -> str:
+    return (
+        "  "
+        + " ".join(_kaggle_upgrade_transformers_argv())
+        + "\n  "
+        + " ".join(_kaggle_transformers_peer_argv())
+    )
+
+
+def _kaggle_install_transformers_magistral_safe() -> None:
+    """Cài transformers>=5.5 mà không nâng numpy lên 2.4 (tránh ImportError scipy)."""
+    print(
+        "[Kaggle deps] installing "
+        f"{_TRANSFORMERS_SPEC_MAGISTRAL!r} --no-deps, then pinned peers (numpy<2.3, fsspec<=2025.9)…"
+    )
+    subprocess.run(_kaggle_upgrade_transformers_argv(), check=True)
+    subprocess.run(_kaggle_transformers_peer_argv(), check=True)
 
 
 def _on_kaggle() -> bool:
@@ -101,12 +148,9 @@ def _install_deps() -> None:
     ]
     for cmd in cmds:
         subprocess.run(cmd, shell=True, check=False)
-    # Magistral / Mistral3: repo uses tekken.json only — needs transformers>=5.5. Must not fail silently.
-    print(
-        "[Kaggle deps] installing "
-        f"{_TRANSFORMERS_SPEC_MAGISTRAL!r} (required for Magistral / Mistral3 tokenizer)…"
-    )
-    subprocess.run(_kaggle_upgrade_transformers_argv(), check=True)
+    # Magistral / Mistral3: tekken needs transformers>=5.5; full `pip install transformers` upgrades
+    # numpy→2.4 and breaks Kaggle's scipy (numpy._core.umath / _center). Use --no-deps + pins.
+    _kaggle_install_transformers_magistral_safe()
 
 
 def _verify_transformers_ge_55_kaggle() -> None:
@@ -123,8 +167,8 @@ def _verify_transformers_ge_55_kaggle() -> None:
     if major < 5 or (major == 5 and minor < 5):
         raise RuntimeError(
             f"[Kaggle] After pip, transformers=={ver} (need >=5.5.0). "
-            "Run manually (then **Session → Restart session**):\n  "
-            + " ".join(_kaggle_upgrade_transformers_argv())
+            "Run manually (then **Session → Restart session**):\n"
+            + _kaggle_transformers_install_hint_text()
         )
 
 
