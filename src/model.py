@@ -90,9 +90,15 @@ def _model_backend() -> str:
 
 
 def _hf_from_pretrained_token_kw() -> dict:
-    """Token for ``from_pretrained`` (Gemma/Llama gated repos). Uses ``HF_TOKEN`` / ``HUGGING_FACE_HUB_TOKEN``."""
+    """Optional HF token for ``from_pretrained``.
+
+    If ``HF_TOKEN`` / ``HUGGING_FACE_HUB_TOKEN`` is unset, do **not** pass ``token=True``:
+    that flag means \"must resolve a token\" and raises on Kaggle with no login. Omitting
+    ``token`` still allows the hub client to use env/cache when present, and anonymous
+    download for public repos (e.g. tokenizer-only Hub pulls for local Magistral weights).
+    """
     t = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()
-    return {"token": t if t else True}
+    return {"token": t} if t else {}
 
 
 def _resolve_vllm_hf_model_id(model_name: str) -> str:

@@ -71,10 +71,10 @@ def _install_deps() -> None:
         "pip install -q bitsandbytes scipy tqdm",
         "pip install sentencepiece protobuf \"datasets==4.3.0\" \"huggingface_hub>=0.34.0\" hf_transfer",
         "pip install --no-deps unsloth_zoo bitsandbytes accelerate peft trl triton unsloth",
-        # Magistral / Mistral3: need TOKENIZER_MAPPING + tokenizer stack newer than 4.56; Kaggle Models
-        # bundle often lacks tiktoken blob → tokenizer loaded from Hub while weights stay local.
-        "pip install \"transformers>=5.5.0,<6.0\"",
         "pip install --no-deps trl==0.22.2",
+        # Last: Magistral / Mistral3 needs transformers>=5.5 (TOKENIZER_MAPPING). Use -U --force-reinstall
+        # so we win over the Kaggle image pin (4.56.x) and anything pulled earlier; subprocess uses check=False.
+        "pip install -U --force-reinstall --no-cache-dir \"transformers>=5.5.0,<6.0\"",
     ]:
         subprocess.run(cmd, shell=True, check=False)
 
