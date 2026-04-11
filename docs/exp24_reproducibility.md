@@ -2,6 +2,8 @@
 
 This note supports **NeurIPS-style** claims: what is fixed, what is tunable, and how to ablate.
 
+**Relation to the SWA-PTIS manuscript** (`SWA_MPPI_paper/paper_revised.tex`): that draft describes the **single-pass** method and its limitations. EXP-24 is a **different** inference-time variant (dual-pass bootstrap reliability). A **line-by-line** map of paper limitations → DPBR inheritance → suggested fixes is in [`exp24_paper_gap_analysis.md`](exp24_paper_gap_analysis.md).
+
 ## Theory (single source of truth)
 
 - **Implementation:** `experiment_DM/exp24_dpbr_core.py`
