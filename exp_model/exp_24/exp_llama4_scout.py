@@ -5,6 +5,7 @@ EXP-24 Dual-Pass Bootstrap IS — Llama-4-Scout-17B-16E-Instruct (TF 5.5 stack)
 
 Model  : unsloth/Llama-4-Scout-17B-16E-Instruct-unsloth-bnb-4bit
 Profile: ref_git_tf55  (pip stack aligned with Reference_Notebook_Model where noted)
+         load_model passes trust_remote_code for Llama-4-Scout (Unsloth “No config file found” otherwise).
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 

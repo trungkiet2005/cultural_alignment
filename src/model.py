@@ -171,11 +171,11 @@ def load_model(
             _clear_unsloth_compiled_cache()
         from unsloth import FastLanguageModel
 
-        # Nemotron-3-Nano (MoE): HF repo ships custom modeling_nemotron_h.py; without
-        # trust_remote_code, Unsloth's pre-check can fail with "No config file found"
-        # (see Reference_Notebook_Model/new/unsloth-nemotron-3-nano-30b-a3b.ipynb).
+        # MoE / custom HF modeling: without trust_remote_code, Unsloth's pre-check can fail with
+        # "No config file found" (Nemotron: modeling_nemotron_h.py; Llama-4-Scout: ref_git_tf55).
         _extra_kw: dict = {}
-        if "nemotron" in model_name.lower():
+        ln = model_name.lower()
+        if "nemotron" in ln or "llama-4-scout" in ln:
             _extra_kw["trust_remote_code"] = True
             _extra_kw["attn_implementation"] = "eager"
 
