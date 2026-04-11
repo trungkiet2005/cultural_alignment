@@ -250,9 +250,27 @@ def load_model_hf_native(
     print(f"[MODEL] Loading {model_name} via Hugging Face transformers (native, no Unsloth)...")
 
     _tok_kw = _hf_from_pretrained_token_kw()
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name, trust_remote_code=True, **_tok_kw
-    )
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name, trust_remote_code=True, **_tok_kw
+        )
+    except KeyError as exc:
+        # Magistral / Mistral3: older transformers ship Mistral3Config for the model but omit
+        # Mistral3Config from TOKENIZER_MAPPING → AutoTokenizer fails. Tokenizer files alone work.
+        _key = exc.args[0] if exc.args else None
+        _name = getattr(_key, "__name__", "") if _key is not None else ""
+        if _name == "Mistral3Config" or "Mistral3Config" in str(exc):
+            from transformers import PreTrainedTokenizerFast
+
+            print(
+                "[MODEL] AutoTokenizer skipped Mistral3Config mapping; "
+                "loading PreTrainedTokenizerFast from tokenizer files…"
+            )
+            tokenizer = PreTrainedTokenizerFast.from_pretrained(
+                model_name, trust_remote_code=True, **_tok_kw
+            )
+        else:
+            raise
 
     attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
     common_kw: dict = {
