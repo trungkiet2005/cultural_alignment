@@ -32,7 +32,7 @@ from src.i18n import (
     PROMPT_FRAME_I18N,
     SCENARIO_FRAME_I18N,
 )
-from src.model import ChatTemplateHelper, encode_text_to_tensor, text_tokenizer
+from src.model import ChatTemplateHelper, encode_text_to_tensor, gather_last_logits, text_tokenizer
 
 
 # ============================================================================
@@ -232,7 +232,7 @@ class ImplicitSWAController:
 
         out = self.model(input_ids=batch_ids, use_cache=False)
         batch_idx = torch.arange(len(seqs), device=self.device)
-        logits = out.logits[batch_idx, lengths - 1, :]
+        logits = gather_last_logits(out, batch_idx, lengths)
 
         # Index 0 -> "A" token, index 1 -> "B" token (per-language correct ids).
         z_decision = logits[:, [a_id, b_id]] / logit_temp

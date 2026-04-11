@@ -1,19 +1,25 @@
 #!/usr/bin/env python3
 """
-EXP-24 DPBR — Meta-Llama-3-8B-Instruct (HF upstream, bf16)
-============================================================
+EXP-24 DPBR — Qwen2.5-7B-Instruct (vLLM engine, bf16)
+=====================================================
 
-Model  : meta-llama/Meta-Llama-3-8B-Instruct  (no Unsloth *_bnb_4bit suffix)
-Load   : load_in_4bit=False  — Hugging Face ``AutoModelForCausalLM`` + bf16 (no Unsloth)
-Method : Dual-Pass Bootstrap IS Reliability (DPBR) — same as other EXP-24
+Model  : Qwen/Qwen2.5-7B-Instruct
+Load   : ``vllm.LLM`` — next-token logits via ``generate(..., logprobs=-1)`` (see ``src.vllm_causal``)
+Method : Dual-Pass Bootstrap IS Reliability (DPBR)
 
-Usage (Kaggle)
+Other EXP-24 scripts use **Unsloth** by default; ``exp_24/hf_full`` uses HF ``AutoModel``;
+this folder uses **vLLM** for throughput-oriented inference.
+
+Usage (Kaggle, CUDA)
+--------------------
+    !python exp_model/exp_24/hf_vllm/exp_qwen25_7b_instruct.py
+
+Env (optional)
 --------------
-    !python exp_model/exp_24/hf_full/exp_meta_llama3_8b_instruct.py
-
-Requires Hugging Face access to gated Llama 3 weights (HF_TOKEN / Kaggle secret).
-
-VRAM: ~16–20 GB bf16 on a single 80 GB GPU is typical; T4 16 GB will OOM.
+    EXP24_VLLM_PREFLIGHT=1   — subprocess preflight loads model once before the main run (slow).
+    VLLM_GPU_MEMORY_UTILIZATION=0.9
+    VLLM_TP=1
+    VLLM_ENFORCE_EAGER=1
 """
 
 import os
@@ -50,7 +56,8 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        "pip install -q accelerate bitsandbytes scipy tqdm sentencepiece protobuf",
+        "pip install -q accelerate scipy tqdm sentencepiece protobuf",
+        "pip install -q vllm",
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
@@ -59,10 +66,10 @@ def _install_deps() -> None:
 _ensure_repo()
 _install_deps()
 
-MODEL_NAME = "meta-llama/Meta-Llama-3-8B-Instruct"
-MODEL_SHORT = "hf_llama3_8b_bf16"
+MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
+MODEL_SHORT = "vllm_qwen25_7b_bf16"
 
 from exp_model._base_dpbr import run_for_model  # noqa: E402
 
 if __name__ == "__main__":
-    run_for_model(MODEL_NAME, MODEL_SHORT, load_in_4bit=False, use_hf_native=True)
+    run_for_model(MODEL_NAME, MODEL_SHORT, load_in_4bit=False, use_vllm=True)

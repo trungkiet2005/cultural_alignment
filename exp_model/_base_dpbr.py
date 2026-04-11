@@ -6,6 +6,7 @@ NOT self-contained: env bootstrap must have run before this is imported.
 """
 
 import gc
+import json
 import os
 import shutil
 import subprocess
@@ -42,7 +43,7 @@ from src.baseline_runner import run_baseline_vanilla
 from src.config import SWAConfig, resolve_output_dir
 from src.constants import COUNTRY_LANG
 from src.data import load_multitp_dataset
-from src.model import load_model, setup_seeds
+from src.model import load_model, load_model_hf_native, setup_seeds
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas
 from src.scenarios import generate_multitp_scenarios
 from src.swa_runner import run_country_experiment
@@ -140,10 +141,31 @@ def _write_preflight_error_flag(flag_path: Path, message: str) -> None:
 
 
 def _preflight_model_load(
-    model_name: str, timeout_minutes: int, *, load_in_4bit: bool = True
+    model_name: str,
+    timeout_minutes: int,
+    *,
+    load_in_4bit: bool = True,
+    use_hf_native: bool = False,
+    use_vllm: bool = False,
 ) -> tuple[bool, str]:
     timeout_seconds = max(1, timeout_minutes) * 60
     _lb = "True" if load_in_4bit else "False"
+    _mn = json.dumps(model_name)
+    if use_vllm:
+        _load_block = (
+            "from src.vllm_causal import load_model_vllm\n"
+            f"model, tokenizer = load_model_vllm({_mn}, max_seq_length=2048, load_in_4bit={_lb})\n"
+        )
+    elif use_hf_native:
+        _load_block = (
+            "from src.model import load_model_hf_native\n"
+            f"model, tokenizer = load_model_hf_native({_mn}, max_seq_length=2048, load_in_4bit={_lb})\n"
+        )
+    else:
+        _load_block = (
+            "from src.model import load_model\n"
+            f"model, tokenizer = load_model({_mn}, max_seq_length=2048, load_in_4bit={_lb})\n"
+        )
     code = f"""
 import gc
 import os
@@ -152,8 +174,7 @@ os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
-from src.model import load_model
-model, tokenizer = load_model("{model_name}", max_seq_length=2048, load_in_4bit={_lb})
+{_load_block}
 del model, tokenizer
 gc.collect()
 if torch.cuda.is_available():
@@ -195,6 +216,8 @@ def run_for_model(
     load_in_4bit: bool = True,
     target_countries: Optional[List[str]] = None,
     results_base: Optional[str] = None,
+    use_hf_native: bool = False,
+    use_vllm: bool = False,
 ) -> None:
     """
     Full EXP-24 run for a single model.
@@ -204,8 +227,17 @@ def run_for_model(
     ----------
     load_in_4bit
         If True (default), load 4-bit quantized weights (bitsandbytes).
-        If False, load full bf16 via Unsloth (needs enough VRAM — ~16–20 GB for 7–9B).
+        If False, load full bf16 (needs enough VRAM — ~16–20 GB for 7–9B).
+    use_hf_native
+        If True, load with Hugging Face ``AutoModelForCausalLM`` / ``AutoTokenizer`` only
+        (no Unsloth). Used by ``exp_24/hf_full/*`` upstream-weight runs.
+    use_vllm
+        If True, load with ``vllm.LLM`` and score via ``generate(..., logprobs=-1)``.
+        Mutually exclusive with ``use_hf_native``. Used by ``exp_24/hf_vllm/*``.
     """
+    if use_hf_native and use_vllm:
+        raise ValueError("use_hf_native and use_vllm cannot both be True")
+
     _seed = _exp24_seed()
     setup_seeds(_seed)
 
@@ -227,7 +259,13 @@ def run_for_model(
     _ess_on = _ear not in ("0", "false", "no", "off")
     print(f"[THEORY] ESS anchor blend: {'ON (δ_micro = α·anchor + (1-α)·δ_base + δ*)' if _ess_on else 'OFF (legacy δ_micro = anchor + δ*)'}")
     _q = "4-bit" if load_in_4bit else "bf16 (full, no quant)"
-    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}  weights={_q}")
+    if use_vllm:
+        _bk = "vLLM"
+    elif use_hf_native:
+        _bk = "HF native"
+    else:
+        _bk = "Unsloth"
+    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}  weights={_q}  loader={_bk}")
 
     cfg     = _build_cfg(
         model_name, swa_root, load_in_4bit=load_in_4bit, target_countries=countries
@@ -237,10 +275,21 @@ def run_for_model(
     cfg.output_dir = str(out_dir)
     preflight_flag = out_dir / "preflight_error.flag"
 
-    print(f"[PREFLIGHT] checking model load with timeout={PREFLIGHT_TIMEOUT_MINUTES} minute(s)")
-    ok, message = _preflight_model_load(
-        model_name, PREFLIGHT_TIMEOUT_MINUTES, load_in_4bit=load_in_4bit
-    )
+    skip_vllm_pf = use_vllm and os.environ.get("EXP24_VLLM_PREFLIGHT", "").strip() != "1"
+    if skip_vllm_pf:
+        print(
+            "[PREFLIGHT] skipping subprocess vLLM load (set EXP24_VLLM_PREFLIGHT=1 to run full preflight)"
+        )
+        ok, message = True, "ok"
+    else:
+        print(f"[PREFLIGHT] checking model load with timeout={PREFLIGHT_TIMEOUT_MINUTES} minute(s)")
+        ok, message = _preflight_model_load(
+            model_name,
+            PREFLIGHT_TIMEOUT_MINUTES,
+            load_in_4bit=load_in_4bit,
+            use_hf_native=use_hf_native,
+            use_vllm=use_vllm,
+        )
     if not ok:
         _write_preflight_error_flag(preflight_flag, message)
         _abort_kaggle_run(message)
@@ -248,9 +297,13 @@ def run_for_model(
         preflight_flag.unlink(missing_ok=True)
     print("[PREFLIGHT] PASS")
 
-    model, tokenizer = load_model(
-        model_name, max_seq_length=2048, load_in_4bit=load_in_4bit
-    )
+    if use_vllm:
+        from src.vllm_causal import load_model_vllm as _load
+    elif use_hf_native:
+        _load = load_model_hf_native
+    else:
+        _load = load_model
+    model, tokenizer = _load(model_name, max_seq_length=2048, load_in_4bit=load_in_4bit)
 
     rows: List[dict] = []
     dp_method = f"{exp_id}_dual_pass"

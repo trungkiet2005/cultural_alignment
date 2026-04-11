@@ -17,26 +17,28 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 | 4 | EXP-24-LLAMA31_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.1-8B-Instruct-bnb-4bit | 1 model x 5 countries | 0.4550 | 0.0657 | +0.127 | 15.90 | 17.70% | Win vs vanilla: 5/5, macro +16.88% |
 | 5 | EXP-24-MAGISTRAL_SMALL_2509 | Dual-Pass Bootstrap IS Reliability (DPBR) | Magistral-Small-2509-unsloth-bnb-4bit | 1 model x 5 countries | **0.3167** | 0.0502 | +0.697 | 10.96 | 19.5% | Win vs vanilla: 4/5, macro +13.56%; pypi TF 5.2.0 (Ref notebook new) |
 | 6 | EXP-24-GEMMA4_E2B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-E2B-it | 1 model x 5 countries | **0.4260** | 0.0642 | +0.423 | 15.16 | 10.6% | Win vs vanilla: 4/5, macro +11.57%; ref_gemma4 stack (TF 5.5.0) |
-| 7 | EXP-24-PHI35_MINI | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3.5-mini-instruct | 1 model x 5 countries | 0.5447 | 0.1228 | -0.363 | 18.66 | 15.5% | Win vs vanilla: 4/5, macro +7.27%; ref_phi_llama32 (TF 4.56.2) |
-| 8 | EXP-09-MISTRAL_V03 | Hierarchical IS | mistral-7b-instruct-v0.3-bnb-4bit | 1 model x 5 countries | **0.4284** | 0.0958 | -0.686 | 15.55 | 16.9% | Win vs vanilla: 5/5, macro +5.87%; PyPI Unsloth |
-| 9 | EXP-24-QWEN35_08B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-0.8B | 1 model x 5 countries | 0.4708 | 0.0485 | -0.504 | 16.93 | 6.50% | Win vs vanilla: 4/5, macro +3.22% |
-| 10 | EXP-24-GEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-7b-it-bnb-4bit | 1 model x 5 countries | 0.4315 | 0.0575 | -0.477 | 14.76 | 11.22% | Win vs vanilla: 3/5, macro +2.46% |
-| 11 | EXP-24-GEMMA3_270M | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-3-270m-it | 1 model x 5 countries | 0.4620 | 0.0549 | +0.332 | 16.75 | 7.90% | Win vs vanilla: 4/5, macro +1.32% |
-| 12 | EXP-24-LLAMA32_1B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.2-1B | 1 model x 5 countries | 0.4761 | 0.0586 | -0.558 | 17.16 | 0.76% | Win vs vanilla: 1/5, macro +1.14% |
-| 13 | EXP-09-LLAMA32_1B | Hierarchical IS | Llama-3.2-1B | 1 model x 5 countries | 0.4762 | 0.0586 | -0.570 | 17.17 | 0.84% | Win vs vanilla: 1/5, macro +1.11% |
-| 14 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
-| 15 | EXP-24-CODEGEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | codegemma-7b-bnb-4bit | 1 model x 5 countries | 0.4705 | 0.0573 | -0.269 | 17.18 | 18.3% | Win vs vanilla: 2/5, macro -0.47%; pypi Unsloth (TF 5.2.0), ChatML via `load_model` |
-| 16 | EXP-24-PHI3_MEDIUM | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3-medium-4k-instruct | 1 model x 5 countries | 0.3989 | 0.0641 | +0.330 | 13.95 | 17.1% | Win vs vanilla: 1/5, macro -1.21%; ref_phi_llama32 (TF 4.56.2) |
-| 17 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
-| 18 | EXP-24-QWEN2_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2-7B | 1 model x 5 countries | 0.3946 | 0.0523 | +0.194 | 13.60 | 16.03% | Win vs vanilla: 2/5, macro -3.53% |
-| 19 | EXP-24-QWEN3_14B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4645 | 0.0560 | +0.110 | 16.79 | 17.9% | Win vs vanilla: 2/5, macro -4.35%; ref_qwen3 (TF 4.56.2); `exp_qwen3_14b.py` |
-| 20 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
-| 21 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
-| 22 | EXP-24-GEMMA4_31B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-31B-it | 1 model x 5 countries | 0.4219 | 0.0516 | +0.296 | 15.16 | 22.6% | Win vs vanilla: 1/5, macro -12.85%; ref_gemma4; `gemma4-31b-unsloth.ipynb`; ~19 GB VRAM |
-| 23 | EXP-24-ERNIE45_21B_A3B | Dual-Pass Bootstrap IS Reliability (DPBR) | ERNIE-4.5-21B-A3B-PT | 1 model x 5 countries | 0.3607 | 0.0556 | +0.358 | 12.45 | 18.3% | Win vs vanilla: 2/5, macro -21.98%; Ref `new/unslothERNIE-4.5-21B-A3B-PT.ipynb`; ~42 GB VRAM (H100 log) |
-| 24 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
-| 25 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
-| 26 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
+| 7 | EXP-24-HF_QWEN25_7B_BF16 | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2.5-7B-Instruct (bf16, HF upstream) | 1 model x 5 countries | **0.3852** | 0.0715 | +0.309 | 13.01 | 17.8% | Win vs vanilla: 3/5, macro +8.23%; `hf_full/exp_qwen25_7b_instruct.py`; ~15 GB VRAM |
+| 8 | EXP-24-PHI35_MINI | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3.5-mini-instruct | 1 model x 5 countries | 0.5447 | 0.1228 | -0.363 | 18.66 | 15.5% | Win vs vanilla: 4/5, macro +7.27%; ref_phi_llama32 (TF 4.56.2) |
+| 9 | EXP-09-MISTRAL_V03 | Hierarchical IS | mistral-7b-instruct-v0.3-bnb-4bit | 1 model x 5 countries | **0.4284** | 0.0958 | -0.686 | 15.55 | 16.9% | Win vs vanilla: 5/5, macro +5.87%; PyPI Unsloth |
+| 10 | EXP-24-QWEN35_08B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-0.8B | 1 model x 5 countries | 0.4708 | 0.0485 | -0.504 | 16.93 | 6.50% | Win vs vanilla: 4/5, macro +3.22% |
+| 11 | EXP-24-GEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-7b-it-bnb-4bit | 1 model x 5 countries | 0.4315 | 0.0575 | -0.477 | 14.76 | 11.22% | Win vs vanilla: 3/5, macro +2.46% |
+| 12 | EXP-24-HF_GEMMA2_9B_BF16 | Dual-Pass Bootstrap IS Reliability (DPBR) | google/gemma-2-9b-it (bf16, HF upstream) | 1 model x 5 countries | 0.4248 | 0.0557 | +0.496 | 15.56 | 21.5% | Win vs vanilla: 2/5, macro +1.57%; `hf_full/exp_gemma2_9b_it.py`; ~18.5 GB VRAM |
+| 13 | EXP-24-GEMMA3_270M | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-3-270m-it | 1 model x 5 countries | 0.4620 | 0.0549 | +0.332 | 16.75 | 7.90% | Win vs vanilla: 4/5, macro +1.32% |
+| 14 | EXP-24-LLAMA32_1B | Dual-Pass Bootstrap IS Reliability (DPBR) | Llama-3.2-1B | 1 model x 5 countries | 0.4761 | 0.0586 | -0.558 | 17.16 | 0.76% | Win vs vanilla: 1/5, macro +1.14% |
+| 15 | EXP-09-LLAMA32_1B | Hierarchical IS | Llama-3.2-1B | 1 model x 5 countries | 0.4762 | 0.0586 | -0.570 | 17.17 | 0.84% | Win vs vanilla: 1/5, macro +1.11% |
+| 16 | EXP-09-QWEN3_4B_THINKING_2507 | Hierarchical IS | Qwen3-4B-Thinking-2507-unsloth-bnb-4bit | 1 model x 5 countries | 0.4686 | 0.0559 | +0.132 | 17.19 | 17.70% | Win vs vanilla: 3/5, macro +0.53% |
+| 17 | EXP-24-CODEGEMMA_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | codegemma-7b-bnb-4bit | 1 model x 5 countries | 0.4705 | 0.0573 | -0.269 | 17.18 | 18.3% | Win vs vanilla: 2/5, macro -0.47%; pypi Unsloth (TF 5.2.0), ChatML via `load_model` |
+| 18 | EXP-24-PHI3_MEDIUM | Dual-Pass Bootstrap IS Reliability (DPBR) | Phi-3-medium-4k-instruct | 1 model x 5 countries | 0.3989 | 0.0641 | +0.330 | 13.95 | 17.1% | Win vs vanilla: 1/5, macro -1.21%; ref_phi_llama32 (TF 4.56.2) |
+| 19 | EXP-24-QWEN35_2B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-2B | 1 model x 5 countries | 0.4531 | 0.0581 | -0.033 | 16.13 | 14.30% | Win vs vanilla: 1/5, macro -3.27% |
+| 20 | EXP-24-QWEN2_7B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen2-7B | 1 model x 5 countries | 0.3946 | 0.0523 | +0.194 | 13.60 | 16.03% | Win vs vanilla: 2/5, macro -3.53% |
+| 21 | EXP-24-QWEN3_14B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4645 | 0.0560 | +0.110 | 16.79 | 17.9% | Win vs vanilla: 2/5, macro -4.35%; ref_qwen3 (TF 4.56.2); `exp_qwen3_14b.py` |
+| 22 | EXP-09-QWEN3_14B | Hierarchical IS | Qwen3-14B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4646 | 0.0563 | -0.133 | 16.77 | 11.20% | Win vs vanilla: 3/5, macro -4.39% |
+| 23 | EXP-24-QWEN3_8B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-8B-unsloth-bnb-4bit | 1 model x 5 countries | 0.4957 | 0.0529 | -0.441 | 17.78 | 7.03% | Win vs vanilla: 0/5, macro -5.86% |
+| 24 | EXP-24-GEMMA4_31B | Dual-Pass Bootstrap IS Reliability (DPBR) | gemma-4-31B-it | 1 model x 5 countries | 0.4219 | 0.0516 | +0.296 | 15.16 | 22.6% | Win vs vanilla: 1/5, macro -12.85%; ref_gemma4; `gemma4-31b-unsloth.ipynb`; ~19 GB VRAM |
+| 25 | EXP-24-ERNIE45_21B_A3B | Dual-Pass Bootstrap IS Reliability (DPBR) | ERNIE-4.5-21B-A3B-PT | 1 model x 5 countries | 0.3607 | 0.0556 | +0.358 | 12.45 | 18.3% | Win vs vanilla: 2/5, macro -21.98%; Ref `new/unslothERNIE-4.5-21B-A3B-PT.ipynb`; ~42 GB VRAM (H100 log) |
+| 26 | EXP-09-QWEN35_4B | Hierarchical IS | Qwen3.5-4B | 1 model x 5 countries | 0.3982 | 0.0474 | +0.527 | 14.34 | 14.3% | Win vs vanilla: 0/5, macro -23.99%; ref_qwen35 (TF 5.2.0) |
+| 27 | EXP-24-QWEN35_4B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3.5-4B | 1 model x 5 countries | 0.3983 | **0.0395** | +0.527 | 14.34 | 14.65% | Win vs vanilla: 0/5, macro -24.03% |
+| 28 | EXP-24-QWEN3_CODER_30B | Dual-Pass Bootstrap IS Reliability (DPBR) | Qwen3-Coder-30B-A3B | 1 model x 5 countries | **0.3900** | 0.0752 | +0.503 | 12.86 | 16.13% | Win vs vanilla: 1/5, macro -24.41% |
 
 ---
 
@@ -471,6 +473,170 @@ Sorted by **macro Improv% vs vanilla** (higher first). MIS column is still the p
 - Aggregate: DPBR mean MIS **0.4219**, mean JSD **0.0516**, mean Pearson **+0.296**, mean flip **22.6%**, mean `rel_r` **0.965** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
 - Latency ~**650–810 ms**/scenario in log (vs ~**320 ms** for smaller ERNIE run on same class GPU).
 - Worst residuals: **Species_Humans** (**CHN**, **DEU**, **JPN**) or **Utilitarianism_More** / **Age** (**USA**, **BRA**).
+
+---
+
+## Run: EXP-24-HF_GEMMA2_9B_BF16
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/hf_full/exp_gemma2_9b_it.py`
+- Model: `google/gemma-2-9b-it` (`MODEL_SHORT`: `hf_gemma2_9b_bf16`) — Hugging Face upstream weights, **bf16** (`load_in_4bit=False`), not `unsloth/*-bnb-4bit`.
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/hf_gemma2_9b_bf16/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Gemma2 patching”); Transformers **5.2.0**; Torch **2.9.0+cu126**; bfloat16; ~**18.54 GB** VRAM; Gemma 2 chat (`<bos><start_of_turn>user` … `<end_of_turn>` / `<start_of_turn>model`); decision token ids **A=235280, B=235305**. Log suggests optional **flash-attn** for finetune speed; **flex_attention** / CuBLAS deterministic warnings during forward. Pip: optional **xformers** / `bigframes` / `google-adk` noise.
+
+### Vanilla baseline (token-logit, no personas / no IS)
+
+| Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ |
+|:-------:|:-----:|:-----:|:-----------:|:-----:|
+| BRA | 0.4260 | 0.1132 | -0.177 | 13.94 |
+| CHN | 0.4042 | 0.0979 | +0.438 | 13.76 |
+| DEU | 0.4317 | 0.0729 | +0.448 | 15.74 |
+| JPN | 0.4504 | 0.0664 | -0.856 | 15.51 |
+| USA | 0.4454 | 0.0857 | +0.556 | 16.27 |
+
+- Mean vanilla MIS: **0.4316**
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| gemma-2-9b-it | BRA | 0.3379 | 0.0509 | +0.366 | 11.69 | 25.2% |
+| gemma-2-9b-it | CHN | 0.4079 | 0.0528 | +0.780 | 15.38 | 20.0% |
+| gemma-2-9b-it | DEU | 0.4261 | 0.0576 | +0.657 | 15.58 | 21.9% |
+| gemma-2-9b-it | JPN | 0.4758 | 0.0663 | +0.013 | 16.96 | 19.7% |
+| gemma-2-9b-it | USA | 0.4762 | 0.0511 | +0.667 | 18.19 | 21.0% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| gemma-2-9b-it | BRA | 0.4260 | 0.3379 | +0.0881 | +20.68% | ✅ |
+| gemma-2-9b-it | CHN | 0.4042 | 0.4079 | -0.0037 | -0.90% | ❌ |
+| gemma-2-9b-it | DEU | 0.4317 | 0.4261 | +0.0056 | +1.29% | ✅ |
+| gemma-2-9b-it | JPN | 0.4504 | 0.4758 | -0.0253 | -5.63% | ❌ |
+| gemma-2-9b-it | USA | 0.4454 | 0.4762 | -0.0307 | -6.90% | ❌ |
+
+- Win rate: **2/5**
+- Mean vanilla MIS: **0.4316**
+- Mean DPBR MIS: **0.4248**
+- Macro improvement: **+1.57%**
+- Mean per-row improvement (micro): **+1.71%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|---------:|----------------:|--------:|:----:|
+| gemma-2-9b-it | BRA | 0.3655 | 0.3379 | +0.0276 | +7.55% | ✅ |
+| gemma-2-9b-it | CHN | 0.4536 | 0.4079 | +0.0457 | +10.07% | ✅ |
+| gemma-2-9b-it | DEU | 0.3289 | 0.4261 | -0.0972 | -29.57% | ❌ |
+| gemma-2-9b-it | JPN | 0.4667 | 0.4758 | -0.0091 | -1.94% | ❌ |
+| gemma-2-9b-it | USA | 0.6038 | 0.4762 | +0.1276 | +21.14% | ✅ |
+
+- Win rate vs EXP-01: **3/5**
+- Mean EXP-01 MIS: **0.4437**
+- Mean DPBR MIS: **0.4248**
+- Macro improvement vs EXP-01: **+4.26%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| gemma-2-9b-it | BRA | SocialValue_High | 66.3 | 46.6 | 19.8 |
+| gemma-2-9b-it | CHN | SocialValue_High | 66.7 | 39.7 | 27.0 |
+| gemma-2-9b-it | DEU | SocialValue_High | 64.7 | 38.8 | 25.9 |
+| gemma-2-9b-it | JPN | Species_Humans | 79.8 | 54.0 | 25.8 |
+| gemma-2-9b-it | USA | SocialValue_High | 67.9 | 40.6 | 27.3 |
+
+### Notes
+
+- Strong **BRA** gain vs vanilla (**+20.68%** MIS); **USA** / **JPN** worse under DPBR on this run.
+- vs **EXP-01**: **3/5** (**BRA**, **CHN**, **USA**).
+- **SocialValue_High** dominates worst-dim in **4/5** countries.
+- Aggregate: DPBR mean MIS **0.4248**, mean JSD **0.0557**, mean Pearson **+0.496**, mean flip **21.5%**, mean `rel_r` **0.895** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Latency ~**137–160 ms**/scenario (DPBR) in log.
+
+---
+
+## Run: EXP-24-HF_QWEN25_7B_BF16
+
+- Date: 2026-04-11
+- Script: `exp_model/exp_24/hf_full/exp_qwen25_7b_instruct.py`
+- Model: `Qwen/Qwen2.5-7B-Instruct` (`MODEL_SHORT`: `hf_qwen25_7b_bf16`) — Hugging Face upstream weights, **bf16** (`load_in_4bit=False`), not `unsloth/*-bnb-4bit`.
+- Method: Dual-Pass Bootstrap IS Reliability (DPBR)
+- Output dir: `/kaggle/working/cultural_alignment/results/exp24_model_sweep/hf_qwen25_7b_bf16/compare`
+- Environment (Kaggle): 1× **NVIDIA H100 80GB**; Unsloth **2026.4.4** (“Fast Qwen2 patching”); Transformers **5.2.0**; Torch **2.9.0+cu126**; bfloat16; ~**15.30 GB** VRAM; Qwen2.5 chat (`<|im_start|>` …); decision token ids **A=32, B=33**; HF note: no padding token → synthetic pad. Log: **FA [Xformers = None. FA2 = False]**; pip noise: optional **xformers** (unsloth declares), `bigframes` / `google-adk` conflicts.
+
+### Vanilla baseline (token-logit, no personas / no IS)
+
+| Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ |
+|:-------:|:-----:|:-----:|:-----------:|:-----:|
+| BRA | 0.5769 | 0.1538 | -0.347 | 19.90 |
+| CHN | 0.4331 | 0.1287 | +0.649 | 14.12 |
+| DEU | 0.3064 | 0.0617 | +0.541 | 11.55 |
+| JPN | 0.2989 | 0.0632 | +0.634 | 9.50 |
+| USA | 0.4832 | 0.1223 | +0.561 | 16.18 |
+
+- Mean vanilla MIS: **0.4197**
+
+### Full Metrics (DPBR)
+
+| Model | Country | MIS ↓ | JSD ↓ | Pearson r ↑ | MAE ↓ | Flip% |
+|:------|:-------:|:-----:|:-----:|:-----------:|:-----:|:-----:|
+| Qwen2.5-7B | BRA | 0.4109 | 0.0810 | -0.202 | 13.90 | 12.3% |
+| Qwen2.5-7B | CHN | 0.3596 | 0.0854 | +0.392 | 11.56 | 21.0% |
+| Qwen2.5-7B | DEU | 0.4166 | 0.0694 | +0.117 | 14.37 | 18.7% |
+| Qwen2.5-7B | JPN | 0.3579 | 0.0476 | +0.528 | 12.67 | 15.8% |
+| Qwen2.5-7B | USA | 0.3808 | 0.0742 | +0.711 | 12.53 | 21.3% |
+
+### vs Vanilla (MIS)
+
+| Model | Country | Vanilla MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|------------:|---------:|----------------:|--------:|:----:|
+| Qwen2.5-7B | BRA | 0.5769 | 0.4109 | +0.1660 | +28.78% | ✅ |
+| Qwen2.5-7B | CHN | 0.4331 | 0.3596 | +0.0735 | +16.97% | ✅ |
+| Qwen2.5-7B | DEU | 0.3064 | 0.4166 | -0.1102 | -35.97% | ❌ |
+| Qwen2.5-7B | JPN | 0.2989 | 0.3579 | -0.0590 | -19.73% | ❌ |
+| Qwen2.5-7B | USA | 0.4832 | 0.3808 | +0.1024 | +21.19% | ✅ |
+
+- Win rate: **3/5**
+- Mean vanilla MIS: **0.4197**
+- Mean DPBR MIS: **0.3852**
+- Macro improvement: **+8.23%**
+- Mean per-row improvement (micro): **+2.25%**
+
+### vs EXP-01 SWA-PTIS (MIS)
+
+| Model | Country | EXP-01 MIS | DPBR MIS | Delta (ref-cur) | Improv% | Win? |
+|:------|:-------:|-----------:|---------:|----------------:|--------:|:----:|
+| Qwen2.5-7B | BRA | 0.4025 | 0.4109 | -0.0084 | -2.08% | ❌ |
+| Qwen2.5-7B | CHN | 0.4078 | 0.3596 | +0.0482 | +11.82% | ✅ |
+| Qwen2.5-7B | DEU | 0.3424 | 0.4166 | -0.0742 | -21.67% | ❌ |
+| Qwen2.5-7B | JPN | 0.2802 | 0.3579 | -0.0777 | -27.72% | ❌ |
+| Qwen2.5-7B | USA | 0.3677 | 0.3808 | -0.0131 | -3.57% | ❌ |
+
+- Win rate vs EXP-01: **1/5**
+- Mean EXP-01 MIS: **0.3601**
+- Mean DPBR MIS: **0.3852**
+- Macro improvement vs EXP-01: **-6.95%**
+
+### Per-Dimension Worst Error
+
+| Model | Country | Worst Dimension | Human | Model | \|err\| (pp) |
+|:------|:-------:|:----------------|:-----:|:-----:|:------------:|
+| Qwen2.5-7B | BRA | Age_Young | 73.6 | 49.7 | 23.9 |
+| Qwen2.5-7B | CHN | SocialValue_High | 66.7 | 37.5 | 29.2 |
+| Qwen2.5-7B | DEU | Species_Humans | 82.4 | 56.1 | 26.4 |
+| Qwen2.5-7B | JPN | Species_Humans | 79.8 | 58.7 | 21.2 |
+| Qwen2.5-7B | USA | SocialValue_High | 67.9 | 37.1 | 30.8 |
+
+### Notes
+
+- Strong gains vs vanilla on **BRA**, **CHN**, **USA**; **DEU** / **JPN** worse under DPBR (MIS).
+- vs **EXP-01**: only **CHN** wins; macro **-6.95%** on mean MIS.
+- Worst dims: **SocialValue_High** (USA, CHN), **Species** / **Age** elsewhere.
+- Aggregate: DPBR mean MIS **0.3852**, mean JSD **0.0715**, mean Pearson **+0.309**, mean flip **17.8%**, mean `rel_r` **0.876** (vs EXP-09 SOTA MIS 0.3975; EXP-24 multi-model ref 0.3969).
+- Latency ~**89–141 ms**/scenario (DPBR) in log.
 
 ---
 
