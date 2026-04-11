@@ -146,6 +146,10 @@ def load_model_vllm(
     ``load_in_4bit`` maps to vLLM ``quantization`` when True (best-effort
     ``bitsandbytes``); requires a vLLM build that supports it.
     """
+    from src.vllm_env import apply_vllm_runtime_defaults
+
+    apply_vllm_runtime_defaults()
+
     try:
         from vllm import LLM
     except ImportError as e:
@@ -156,16 +160,27 @@ def load_model_vllm(
 
     os.environ.setdefault("VLLM_LOGGING_LEVEL", "ERROR")
 
+    eager = os.environ.get("VLLM_ENFORCE_EAGER", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
     kw: dict = {
         "model": model_name,
         "trust_remote_code": True,
         "max_model_len": int(max_seq_length),
         "dtype": "bfloat16",
         "gpu_memory_utilization": float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.90")),
-        "enforce_eager": os.environ.get("VLLM_ENFORCE_EAGER", "1").strip().lower()
-        not in ("0", "false", "no"),
+        "enforce_eager": eager,
         "tensor_parallel_size": int(os.environ.get("VLLM_TP", "1")),
     }
+    if os.path.isdir("/kaggle/working"):
+        if os.environ.get("VLLM_DISABLE_CUSTOM_ALL_REDUCE", "1").strip().lower() not in (
+            "0",
+            "false",
+            "no",
+        ):
+            kw["disable_custom_all_reduce"] = True
     if load_in_4bit:
         kw["quantization"] = os.environ.get("VLLM_QUANTIZATION", "bitsandbytes")
 

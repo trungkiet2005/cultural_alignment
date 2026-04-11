@@ -140,6 +140,10 @@ def _load_model_vllm(
     _tt.padding_side = "left"
     setattr(tokenizer, "_moral_chat_content_mode", "string")
 
+    from src.vllm_env import apply_vllm_runtime_defaults
+
+    apply_vllm_runtime_defaults()
+
     try:
         from vllm import LLM
     except ImportError as exc:
@@ -148,12 +152,25 @@ def _load_model_vllm(
         ) from exc
 
     gpu_mem = float(os.environ.get("VLLM_GPU_MEMORY_UTILIZATION", "0.92"))
+    eager = os.environ.get("VLLM_ENFORCE_EAGER", "1").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+    )
     llm_kw: dict = {
         "model": hf_id,
         "max_model_len": max_seq_length,
         "trust_remote_code": True,
         "gpu_memory_utilization": gpu_mem,
+        "enforce_eager": eager,
     }
+    if os.path.isdir("/kaggle/working"):
+        if os.environ.get("VLLM_DISABLE_CUSTOM_ALL_REDUCE", "1").strip().lower() not in (
+            "0",
+            "false",
+            "no",
+        ):
+            llm_kw["disable_custom_all_reduce"] = True
     dtype = os.environ.get("VLLM_DTYPE", "").strip()
     if dtype:
         llm_kw["dtype"] = dtype

@@ -47,6 +47,7 @@ from src.model import load_model, load_model_hf_native, setup_seeds
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas
 from src.scenarios import generate_multitp_scenarios
 from src.swa_runner import run_country_experiment
+from src.vllm_env import vllm_preflight_os_environ_lines
 
 # ─── Shared hyperparameters (EXP-09 base + EXP-24 dual-pass) ─────────────────
 EXP_BASE      = "EXP-24"
@@ -166,14 +167,11 @@ def _preflight_model_load(
             "from src.model import load_model\n"
             f"model, tokenizer = load_model({_mn}, max_seq_length=2048, load_in_4bit={_lb})\n"
         )
+    _env_boot = vllm_preflight_os_environ_lines()
     code = f"""
+{_env_boot}
 import gc
-import os
 import torch
-os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
-os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 {_load_block}
 del model, tokenizer
 gc.collect()
@@ -193,7 +191,8 @@ print("PREFLIGHT_OK")
         return False, f"Model pre-flight timeout after {timeout_minutes} minute(s)."
 
     if result.returncode != 0:
-        tail = (result.stderr or result.stdout or "").strip()[-1500:]
+        blob = ((result.stderr or "") + "\n" + (result.stdout or "")).strip()
+        tail = blob[-8000:] if len(blob) > 8000 else blob
         return False, f"Model pre-flight failed (rc={result.returncode}). Details:\n{tail}"
 
     if "PREFLIGHT_OK" not in (result.stdout or ""):
@@ -259,13 +258,30 @@ def run_for_model(
     _ess_on = _ear not in ("0", "false", "no", "off")
     print(f"[THEORY] ESS anchor blend: {'ON (δ_micro = α·anchor + (1-α)·δ_base + δ*)' if _ess_on else 'OFF (legacy δ_micro = anchor + δ*)'}")
     _q = "4-bit" if load_in_4bit else "bf16 (full, no quant)"
+    _mb = os.environ.get("MORAL_MODEL_BACKEND", "unsloth").strip().lower()
     if use_vllm:
         _bk = "vLLM"
     elif use_hf_native:
         _bk = "HF native"
+    elif _mb == "vllm":
+        _bk = "vLLM (MORAL_MODEL_BACKEND)"
     else:
         _bk = "Unsloth"
     print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}  weights={_q}  loader={_bk}")
+
+    _hft = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    _lnm = model_name.lower()
+    if not _hft and (
+        "meta-llama" in _lnm
+        or _lnm.startswith("llama/")
+        or "/llama-" in _lnm
+    ):
+        print(
+            "[HF] Missing HF token — gated Llama models will fail to download.\n"
+            "     Kaggle: Add-ons → Secrets → add secret **HF_TOKEN** (read token from "
+            "https://huggingface.co/settings/tokens ).\n"
+            "     Or create repo-root **.env** with HF_TOKEN=... (see .env.example; file is gitignored)."
+        )
 
     cfg     = _build_cfg(
         model_name, swa_root, load_in_4bit=load_in_4bit, target_countries=countries
@@ -275,10 +291,14 @@ def run_for_model(
     cfg.output_dir = str(out_dir)
     preflight_flag = out_dir / "preflight_error.flag"
 
-    skip_vllm_pf = use_vllm and os.environ.get("EXP24_VLLM_PREFLIGHT", "").strip() != "1"
+    _vllm_via_env = _mb == "vllm"
+    skip_vllm_pf = (use_vllm or _vllm_via_env) and os.environ.get(
+        "EXP24_VLLM_PREFLIGHT", ""
+    ).strip() != "1"
     if skip_vllm_pf:
         print(
-            "[PREFLIGHT] skipping subprocess vLLM load (set EXP24_VLLM_PREFLIGHT=1 to run full preflight)"
+            "[PREFLIGHT] skipping subprocess vLLM load (vLLM subprocess often fails on Kaggle; "
+            "set EXP24_VLLM_PREFLIGHT=1 to force full preflight)"
         )
         ok, message = True, "ok"
     else:

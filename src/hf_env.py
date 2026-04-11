@@ -68,3 +68,9 @@ def apply_hf_credentials() -> None:
     load_dotenv_repo()
     apply_kaggle_hf_secret_if_missing()
     mirror_hf_token_aliases()
+    try:
+        from src.vllm_env import apply_vllm_runtime_defaults
+
+        apply_vllm_runtime_defaults()
+    except Exception:
+        pass
