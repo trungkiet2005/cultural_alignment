@@ -11,10 +11,8 @@ import random as _rng
 import numpy as np
 import torch
 
-try:
-    import unsloth  # noqa: F401  — must be imported before transformers
-except Exception:
-    pass
+# Unsloth is imported inside `load_model()` only so `load_model_hf_native` can run
+# without installing or importing Unsloth.
 
 
 # ── seed ────────────────────────────────────────────────────────────────────
@@ -195,6 +193,89 @@ def text_tokenizer(tok):
     return tok
 
 
+def load_model_hf_native(
+    model_name: str,
+    max_seq_length: int = 2048,
+    load_in_4bit: bool = True,
+):
+    """Load *(model, tokenizer)* with Hugging Face ``AutoModel`` only (no Unsloth)."""
+    import transformers
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+
+    transformers.logging.set_verbosity_error()
+    del max_seq_length  # reserved for parity with Unsloth API; HF uses tokenizer/model config limits
+
+    print(f"[MODEL] Loading {model_name} via Hugging Face transformers (native, no Unsloth)...")
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+
+    attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
+    common_kw: dict = {
+        "trust_remote_code": True,
+        "device_map": "auto",
+    }
+    if attn_impl:
+        common_kw["attn_implementation"] = attn_impl
+
+    if load_in_4bit:
+        quant = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            quantization_config=quant,
+            **common_kw,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            torch_dtype=torch.bfloat16,
+            **common_kw,
+        )
+
+    model.eval()
+    setattr(tokenizer, "_moral_chat_content_mode", "string")
+
+    _tt = text_tokenizer(tokenizer)
+    if getattr(_tt, "pad_token", None) is None and getattr(_tt, "eos_token", None) is not None:
+        _tt.pad_token = _tt.eos_token
+        _tt.pad_token_id = _tt.eos_token_id
+    try:
+        tokenizer.padding_side = "left"
+    except Exception:
+        pass
+    _tt.padding_side = "left"
+    print(f"[MODEL] Loaded. VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+    return model, tokenizer
+
+
+def gather_last_logits(
+    out,
+    batch_idx: torch.Tensor,
+    lengths: torch.Tensor,
+) -> torch.Tensor:
+    """Last-position logits [B, V] from a model ``forward`` output.
+
+    Hugging Face / Unsloth return ``logits`` shaped [B, L, V]. The vLLM wrapper
+    (``VllmCausalWrapper``) returns only the last position as [B, V].
+    """
+    logits = out.logits
+    if logits.dim() == 2:
+        return logits
+    return logits[batch_idx, lengths - 1, :]
+
+
+def gather_last_logits_one_row(out) -> torch.Tensor:
+    """Single-row forward (batch 1): return 1D logits [V]."""
+    logits = out.logits
+    if logits.dim() == 2:
+        return logits[0]
+    return logits[0, -1, :]
+
+
 def load_model(
     model_name: str,
     max_seq_length: int = 2048,
@@ -204,6 +285,11 @@ def load_model(
 
     Backend is ``unsloth`` (default) or ``vLLM`` when ``MORAL_MODEL_BACKEND=vllm``.
     """
+    try:
+        import unsloth  # noqa: F401  — must be imported before transformers in Unsloth path
+    except Exception:
+        pass
+
     import transformers
     transformers.logging.set_verbosity_error()
 

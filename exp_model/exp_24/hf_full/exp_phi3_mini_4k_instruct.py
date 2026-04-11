@@ -4,7 +4,7 @@ EXP-24 DPBR — Phi-3-mini-4k-Instruct (HF upstream, bf16)
 ========================================================
 
 Model  : microsoft/Phi-3-mini-4k-instruct
-Load   : load_in_4bit=False  (full bf16 via Unsloth)
+Load   : load_in_4bit=False  — Hugging Face ``AutoModelForCausalLM`` + bf16 (no Unsloth)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR)
 
 Usage (Kaggle)
@@ -27,8 +27,6 @@ import sys
 
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
@@ -57,9 +55,7 @@ def _install_deps() -> None:
     if not _on_kaggle():
         return
     for cmd in [
-        "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
-        "pip install --upgrade --no-deps unsloth",
-        "pip install -q unsloth_zoo",
+        "pip install -q accelerate bitsandbytes scipy tqdm sentencepiece protobuf",
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
@@ -77,4 +73,4 @@ MODEL_SHORT = "hf_phi3_mini_bf16"
 from exp_model._base_dpbr import run_for_model  # noqa: E402
 
 if __name__ == "__main__":
-    run_for_model(MODEL_NAME, MODEL_SHORT, load_in_4bit=False)
+    run_for_model(MODEL_NAME, MODEL_SHORT, load_in_4bit=False, use_hf_native=True)

@@ -1,8 +1,11 @@
 """
-Reference copy of the Kaggle bootstrap (clone repo + pip Unsloth).
+Reference copy of the Kaggle bootstrap (clone repo + pip deps for HF-native runs).
 
 Each ``exp_*.py`` in this folder inlines the same logic so a notebook can run
 without ``from exp_model...`` before ``sys.path`` includes the repo root.
+
+These scripts use **Hugging Face transformers only** (no Unsloth) — see
+``src.model.load_model_hf_native`` and ``run_for_model(..., use_hf_native=True)``.
 
 Do not import this module from notebook cells unless the repo is already on
 ``sys.path`` (e.g. after ``%cd /kaggle/working/cultural_alignment``).
@@ -19,8 +22,6 @@ REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
 def setup_torch_env() -> None:
     os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
     os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-    os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
-    os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
 
 def on_kaggle() -> bool:
@@ -45,9 +46,23 @@ def ensure_repo() -> str:
     return REPO_DIR_KAGGLE
 
 
-def install_pypi_unsloth() -> None:
+def install_hf_inference_deps() -> None:
+    """accelerate (device_map), bitsandbytes (optional 4-bit), datasets — no Unsloth."""
     if not on_kaggle():
         return
+    for cmd in [
+        "pip install -q accelerate bitsandbytes scipy tqdm sentencepiece protobuf",
+        'pip install --quiet "datasets>=3.4.1,<4.4.0"',
+    ]:
+        subprocess.run(cmd, shell=True, check=False)
+
+
+def install_pypi_unsloth() -> None:
+    """Legacy: Unsloth stack for non-hf_full EXP-24 entrypoints. Not used by ``hf_full``."""
+    if not on_kaggle():
+        return
+    os.environ.setdefault("UNSLOTH_DISABLE_AUTO_COMPILE", "1")
+    os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
     for cmd in [
         "pip install -q bitsandbytes scipy tqdm sentencepiece protobuf",
         "pip install --upgrade --no-deps unsloth",

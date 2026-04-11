@@ -9,7 +9,13 @@ from tqdm.auto import tqdm
 
 from src.constants import COUNTRY_LANG
 from src.i18n import BASE_ASSISTANT_I18N, PROMPT_FRAME_I18N
-from src.model import ChatTemplateHelper, encode_text_to_tensor, text_tokenizer
+from src.model import (
+    ChatTemplateHelper,
+    encode_text_to_tensor,
+    gather_last_logits,
+    gather_last_logits_one_row,
+    text_tokenizer,
+)
 from src.amce import compute_amce_from_preferences, load_human_amce, compute_alignment_metrics
 
 
@@ -65,7 +71,7 @@ def logit_fallback_p_spare(model, full_ids, a_id, b_id, pref_right,
     setattr(tokenizer, "_moral_vllm_ab", (a_id, b_id))
     with torch.no_grad():
         out = model(input_ids=full_ids, use_cache=False)
-        logits = out.logits[0, -1, :]
+        logits = gather_last_logits_one_row(out)
         pair = torch.stack([logits[a_id], logits[b_id]])
         probs = F.softmax(pair / temperature, dim=-1)
         p_l = probs[0].item()
@@ -194,7 +200,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         with torch.no_grad():
             out = model(input_ids=input_ids, use_cache=False)
             batch_idx = torch.arange(input_ids.size(0), device=device)
-            last = out.logits[batch_idx, lens - 1, :]
+            last = gather_last_logits(out, batch_idx, lens)
             pair = torch.stack([last[:, a_id], last[:, b_id]], dim=-1)
             probs = F.softmax(pair / temperature, dim=-1).float().cpu().numpy()
 
