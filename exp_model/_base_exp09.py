@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -196,10 +196,10 @@ def _free_model_cache(model_name: str) -> None:
                 print(f"[CLEANUP] error: {exc}")
 
 
-def _build_cfg(model_name: str, swa_root: str) -> SWAConfig:
+def _build_cfg(model_name: str, swa_root: str, *, target_countries: List[str]) -> SWAConfig:
     return SWAConfig(
         model_name=model_name, n_scenarios=N_SCENARIOS, batch_size=BATCH_SIZE,
-        target_countries=list(TARGET_COUNTRIES), load_in_4bit=True, use_real_data=True,
+        target_countries=list(target_countries), load_in_4bit=True, use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH, wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH, output_dir=swa_root,
         lambda_coop=LAMBDA_COOP, K_samples=128,
@@ -276,12 +276,20 @@ def _abort_kaggle_run(reason: str) -> None:
     raise RuntimeError(reason)
 
 
-def run_for_model(model_name: str, model_short: str) -> None:
+def run_for_model(
+    model_name: str,
+    model_short: str,
+    *,
+    target_countries: Optional[List[str]] = None,
+    results_base: Optional[str] = None,
+) -> None:
     """Full EXP-09 run for a single model."""
     setup_seeds(SEED)
+    countries: List[str] = list(target_countries) if target_countries is not None else list(TARGET_COUNTRIES)
+    rb = results_base if results_base is not None else RESULTS_BASE
     exp_id = f"{EXP_BASE}-{model_short.upper()}"
-    swa_root = f"{RESULTS_BASE}/{model_short}/swa"
-    cmp_root = f"{RESULTS_BASE}/{model_short}/compare"
+    swa_root = f"{rb}/{model_short}/swa"
+    cmp_root = f"{rb}/{model_short}/compare"
     for d in (swa_root, cmp_root):
         Path(d).mkdir(parents=True, exist_ok=True)
 
@@ -291,7 +299,7 @@ def run_for_model(model_name: str, model_short: str) -> None:
     print(f"[THEORY] alpha_h(t)=0 for t<{N_WARMUP}, then 1-exp(-(t-{N_WARMUP})/{DECAY_TAU})")
     print(f"[THEORY] delta_opt = alpha_h*delta_country + (1-alpha_h)*delta_opt_micro")
 
-    cfg = _build_cfg(model_name, swa_root)
+    cfg = _build_cfg(model_name, swa_root, target_countries=countries)
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg.output_dir = str(out_dir)
@@ -310,10 +318,10 @@ def run_for_model(model_name: str, model_short: str) -> None:
     rows: List[dict] = []
     h_method = f"{exp_id}_hierarchical_is"
     try:
-        for ci, country in enumerate(TARGET_COUNTRIES):
+        for ci, country in enumerate(countries):
             if country not in SUPPORTED_COUNTRIES:
                 continue
-            print(f"\n[{ci+1}/{len(TARGET_COUNTRIES)}] {exp_id} | {country}")
+            print(f"\n[{ci+1}/{len(countries)}] {exp_id} | {country}")
             scen = _load_scen(cfg, country)
             personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
 

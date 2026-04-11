@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import pandas as pd
 import torch
@@ -98,10 +98,16 @@ def _free_model_cache(model_name: str) -> None:
                 print(f"[CLEANUP] error: {exc}")
 
 
-def _build_cfg(model_name: str, swa_root: str, *, load_in_4bit: bool = True) -> SWAConfig:
+def _build_cfg(
+    model_name: str,
+    swa_root: str,
+    *,
+    load_in_4bit: bool = True,
+    target_countries: List[str],
+) -> SWAConfig:
     return SWAConfig(
         model_name=model_name, n_scenarios=N_SCENARIOS, batch_size=BATCH_SIZE,
-        target_countries=list(TARGET_COUNTRIES), load_in_4bit=load_in_4bit, use_real_data=True,
+        target_countries=list(target_countries), load_in_4bit=load_in_4bit, use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH, wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH, output_dir=swa_root,
         lambda_coop=_lambda_coop_from_env(), K_samples=128,
@@ -187,6 +193,8 @@ def run_for_model(
     model_short: str,
     *,
     load_in_4bit: bool = True,
+    target_countries: Optional[List[str]] = None,
+    results_base: Optional[str] = None,
 ) -> None:
     """
     Full EXP-24 run for a single model.
@@ -201,9 +209,12 @@ def run_for_model(
     _seed = _exp24_seed()
     setup_seeds(_seed)
 
+    countries: List[str] = list(target_countries) if target_countries is not None else list(TARGET_COUNTRIES)
+    rb = results_base if results_base is not None else RESULTS_BASE
+
     exp_id   = f"{EXP_BASE}-{model_short.upper()}"
-    swa_root = f"{RESULTS_BASE}/{model_short}/swa"
-    cmp_root = f"{RESULTS_BASE}/{model_short}/compare"
+    swa_root = f"{rb}/{model_short}/swa"
+    cmp_root = f"{rb}/{model_short}/compare"
     for d in (swa_root, cmp_root):
         Path(d).mkdir(parents=True, exist_ok=True)
 
@@ -218,7 +229,9 @@ def run_for_model(
     _q = "4-bit" if load_in_4bit else "bf16 (full, no quant)"
     print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}  weights={_q}")
 
-    cfg     = _build_cfg(model_name, swa_root, load_in_4bit=load_in_4bit)
+    cfg     = _build_cfg(
+        model_name, swa_root, load_in_4bit=load_in_4bit, target_countries=countries
+    )
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg.output_dir = str(out_dir)
@@ -242,11 +255,11 @@ def run_for_model(
     rows: List[dict] = []
     dp_method = f"{exp_id}_dual_pass"
     try:
-        for ci, country in enumerate(TARGET_COUNTRIES):
+        for ci, country in enumerate(countries):
             if country not in SUPPORTED_COUNTRIES:
                 print(f"[SKIP] unsupported country: {country}")
                 continue
-            print(f"\n[{ci+1}/{len(TARGET_COUNTRIES)}] {exp_id} | {country}")
+            print(f"\n[{ci+1}/{len(countries)}] {exp_id} | {country}")
 
             scen     = _load_scen(cfg, country)
             personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
