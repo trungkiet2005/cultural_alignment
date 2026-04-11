@@ -88,3 +88,14 @@ def test_ess_anchor_blend_alpha_clips():
     assert ess_anchor_blend_alpha(0.05, rho) == pytest.approx(0.1)
     assert ess_anchor_blend_alpha(0.25, rho) == pytest.approx(0.25)
     assert ess_anchor_blend_alpha(1.2, rho) == pytest.approx(1.0)
+
+
+def test_positional_bias_symmetric_debias():
+    import torch
+
+    from experiment_DM.exp24_dpbr_core import positional_bias_logit_gap
+
+    t = torch.tensor(0.3)
+    assert positional_bias_logit_gap(t, t, swap_changed=False) == 0.0
+    # δ⁽¹⁾=δ_true+b, δ⁽²⁾=-δ_true+b → (δ⁽¹⁾+δ⁽²⁾)/2 = b
+    assert positional_bias_logit_gap(torch.tensor(0.5), torch.tensor(-0.1), swap_changed=True) == pytest.approx(0.2)

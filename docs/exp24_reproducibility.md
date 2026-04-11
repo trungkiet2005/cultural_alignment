@@ -31,6 +31,8 @@ Set **before** Python imports `experiment_DM.exp24_dpbr_core` (e.g. in the shell
 | `EXP24_VAR_SCALE` | Overrides `VAR_SCALE` (e.g. `0.02`, `0.08`). |
 | `EXP24_K_HALF` | Overrides half-pass sample count (must keep `2 * K_HALF` consistent with reporting). |
 | `EXP24_ESS_ANCHOR_REG` | `1` (default): ESS-adaptive anchor blend `δ = α·anchor + (1-α)·δ_base + δ*` with `α = clip(min(ESS₁,ESS₂), ρ, 1)` (EXP-05 / paper). `0`: legacy `δ = anchor + δ*` only. |
+| `EXP24_SEED` | Integer seed for `setup_seeds` (default `42`). Set before the run for multi-seed CIs. |
+| `EXP24_LAMBDA_COOP` | Overrides SWA `lambda_coop` (consensus weight in PT-IS utility). Empty = use script default (e.g. `0.70` in `_base_dpbr`). |
 
 Example (Linux / Kaggle):
 
@@ -53,7 +55,7 @@ python experiment_DM/exp24_ablation_env.py
 
 ## Seeds & determinism
 
-- **EXP-24 runs** call `setup_seeds(42)` in `_base_dpbr.run_for_model`.
+- **EXP-24 runs** call `setup_seeds(EXP24_SEED)` with default `42` (`exp_model/_base_dpbr.py`, `experiment_DM/exp24_dual_pass_bootstrap.py`).
 - Torch / cuDNN deterministic flags are set in `setup_seeds`; tiny numerical drift may still appear on GPU.
 - For **bit-identical** reruns, document the exact **GPU type**, **CUDA**, **torch**, and **transformers/unsloth** versions per model family (`ref_*` profiles in each `exp_24/exp_*.py`).
 
@@ -63,8 +65,13 @@ Each `exp_model/exp_24/exp_*.py` documents its own `ref_*` pip profile (e.g. `re
 
 ## Diagnostics logged in CSV
 
+Per-scenario `swa_results_*.csv` (via `src/swa_runner.run_country_experiment`):
+
 - `reliability_r`, `bootstrap_var`, `ess_pass1`, `ess_pass2`, `delta_star_1`, `delta_star_2`
+- `positional_bias`: symmetric part \((\delta^{(1)}_{\text{base}}+\delta^{(2)}_{\text{base}})/2\) under A↔B swap (additive positional bias diagnostic; see `positional_bias_logit_gap` in `exp24_dpbr_core.py`).
 - `p_spare_preferred_is_pass1_micro`, `p_spare_preferred_is_pass2_micro`: **micro-only** preference prob from each IS pass (no hierarchical prior); for analysis, not the primary decision.
+
+Country-level `compare/comparison.csv` (from `_base_dpbr` / dual-pass bootstrap): `mean_*` and `std_reliability_r`, `std_bootstrap_var` (within-country spread of `reliability_r` / `bootstrap_var` over scenarios), `mean_positional_bias`.
 
 ## Tests
 

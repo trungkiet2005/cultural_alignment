@@ -154,7 +154,11 @@ from src.controller import ImplicitSWAController
 import src.swa_runner as _swa_runner_mod
 from src.swa_runner import run_country_experiment
 
-from experiment_DM.exp24_dpbr_core import _use_ess_anchor_reg, ess_anchor_blend_alpha
+from experiment_DM.exp24_dpbr_core import (
+    _use_ess_anchor_reg,
+    ess_anchor_blend_alpha,
+    positional_bias_logit_gap,
+)
 
 # ============================================================================
 # Step 2: configuration
@@ -298,6 +302,7 @@ class Exp24DualPassController(ImplicitSWAController):
             db2, da2 = db1, da1
         delta_base   = (db1 - db2) / 2.0 if swap_changed else db1
         delta_agents = (da1 - da2) / 2.0 if swap_changed else da1
+        positional_bias = positional_bias_logit_gap(db1, db2, swap_changed)
 
         sigma = max(
             float(delta_agents.std(unbiased=True).item()) if delta_agents.numel() >= 2 else 0.0,
@@ -356,7 +361,7 @@ class Exp24DualPassController(ImplicitSWAController):
             "agent_rewards": (delta_agents - delta_base).tolist(),
             "p_spare_preferred_is_pass1_micro": _p_pref_micro(ds1),
             "p_spare_preferred_is_pass2_micro": _p_pref_micro(ds2),
-            "positional_bias": 0.0,
+            "positional_bias": positional_bias,
         }
 
 

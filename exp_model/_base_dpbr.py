@@ -65,6 +65,15 @@ HUMAN_AMCE_PATH   = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/co
 PREFLIGHT_TIMEOUT_MINUTES = int(os.environ.get("EXP24_PREFLIGHT_TIMEOUT_MINUTES", "15"))
 
 
+def _exp24_seed() -> int:
+    return int(os.environ.get("EXP24_SEED", str(SEED)))
+
+
+def _lambda_coop_from_env() -> float:
+    v = os.environ.get("EXP24_LAMBDA_COOP", "").strip()
+    return float(v) if v else LAMBDA_COOP
+
+
 # DPBR controller + PRIOR_STATE: experiment_DM.exp24_dpbr_core (same as exp24_dual_pass_bootstrap.py)
 
 
@@ -95,7 +104,7 @@ def _build_cfg(model_name: str, swa_root: str) -> SWAConfig:
         target_countries=list(TARGET_COUNTRIES), load_in_4bit=True, use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH, wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH, output_dir=swa_root,
-        lambda_coop=LAMBDA_COOP, K_samples=128,
+        lambda_coop=_lambda_coop_from_env(), K_samples=128,
     )
 
 
@@ -175,7 +184,8 @@ def run_for_model(model_name: str, model_short: str) -> None:
     Full EXP-24 run for a single model.
     Called directly from each per-model entry script.
     """
-    setup_seeds(SEED)
+    _seed = _exp24_seed()
+    setup_seeds(_seed)
 
     exp_id   = f"{EXP_BASE}-{model_short.upper()}"
     swa_root = f"{RESULTS_BASE}/{model_short}/swa"
@@ -191,6 +201,7 @@ def run_for_model(model_name: str, model_short: str) -> None:
     _ear = os.environ.get("EXP24_ESS_ANCHOR_REG", "1").strip().lower()
     _ess_on = _ear not in ("0", "false", "no", "off")
     print(f"[THEORY] ESS anchor blend: {'ON (δ_micro = α·anchor + (1-α)·δ_base + δ*)' if _ess_on else 'OFF (legacy δ_micro = anchor + δ*)'}")
+    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}")
 
     cfg     = _build_cfg(model_name, swa_root)
     out_dir = Path(swa_root) / resolve_output_dir("", model_name).strip("/\\")
@@ -239,6 +250,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
                 "mean_ess_pass1": float("nan"),
                 "mean_ess_pass2": float("nan"),
                 "mean_ess_anchor_alpha": float("nan"),
+                "std_reliability_r": float("nan"),
+                "std_bootstrap_var": float("nan"),
+                "mean_positional_bias": float("nan"),
                 "utilitarianism_slope_hat": float("nan"),
                 "utilitarianism_slope_n": 0,
             })
@@ -261,6 +275,12 @@ def run_for_model(model_name: str, model_short: str) -> None:
             )
             ps  = PRIOR_STATE.get(country, BootstrapPriorState()).stats
             mea = lambda col: float(results_df[col].mean()) if col in results_df.columns else float("nan")
+
+            def _std(col: str) -> float:
+                if col not in results_df.columns or len(results_df) < 2:
+                    return float("nan")
+                return float(results_df[col].std(ddof=1))
+
             us = summary.get("utilitarianism_slope") or {}
             rows.append({
                 "model": model_name, "method": dp_method, "country": country,
@@ -271,6 +291,9 @@ def run_for_model(model_name: str, model_short: str) -> None:
                 "mean_bootstrap_var": mea("bootstrap_var"),
                 "mean_ess_pass1": mea("ess_pass1"), "mean_ess_pass2": mea("ess_pass2"),
                 "mean_ess_anchor_alpha": mea("ess_anchor_alpha"),
+                "std_reliability_r": _std("reliability_r"),
+                "std_bootstrap_var": _std("bootstrap_var"),
+                "mean_positional_bias": mea("positional_bias"),
                 "utilitarianism_slope_hat": float(us.get("slope_hat", float("nan"))),
                 "utilitarianism_slope_n": int(us.get("n_obs", 0) or 0),
             })

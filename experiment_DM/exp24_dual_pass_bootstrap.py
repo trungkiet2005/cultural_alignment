@@ -173,6 +173,15 @@ HUMAN_AMCE_PATH   = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/co
 # Core DPBR implementation: experiment_DM.exp24_dpbr_core (shared with exp_model/_base_dpbr.py)
 
 
+def _exp24_seed() -> int:
+    return int(os.environ.get("EXP24_SEED", str(SEED)))
+
+
+def _lambda_coop_from_env() -> float:
+    v = os.environ.get("EXP24_LAMBDA_COOP", "").strip()
+    return float(v) if v else LAMBDA_COOP
+
+
 # ============================================================================
 # Step 3: Runner
 # ============================================================================
@@ -193,7 +202,7 @@ def _build_cfg(model_name):
         target_countries=list(TARGET_COUNTRIES), load_in_4bit=True, use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH, wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH, output_dir=SWA_ROOT,
-        lambda_coop=LAMBDA_COOP, K_samples=128,
+        lambda_coop=_lambda_coop_from_env(), K_samples=128,
     )
 
 def _load_scen(cfg, country):
@@ -237,6 +246,11 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
         ps  = PRIOR_STATE.get(country, BootstrapPriorState()).stats
         mea = lambda col: float(results_df[col].mean()) if col in results_df.columns else float("nan")
 
+        def _std(col: str) -> float:
+            if col not in results_df.columns or len(results_df) < 2:
+                return float("nan")
+            return float(results_df[col].std(ddof=1))
+
         us = summary.get("utilitarianism_slope") or {}
         rows.append({
             "model": model_name, "method": f"{EXP_ID}_dual_pass", "country": country,
@@ -247,6 +261,9 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
             "mean_bootstrap_var": mea("bootstrap_var"),
             "mean_ess_pass1": mea("ess_pass1"), "mean_ess_pass2": mea("ess_pass2"),
             "mean_ess_anchor_alpha": mea("ess_anchor_alpha"),
+            "std_reliability_r": _std("reliability_r"),
+            "std_bootstrap_var": _std("bootstrap_var"),
+            "mean_positional_bias": mea("positional_bias"),
             "utilitarianism_slope_hat": float(us.get("slope_hat", float("nan"))),
             "utilitarianism_slope_n": int(us.get("n_obs", 0) or 0),
         })
@@ -267,9 +284,11 @@ def _run_model(model, tokenizer, model_name) -> List[dict]:
     return rows
 
 def main():
-    setup_seeds(SEED)
+    _seed = _exp24_seed()
+    setup_seeds(_seed)
     for d in (SWA_ROOT, CMP_ROOT): Path(d).mkdir(parents=True, exist_ok=True)
     print(f"\n{'='*70}\n  {EXP_ID}: {EXP_NAME.upper()}  (base: EXP-09)\n{'='*70}")
+    print(f"[CONFIG] seed={_seed}  lambda_coop={_lambda_coop_from_env()}")
     print(f"[THEORY] Pass1+Pass2: K_half={K_HALF} each → same total K={K_HALF*2} as EXP-09")
     print(f"[THEORY] r = exp(-(δ*₁-δ*₂)² / {VAR_SCALE})  (soft reliability weight)")
     print(f"[THEORY] δ* = r · (δ*₁+δ*₂)/2  (replaces binary ESS guard)")

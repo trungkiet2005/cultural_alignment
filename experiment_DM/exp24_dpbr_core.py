@@ -43,6 +43,13 @@ def ess_anchor_blend_alpha(ess_min: float, rho_eff: float) -> float:
     return float(min(1.0, max(float(rho_eff), float(ess_min))))
 
 
+def positional_bias_logit_gap(db1: torch.Tensor, db2: torch.Tensor, swap_changed: bool) -> float:
+    """Symmetric part of base logit gaps under A↔B swap: b = (δ⁽¹⁾+δ⁽²⁾)/2 when δ⁽¹⁾=δ_true+b, δ⁽²⁾=-δ_true+b (paper §debias)."""
+    if not swap_changed:
+        return 0.0
+    return float(((db1 + db2) / 2.0).item())
+
+
 def dpbr_reliability_weight(
     delta_star_1: float,
     delta_star_2: float,
@@ -156,6 +163,7 @@ class Exp24DualPassController(ImplicitSWAController):
             db2, da2 = db1, da1
         delta_base = (db1 - db2) / 2.0 if swap_changed else db1
         delta_agents = (da1 - da2) / 2.0 if swap_changed else da1
+        positional_bias = positional_bias_logit_gap(db1, db2, swap_changed)
 
         sigma = max(
             float(delta_agents.std(unbiased=True).item()) if delta_agents.numel() >= 2 else 0.0,
@@ -226,7 +234,7 @@ class Exp24DualPassController(ImplicitSWAController):
             "agent_rewards": (delta_agents - delta_base).tolist(),
             "p_spare_preferred_is_pass1_micro": p_pref_micro_1,
             "p_spare_preferred_is_pass2_micro": p_pref_micro_2,
-            "positional_bias": 0.0,
+            "positional_bias": positional_bias,
         }
 
 

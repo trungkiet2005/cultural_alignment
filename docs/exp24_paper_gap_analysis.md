@@ -13,7 +13,7 @@ Below: limitations and theory caveats **stated in the paper**, whether **DPBR in
 | Self-normalised IS is **biased at finite \(K\)**; bias \(O(1/K)\); **no explicit finite-\(K\) bound** | Headline claims are empirical, not concentration guarantees | **Yes** — two passes use **same** \(K/2\) per pass; total \(K=128\) unchanged | Report **variance across seeds** or bootstrap over IS noise; optional **larger \(K\)** ablation (`EXP24_K_HALF`). |
 | PT **kink at 0** → **non-smooth** \(U\); weights can **jump** when \(g\) crosses 0 | Extra variance not analysed closed-form | **Yes** | Same PT kernel; dual-pass \(r\) **downweights** inconsistent \(\delta^\star\) but does **not** remove kink pathology. |
 | **Debias before PT-IS**; averaging **after** nonlinear step would **not** cancel bias | Implementation order matters | **Same pipeline** if controller debias matches paper | Keep **one** debiased \((\delta_{\text{base}},\delta_i)\) then IS (already true in `Exp24DualPassController.predict`). |
-| Additive positional bias = **first-order approximation** | Real transformers may deviate | **Yes** | Same as SWA-PTIS; report **positional_bias** diagnostics if exposed per run. |
+| Additive positional bias = **first-order approximation** | Real transformers may deviate | **Yes** | Logged per scenario as **`positional_bias`** in `swa_results_*.csv` and aggregated as **`mean_positional_bias`** in `compare/comparison.csv` (`positional_bias_logit_gap` in `exp24_dpbr_core.py`). |
 
 ---
 
@@ -37,7 +37,7 @@ Below: limitations and theory caveats **stated in the paper**, whether **DPBR in
 
 | Item | DPBR |
 |------|------|
-| Single seed; IS stochasticity not fully characterised | **Worse visibility** — **two** random passes per scenario → document **seed sweep** or report **var(reliability_r)** across reruns. |
+| Single seed; IS stochasticity not fully characterised | **Worse visibility** — **two** random passes per scenario → document **seed sweep** (`EXP24_SEED`) or use **`std_reliability_r`** / **`std_bootstrap_var`** in `comparison.csv` (within-country spread over scenarios) as a cheap diagnostic; full CIs still need multi-seed runs. |
 | Pearson \(r\) on 6-D vector noisy | Same |
 | **WVS→trolley** indirect mapping | Same personas |
 | **Inter-persona reward** \(r_i \approx \delta_i-\delta_{\text{base}}\) may misalign with human target | Same — DPBR does not fix wrong personas |
