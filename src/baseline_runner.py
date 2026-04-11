@@ -91,6 +91,8 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     # Per-language A/B answer tokens (CRITICAL: do NOT use naive
     # `tokenizer.encode("A")[0]` — see resolve_decision_tokens_for_lang).
     a_id, b_id = resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang)
+    if hasattr(model, "set_decision_tokens"):
+        model.set_decision_tokens(int(a_id), int(b_id))
     frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
 
     rows_data = []

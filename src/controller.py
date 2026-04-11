@@ -210,6 +210,8 @@ class ImplicitSWAController:
 
         a_id, b_id = self._resolve_decision_tokens_for_lang(lang)
         setattr(self.tokenizer, "_moral_vllm_ab", (a_id, b_id))
+        if hasattr(self.model, "set_decision_tokens"):
+            self.model.set_decision_tokens(int(a_id), int(b_id))
 
         all_prefixes = [self.base_prefix_ids] + self.persona_prefix_ids
         seqs = [torch.cat([p, query_ids], dim=1) for p in all_prefixes]

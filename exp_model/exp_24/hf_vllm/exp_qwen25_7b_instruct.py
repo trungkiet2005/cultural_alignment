@@ -4,7 +4,7 @@ EXP-24 DPBR — Qwen2.5-7B-Instruct (vLLM engine, bf16)
 =====================================================
 
 Model  : Qwen/Qwen2.5-7B-Instruct
-Load   : ``vllm.LLM`` — next-token logits via ``generate(..., logprobs=-1)`` (see ``src.vllm_causal``)
+Load   : ``vllm.LLM`` — next-token scores for A/B ids via ``generate`` + ``allowed_token_ids`` (see ``src.vllm_causal``)
 Method : Dual-Pass Bootstrap IS Reliability (DPBR)
 
 Other EXP-24 scripts use **Unsloth** by default; ``exp_24/hf_full`` uses HF ``AutoModel``;

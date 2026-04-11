@@ -232,7 +232,7 @@ def run_for_model(
         If True, load with Hugging Face ``AutoModelForCausalLM`` / ``AutoTokenizer`` only
         (no Unsloth). Used by ``exp_24/hf_full/*`` upstream-weight runs.
     use_vllm
-        If True, load with ``vllm.LLM`` and score via ``generate(..., logprobs=-1)``.
+        If True, load with ``vllm.LLM`` and score via ``generate`` with per-language A/B ``allowed_token_ids``.
         Mutually exclusive with ``use_hf_native``. Used by ``exp_24/hf_vllm/*``.
     """
     if use_hf_native and use_vllm:

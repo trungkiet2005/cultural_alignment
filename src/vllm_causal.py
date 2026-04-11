@@ -1,19 +1,21 @@
 """
 vLLM-backed causal LM wrapper for EXP-24 token-logit scoring.
 
-The moral pipeline needs next-token logits at the last prompt position. vLLM's
-``LLM.generate`` with ``max_tokens=1`` and ``logprobs=-1`` returns the full
-vocabulary distribution for that step (see vLLM ``SamplingParams`` validation).
+The moral pipeline needs next-token scores at the last prompt position for the
+**A/B answer token ids** (per language). vLLM caps ``logprobs`` (often max 20);
+``logprobs=-1`` is treated as “full vocab” and fails validation on recent engines.
 
-We return ``forward`` outputs with ``logits`` of shape **[B, vocab_size]** (only
-the last position), which ``gather_last_logits`` understands — no [B, L, V] tensor.
+We therefore use ``SamplingParams(allowed_token_ids=[a_id, b_id], logprobs=2)`` and
+scatter returned log-probs into a dense **[B, vocab_size]** row (rest ``-1e9``).
+Call ``set_decision_tokens(a_id, b_id)`` before ``forward`` (see ``baseline_runner`` /
+``ImplicitSWAController``).
 """
 
 from __future__ import annotations
 
 import os
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Any, List
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -53,12 +55,17 @@ class VllmCausalWrapper(nn.Module):
         self.llm = llm
         self.pad_token_id = int(pad_token_id)
         self._vocab_size = int(vocab_size)
+        self._decision_ab: Optional[Tuple[int, int]] = None
         _dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.register_parameter("_device_probe", nn.Parameter(torch.zeros(1, device=_dev)))
 
     @property
     def vocab_size(self) -> int:
         return self._vocab_size
+
+    def set_decision_tokens(self, a_id: int, b_id: int) -> None:
+        """Restrict next-token scoring to the language-specific A/B ids (required for vLLM)."""
+        self._decision_ab = (int(a_id), int(b_id))
 
     def forward(self, input_ids: torch.Tensor, use_cache: bool = False) -> SimpleNamespace:
         del use_cache
@@ -67,6 +74,15 @@ class VllmCausalWrapper(nn.Module):
 
         from vllm import SamplingParams
         from vllm.inputs import TokensPrompt
+
+        if self._decision_ab is None:
+            raise RuntimeError(
+                "VllmCausalWrapper: call model.set_decision_tokens(a_id, b_id) before forward. "
+                "Baseline/controller set this from per-language A/B token resolution."
+            )
+        a_id, b_id = self._decision_ab
+        allowed = sorted({a_id, b_id})
+        n_lp = len(allowed)
 
         device = input_ids.device
         dtype = torch.float32
@@ -84,11 +100,18 @@ class VllmCausalWrapper(nn.Module):
                 seq = row[:last].tolist()
             prompts.append(TokensPrompt(prompt_token_ids=seq))
 
-        sp = SamplingParams(
-            max_tokens=1,
-            temperature=0.0,
-            logprobs=-1,
-        )
+        try:
+            sp = SamplingParams(
+                max_tokens=1,
+                temperature=0.0,
+                logprobs=n_lp,
+                allowed_token_ids=allowed,
+            )
+        except TypeError as e:
+            raise RuntimeError(
+                "vLLM SamplingParams rejected arguments; need a vLLM build with "
+                "`allowed_token_ids` for A/B logit scoring (or upgrade vLLM)."
+            ) from e
         outputs = self.llm.generate(prompts, sampling_params=sp, use_tqdm=False)
 
         rows: List[torch.Tensor] = []
@@ -174,5 +197,5 @@ def load_model_vllm(
 
     model = VllmCausalWrapper(llm, pad_token_id=pad_id, vocab_size=vocab_size)
 
-    print("[MODEL] vLLM wrapper ready (last-token logits via generate+logprobs=-1).")
+    print("[MODEL] vLLM wrapper ready (set_decision_tokens + generate w/ A/B logprobs).")
     return model, tok
