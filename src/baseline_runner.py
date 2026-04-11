@@ -68,7 +68,6 @@ def logit_fallback_p_spare(model, full_ids, a_id, b_id, pref_right,
     `a_id` / `b_id` are language-specific answer-token ids resolved via
     `resolve_decision_tokens_for_lang`.
     """
-    setattr(tokenizer, "_moral_vllm_ab", (a_id, b_id))
     with torch.no_grad():
         out = model(input_ids=full_ids, use_cache=False)
         logits = gather_last_logits_one_row(out)
@@ -93,6 +92,8 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
     a_id, b_id = resolve_decision_tokens_for_lang(tokenizer, chat_helper, lang)
     if hasattr(model, "set_decision_tokens"):
         model.set_decision_tokens(int(a_id), int(b_id))
+    # vLLM shim (``VllmCausalLogitModel`` / ``MORAL_MODEL_BACKEND=vllm``) reads this before forward.
+    setattr(tokenizer, "_moral_vllm_ab", (int(a_id), int(b_id)))
     frame = PROMPT_FRAME_I18N.get(lang, PROMPT_FRAME_I18N["en"])
 
     rows_data = []
@@ -162,7 +163,6 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
             try:
                 torch.cuda.empty_cache()
                 ids, _lens = _pad_batch(sorted_seqs[:bs])
-                setattr(tokenizer, "_moral_vllm_ab", (a_id, b_id))
                 with torch.no_grad():
                     _ = model(input_ids=ids, use_cache=False)
                 free_after, _ = torch.cuda.mem_get_info(device)
@@ -198,7 +198,6 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         seqs = [t[1][0] for t in chunk]                 # 1D tensors
         # Right-pad and gather at the last real token position for each row.
         input_ids, lens = _pad_batch(seqs)
-        setattr(tokenizer, "_moral_vllm_ab", (a_id, b_id))
         with torch.no_grad():
             out = model(input_ids=input_ids, use_cache=False)
             batch_idx = torch.arange(input_ids.size(0), device=device)
