@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Gemma-3-270M-IT — EXP-24 (DPBR), 20 countries
-============================================================
+Paper sweep — Mistral-7B-Instruct v0.2 (vLLM) — EXP-24 (DPBR), 20 countries
+===========================================================================
 
-Model : google/gemma-3-270m-it (vLLM)
-Method: EXP-24 DPBR
+Unsloth 4-bit ref: unsloth/mistral-7b-instruct-v0.2-bnb-4bit
+Upstream vLLM: mistralai/Mistral-7B-Instruct-v0.2
+
+Note: ``exp_paper_mistral_7b_v03.py`` is v0.3.
 
 Kaggle:
-    !python exp_paper/exp_paper_gemma3_270m.py
+    !python exp_paper/exp_paper_mistral_7b_v02.py
 """
 
 import os
@@ -48,8 +50,8 @@ from src.hf_env import apply_hf_credentials  # noqa: E402
 apply_hf_credentials()
 install_paper_kaggle_deps()
 
-MODEL_NAME = "google/gemma-3-270m-it"
-MODEL_SHORT = "gemma3_270m"
+MODEL_NAME = "unsloth/mistral-7b-instruct-v0.2-bnb-4bit"
+MODEL_SHORT = "mistral_v02"
 
 from exp_paper.paper_countries import PAPER_20_COUNTRIES, RESULTS_BASE_EXP24_20C  # noqa: E402
 from exp_model._base_dpbr import run_for_model  # noqa: E402

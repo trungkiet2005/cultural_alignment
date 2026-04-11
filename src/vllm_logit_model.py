@@ -7,9 +7,13 @@ those two ids; we embed them as pseudo-logits so existing code paths unchanged.
 
 from __future__ import annotations
 
+import math
 from typing import Any, List, Optional, Tuple
 
 import torch
+
+# Clamp very low log-probs so softmax([la, lb]) stays finite (inf gap → nan).
+_LP_FLOOR = -80.0
 
 
 class _ModelForwardOutput:
@@ -24,11 +28,38 @@ def _token_logprob(logprob_dict: Any, tid: int) -> float:
     if logprob_dict is None or tid not in logprob_dict:
         return float("-inf")
     v = logprob_dict[tid]
-    if hasattr(v, "logprob"):
-        return float(v.logprob)
-    if isinstance(v, (int, float)):
-        return float(v)
-    return float("-inf")
+    try:
+        if hasattr(v, "logprob"):
+            x = float(v.logprob)
+        elif isinstance(v, (int, float)):
+            x = float(v)
+        else:
+            return float("-inf")
+    except (TypeError, ValueError):
+        return float("-inf")
+    if math.isnan(x) or math.isinf(x) and x > 0:
+        return float("-inf")
+    return x
+
+
+def _finite_pair_for_softmax(la: float, lb: float) -> Tuple[float, float]:
+    """Map (la, lb) to finite pseudo-logits at A/B so 2-way softmax matches P(A),P(B).
+
+    Old scheme stored A=0, B=(lb-la). If la is missing (-inf) and lb finite,
+    ``lb - la`` is +inf and ``softmax([0, inf])`` becomes nan. Store clamped la, lb.
+    """
+    def clip_down(x: float) -> float:
+        if math.isnan(x):
+            return _LP_FLOOR
+        if x == float("-inf") or x < _LP_FLOOR:
+            return _LP_FLOOR
+        return float(x)
+
+    a_ok = not (math.isnan(la) or la == float("-inf"))
+    b_ok = not (math.isnan(lb) or lb == float("-inf"))
+    if not a_ok and not b_ok:
+        return 0.0, 0.0
+    return clip_down(la), clip_down(lb)
 
 
 def _row_lengths(input_ids: torch.Tensor, pad_id: Optional[int]) -> Tuple[torch.Tensor, List[int]]:
@@ -92,8 +123,8 @@ class VllmCausalLogitModel:
 
         from vllm import SamplingParams
 
-        lens_t, lens_list = _row_lengths(input_ids, self.pad_token_id)
-        bsz, max_len = input_ids.shape
+        _, lens_list = _row_lengths(input_ids, self.pad_token_id)
+        bsz = int(input_ids.shape[0])
         dev = input_ids.device
         rows_cpu = input_ids.detach().cpu()
         prompts = []
@@ -117,10 +148,10 @@ class VllmCausalLogitModel:
         except TypeError:
             outs = self._llm.generate(prompts, sampling_params=sp)
 
-        logits_full = torch.zeros(
-            bsz, max_len, self.vocab_size, device=dev, dtype=torch.float32
-        )
-        pos = lens_t - 1
+        # Only last-position logits exist for vLLM; downstream uses gather_last_logits
+        # which treats [B, V] as full last-row logits. Do NOT allocate [B, L, V] — that
+        # scales with padded length and OOMs (e.g. SWA batch × 8k × 128k × fp32).
+        logits_last = torch.zeros(bsz, self.vocab_size, device=dev, dtype=torch.float32)
 
         for i in range(bsz):
             o = outs[i]
@@ -132,11 +163,8 @@ class VllmCausalLogitModel:
             d0 = lo[0]
             la = _token_logprob(d0, a_id)
             lb = _token_logprob(d0, b_id)
-            if la == float("-inf") and lb == float("-inf"):
-                continue
-            gap = lb - la
-            pi = int(pos[i].item())
-            logits_full[i, pi, a_id] = 0.0
-            logits_full[i, pi, b_id] = float(gap)
+            fa, fb = _finite_pair_for_softmax(la, lb)
+            logits_last[i, a_id] = fa
+            logits_last[i, b_id] = fb
 
-        return _ModelForwardOutput(logits_full)
+        return _ModelForwardOutput(logits_last)

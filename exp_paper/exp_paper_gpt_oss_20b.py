@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Gemma-3-270M-IT — EXP-24 (DPBR), 20 countries
-============================================================
+Paper sweep — GPT-OSS-20B (vLLM) — EXP-24 (DPBR), 20 countries
+==============================================================
 
-Model : google/gemma-3-270m-it (vLLM)
-Method: EXP-24 DPBR
+Unsloth 4-bit ref: unsloth/gpt-oss-20b-unsloth-bnb-4bit
+Upstream vLLM: openai/gpt-oss-20b
 
 Kaggle:
-    !python exp_paper/exp_paper_gemma3_270m.py
+    !python exp_paper/exp_paper_gpt_oss_20b.py
 """
 
 import os
@@ -48,8 +48,8 @@ from src.hf_env import apply_hf_credentials  # noqa: E402
 apply_hf_credentials()
 install_paper_kaggle_deps()
 
-MODEL_NAME = "google/gemma-3-270m-it"
-MODEL_SHORT = "gemma3_270m"
+MODEL_NAME = "unsloth/gpt-oss-20b-unsloth-bnb-4bit"
+MODEL_SHORT = "gpt_oss_20b"
 
 from exp_paper.paper_countries import PAPER_20_COUNTRIES, RESULTS_BASE_EXP24_20C  # noqa: E402
 from exp_model._base_dpbr import run_for_model  # noqa: E402

@@ -1,28 +1,21 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Mistral-7B-Instruct v0.3 (vLLM) — EXP-24 (DPBR), 20 countries
-===========================================================================
+Paper sweep — Mistral-7B-Instruct v0.3 — EXP-24 (DPBR), 20 countries
+====================================================================
 
-Model : mistralai/Mistral-7B-Instruct-v0.3 (vLLM)
+Model : mistralai/Mistral-7B-Instruct-v0.3 (default: Unsloth 4-bit)
 Method: EXP-24 DPBR
 
 Kaggle:
     !python exp_paper/exp_paper_mistral_7b_v03.py
 
-    Turn on GPU. This clones REPO_URL — push your vLLM changes to that repo first,
-    or attach your fork as a Kaggle Dataset and adjust paths.
+    Turn on GPU. For vLLM: ``export MORAL_MODEL_BACKEND=vllm`` before the cell.
     Add a notebook secret named ``HF_TOKEN`` (Hugging Face read token) for gated models.
 """
 
 import os
 import subprocess
 import sys
-
-os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
-os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
-os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")
-if os.path.isdir("/kaggle/working"):
-    os.environ.setdefault("MORAL_VLLM_GPU_MEM", "0.95")
 
 REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
 REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
@@ -48,25 +41,15 @@ def _ensure_repo() -> str:
     return REPO_DIR_KAGGLE
 
 
-def _install_deps() -> None:
-    if not _on_kaggle():
-        return
-    for cmd in [
-        'pip install -q "numpy<2.3"',
-        "pip uninstall -y -q tensorflow tensorflow-cpu tf_keras 2>/dev/null || true",
-        'pip install -q --upgrade "protobuf>=5.29.6,<6" "grpcio>=1.68" "googleapis-common-protos>=1.66"',
-        "pip install -q scipy tqdm sentencepiece",
-        "pip install -q vllm",
-        'pip install --quiet "datasets>=3.4.1,<4.4.0"',
-    ]:
-        subprocess.run(cmd, shell=True, check=False)
-
-
 _ensure_repo()
+
+from exp_paper.paper_runtime import configure_paper_env, install_paper_kaggle_deps  # noqa: E402
+
+configure_paper_env()
 from src.hf_env import apply_hf_credentials  # noqa: E402
 
 apply_hf_credentials()
-_install_deps()
+install_paper_kaggle_deps()
 
 MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
 MODEL_SHORT = "mistral_v03"

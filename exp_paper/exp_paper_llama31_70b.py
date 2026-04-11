@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Gemma-3-270M-IT — EXP-24 (DPBR), 20 countries
-============================================================
+Paper sweep — Llama-3.1-70B-Instruct (vLLM) — EXP-24 (DPBR), 20 countries
+========================================================================
 
-Model : google/gemma-3-270m-it (vLLM)
-Method: EXP-24 DPBR
+Unsloth 4-bit ref: unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit
+Upstream vLLM: meta-llama/Llama-3.1-70B-Instruct
+
+Note: ``exp_paper_llama33_70b.py`` is Llama-3.3-70B (different checkpoint).
 
 Kaggle:
-    !python exp_paper/exp_paper_gemma3_270m.py
+    !python exp_paper/exp_paper_llama31_70b.py
 """
 
 import os
@@ -42,14 +44,14 @@ _ensure_repo()
 
 from exp_paper.paper_runtime import configure_paper_env, install_paper_kaggle_deps  # noqa: E402
 
-configure_paper_env()
+configure_paper_env(vllm_gpu_mem_default="0.90")
 from src.hf_env import apply_hf_credentials  # noqa: E402
 
 apply_hf_credentials()
 install_paper_kaggle_deps()
 
-MODEL_NAME = "google/gemma-3-270m-it"
-MODEL_SHORT = "gemma3_270m"
+MODEL_NAME = "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit"
+MODEL_SHORT = "llama31_70b"
 
 from exp_paper.paper_countries import PAPER_20_COUNTRIES, RESULTS_BASE_EXP24_20C  # noqa: E402
 from exp_model._base_dpbr import run_for_model  # noqa: E402

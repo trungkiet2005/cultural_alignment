@@ -144,10 +144,13 @@ def load_model_vllm(
     """
     Load a model with vLLM ``LLM`` and return *(wrapper, tokenizer)*.
 
-    ``load_in_4bit`` maps to vLLM ``quantization`` when True (best-effort
-    ``bitsandbytes``); requires a vLLM build that supports it.
+    ``load_in_4bit``: models whose id contains a **≥70B** tag get vLLM
+    ``quantization`` (default ``bitsandbytes`` via ``MORAL_VLLM_LARGE_QUANT``);
+    smaller models still use ``bitsandbytes`` when this flag is True (legacy).
+    Set ``VLLM_QUANTIZATION`` to override; ``MORAL_VLLM_AUTO_QUANT_70B=0`` skips
+    the large-model auto path only.
     """
-    from src.vllm_env import apply_vllm_runtime_defaults
+    from src.vllm_env import apply_vllm_quantization_kw, apply_vllm_runtime_defaults
 
     apply_vllm_runtime_defaults()
 
@@ -186,8 +189,13 @@ def load_model_vllm(
             "no",
         ):
             kw["disable_custom_all_reduce"] = True
-    if load_in_4bit:
-        kw["quantization"] = os.environ.get("VLLM_QUANTIZATION", "bitsandbytes")
+    apply_vllm_quantization_kw(
+        kw,
+        hf_id=model_name,
+        model_key=model_name,
+        load_in_4bit=load_in_4bit,
+        legacy_causal_always_bnb=True,
+    )
 
     mi = os.environ.get("VLLM_MAX_NUM_SEQS")
     if mi:

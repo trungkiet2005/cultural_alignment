@@ -6,6 +6,7 @@ import os
 # Kaggle this often times out (slow/blocked hub), falsely raising "HF is down".
 os.environ.setdefault("UNSLOTH_DISABLE_STATISTICS", "1")
 
+import inspect
 import random as _rng
 import time
 
@@ -106,6 +107,11 @@ def _resolve_vllm_hf_model_id(model_name: str) -> str:
         "unsloth/gemma-3-270m-it": "google/gemma-3-270m-it",
         "unsloth/Qwen3-4B-Thinking-2507-unsloth-bnb-4bit": "Qwen/Qwen3-4B-Thinking-2507",
         "unsloth/Qwen3.5-0.8B": "Qwen/Qwen3.5-0.8B",
+        "unsloth/Qwen2.5-7B-Instruct-bnb-4bit": "Qwen/Qwen2.5-7B-Instruct",
+        "unsloth/Qwen2.5-72B-Instruct-bnb-4bit": "Qwen/Qwen2.5-72B-Instruct",
+        "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit": "meta-llama/Llama-3.1-70B-Instruct",
+        "unsloth/mistral-7b-instruct-v0.2-bnb-4bit": "mistralai/Mistral-7B-Instruct-v0.2",
+        "unsloth/gpt-oss-20b-unsloth-bnb-4bit": "openai/gpt-oss-20b",
     }
     if key in table:
         return table[key]
@@ -143,7 +149,7 @@ def _load_model_vllm(
     _tt.padding_side = "left"
     setattr(tokenizer, "_moral_chat_content_mode", "string")
 
-    from src.vllm_env import apply_vllm_runtime_defaults
+    from src.vllm_env import apply_vllm_quantization_kw, apply_vllm_runtime_defaults
 
     apply_vllm_runtime_defaults()
 
@@ -180,14 +186,13 @@ def _load_model_vllm(
     dtype = os.environ.get("VLLM_DTYPE", "").strip()
     if dtype:
         llm_kw["dtype"] = dtype
-    quant = os.environ.get("VLLM_QUANTIZATION", "").strip()
-    if quant:
-        llm_kw["quantization"] = quant
-    elif load_in_4bit:
-        print(
-            "[MODEL] note: vLLM ignores load_in_4bit; use full weights or set VLLM_QUANTIZATION "
-            "(e.g. awq, gptq) if you need compressed weights."
-        )
+    apply_vllm_quantization_kw(
+        llm_kw,
+        hf_id=hf_id,
+        model_key=model_name,
+        load_in_4bit=load_in_4bit,
+        legacy_causal_always_bnb=False,
+    )
 
     tp = os.environ.get("VLLM_TENSOR_PARALLEL_SIZE", "").strip()
     if tp:
@@ -510,25 +515,91 @@ class ChatTemplateHelper:
             return [{"type": "text", "text": text}]
         return text
 
+    def _apply_chat_template(self, ct, messages, *, tokenize: bool, add_generation_prompt: bool):
+        """Call ``apply_chat_template`` with only kwargs the backend accepts.
+
+        ``MistralCommonTokenizer`` (Kaggle / some transformers builds) rejects any
+        unknown keyword, including ``add_generation_prompt=False``.
+        """
+        try:
+            names = set(inspect.signature(ct.apply_chat_template).parameters)
+        except (TypeError, ValueError):
+            names = set()
+
+        kw = {}
+        if "tokenize" in names:
+            kw["tokenize"] = tokenize
+        if "add_generation_prompt" in names:
+            kw["add_generation_prompt"] = add_generation_prompt
+
+        try:
+            return ct.apply_chat_template(messages, **kw)
+        except (TypeError, ValueError) as e:
+            es = str(e)
+            if (
+                "not supported" not in es
+                and "unexpected keyword" not in es.lower()
+                and "got an unexpected keyword" not in es.lower()
+            ):
+                raise
+
+        kw2 = {k: v for k, v in kw.items() if k == "tokenize"}
+        try:
+            base = ct.apply_chat_template(messages, **kw2)
+        except TypeError:
+            base = ct.apply_chat_template(messages, tokenize=tokenize)
+
+        if not add_generation_prompt:
+            return base
+
+        if "continue_final_message" in names:
+            try:
+                return ct.apply_chat_template(
+                    messages, tokenize=tokenize, continue_final_message=True
+                )
+            except Exception:
+                pass
+
+        probe = "\u2060MORALGEN\u2060"
+        ext = list(messages) + [{"role": "assistant", "content": probe}]
+        try:
+            w = ct.apply_chat_template(ext, **kw2)
+        except TypeError:
+            w = ct.apply_chat_template(ext, tokenize=tokenize)
+        except Exception:
+            return base
+
+        if isinstance(base, str) and isinstance(w, str) and w.startswith(base) and probe in w:
+            return base + w[len(base) :].split(probe, 1)[0]
+        if isinstance(w, str) and probe in w:
+            return w.split(probe, 1)[0]
+        return base
+
     def _probe_system_role(self) -> bool:
         ct = self._chat_template_target()
         if self.content_mode == "gemma4":
             try:
-                ct.apply_chat_template(
+                self._apply_chat_template(
+                    ct,
                     [
                         {"role": "system", "content": self._as_turn_content("x")},
                         {"role": "user", "content": self._as_turn_content("y")},
                     ],
-                    tokenize=False, add_generation_prompt=False,
+                    tokenize=False,
+                    add_generation_prompt=False,
                 )
                 return True
             except Exception:
                 return False
         try:
-            ct.apply_chat_template(
-                [{"role": "system", "content": "x"},
-                 {"role": "user", "content": "y"}],
-                tokenize=False, add_generation_prompt=False,
+            self._apply_chat_template(
+                ct,
+                [
+                    {"role": "system", "content": "x"},
+                    {"role": "user", "content": "y"},
+                ],
+                tokenize=False,
+                add_generation_prompt=False,
             )
             return True
         except Exception:
@@ -550,8 +621,8 @@ class ChatTemplateHelper:
         """
         ct = self._chat_template_target()
         messages = self._messages(system_prompt, "")
-        full = ct.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=False,
+        full = self._apply_chat_template(
+            ct, messages, tokenize=False, add_generation_prompt=False
         )
         # Find where the empty user content sits and keep everything before it
         # (including the user-role header). We strip the trailing empty content.
@@ -559,8 +630,8 @@ class ChatTemplateHelper:
         # thing and also a version with a sentinel to locate the split point.
         sentinel = "___SPLIT___"
         messages_s = self._messages(system_prompt, sentinel)
-        full_s = ct.apply_chat_template(
-            messages_s, tokenize=False, add_generation_prompt=False,
+        full_s = self._apply_chat_template(
+            ct, messages_s, tokenize=False, add_generation_prompt=False
         )
         idx = full_s.find(sentinel)
         if idx == -1:
@@ -581,8 +652,11 @@ class ChatTemplateHelper:
         """
         sentinel = "___SPLIT___"
         messages_before = self._messages("S", sentinel)
-        full_before = self._chat_template_target().apply_chat_template(
-            messages_before, tokenize=False, add_generation_prompt=True,
+        full_before = self._apply_chat_template(
+            self._chat_template_target(),
+            messages_before,
+            tokenize=False,
+            add_generation_prompt=True,
         )
         # Everything from the sentinel onward (including gen prompt) is the
         # "query suffix template".  We replace sentinel with actual content.

@@ -1,6 +1,7 @@
 """Vanilla LLM baseline inference via token-logit extraction."""
 
 import gc
+import math
 
 import torch
 import torch.nn.functional as F
@@ -72,7 +73,15 @@ def logit_fallback_p_spare(model, full_ids, a_id, b_id, pref_right,
         out = model(input_ids=full_ids, use_cache=False)
         logits = gather_last_logits_one_row(out)
         pair = torch.stack([logits[a_id], logits[b_id]])
-        probs = F.softmax(pair / temperature, dim=-1)
+        pair = torch.nan_to_num(pair, nan=0.0, posinf=0.0, neginf=0.0)
+        t = float(temperature) if float(temperature) > 1e-10 else 1e-10
+        probs = F.softmax(pair / t, dim=-1)
+        probs = torch.nan_to_num(probs, nan=0.5, posinf=1.0, neginf=0.0)
+        s = float(probs.sum().item())
+        if s <= 0 or math.isnan(s):
+            probs = torch.tensor([0.5, 0.5], device=probs.device, dtype=probs.dtype)
+        else:
+            probs = probs / probs.sum()
         p_l = probs[0].item()
         p_r = probs[1].item()
     p_spare = p_r if pref_right else p_l
@@ -191,7 +200,7 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
         batch_size = requested
 
     results = []
-    temperature = cfg.decision_temperature
+    temperature = max(float(cfg.decision_temperature), 1e-10)
     for start in tqdm(range(0, len(rows_data), batch_size),
                       desc=f"Vanilla [{country}]"):
         chunk = rows_data[start:start + batch_size]
@@ -203,7 +212,12 @@ def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
             batch_idx = torch.arange(input_ids.size(0), device=device)
             last = gather_last_logits(out, batch_idx, lens)
             pair = torch.stack([last[:, a_id], last[:, b_id]], dim=-1)
-            probs = F.softmax(pair / temperature, dim=-1).float().cpu().numpy()
+            pair = torch.nan_to_num(pair, nan=0.0, posinf=0.0, neginf=0.0)
+            probs = F.softmax(pair / temperature, dim=-1)
+            probs = torch.nan_to_num(probs, nan=0.5, posinf=1.0, neginf=0.0)
+            rs = probs.sum(dim=-1, keepdim=True)
+            probs = torch.where(rs > 0, probs / rs, torch.full_like(probs, 0.5))
+            probs = probs.float().cpu().numpy()
 
         for j, (row, _ids, pref_right) in enumerate(chunk):
             p_l, p_r = float(probs[j, 0]), float(probs[j, 1])
