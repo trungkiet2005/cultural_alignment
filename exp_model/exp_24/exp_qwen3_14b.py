@@ -4,7 +4,8 @@ EXP-24 Dual-Pass Bootstrap IS — Qwen3-14B (4-bit)
 =================================================
 
 Model  : unsloth/Qwen3-14B-unsloth-bnb-4bit
-Profile: pypi  (pip stack aligned with Reference_Notebook_Model where noted)
+Profile: ref_qwen3  (Reference_Notebook_Model/Qwen3_(14B)_Reasoning_Conversational.ipynb)
+         Same pip stack as exp_qwen3_32b.py — transformers==4.56.2 + trl 0.22.2.
 Method : Dual-Pass Bootstrap IS Reliability (DPBR) — identical to EXP-24
 Base   : EXP-09 Hierarchical IS  (SOTA MIS=0.3975)
 
@@ -52,10 +53,15 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    # Same stack as Qwen3_(14B)_Reasoning_Conversational.ipynb: unsloth → pin transformers==4.56.2 → trl 0.22.2.
+    # Unpinned PyPI unsloth often pulls transformers 5.x and breaks Qwen3 + Unsloth load on Kaggle.
     for cmd in [
-        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
-        'pip install --upgrade --no-deps unsloth',
+        'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf accelerate peft trl triton',
+        'pip install -q "huggingface_hub>=0.34.0" hf_transfer',
+        'pip install -q --upgrade --no-deps unsloth',
         'pip install -q unsloth_zoo',
+        'pip install -q "transformers==4.56.2"',
+        'pip install -q --no-deps trl==0.22.2',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)

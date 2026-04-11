@@ -53,10 +53,12 @@ def _ensure_repo() -> str:
 def _install_deps() -> None:
     if not _on_kaggle():
         return
+    # Notebook (new/unslothERNIE-4.5-21B-A3B-PT.ipynb) pins transformers==4.56.2.
     for cmd in [
         'pip install -q bitsandbytes scipy tqdm sentencepiece protobuf',
         'pip install --upgrade --no-deps unsloth',
         'pip install -q unsloth_zoo',
+        'pip install -q "transformers==4.56.2"',
         'pip install --quiet "datasets>=3.4.1,<4.4.0"',
     ]:
         subprocess.run(cmd, shell=True, check=False)
