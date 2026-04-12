@@ -39,14 +39,13 @@
 \newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
 \@writefile{toc}{\contentsline {paragraph}{Cross-cultural moral benchmarks.}{2}{section*.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Cross-cultural LLM evaluation.}{2}{section*.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Inference-time alignment.}{2}{section*.5}\protected@file@percent }
 \citation{ogmar2024}
 \citation{kahneman1979prospect}
 \citation{williams2017mppi,huang2024mppi}
 \citation{awad2018moral}
 \citation{jin2025multitp}
 \citation{haerpfer2022wvs}
-\citation{deshpande2023toxicity}
+\@writefile{toc}{\contentsline {paragraph}{Inference-time alignment.}{3}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Positioning against adjacent inference-time methods.}{3}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Importance sampling, reliability, and Prospect Theory.}{3}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {3}Method: SWA-DPBR}{3}{section.3}\protected@file@percent }
@@ -56,8 +55,8 @@
 \newlabel{eq:mpr}{{1}{3}{Problem Formulation}{equation.3.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Cultural Persona Construction}{3}{subsection.3.2}\protected@file@percent }
 \newlabel{sec:method:personas}{{3.2}{3}{Cultural Persona Construction}{subsection.3.2}{}}
+\citation{deshpande2023toxicity}
 \citation{liu2024lost}
-\citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Batched Evaluation and Logit Extraction}{4}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:method:eval}{{3.3}{4}{Batched Evaluation and Logit Extraction}{subsection.3.3}{}}
@@ -72,169 +71,200 @@
 \newlabel{eq:g_per_agent}{{5}{4}{Per-persona gains and collective utility}{equation.3.5}{}}
 \newlabel{eq:g_cons}{{6}{4}{Per-persona gains and collective utility}{equation.3.6}{}}
 \newlabel{eq:util_total}{{7}{4}{Per-persona gains and collective utility}{equation.3.7}{}}
-\newlabel{eq:prospect}{{8}{4}{Per-persona gains and collective utility}{equation.3.8}{}}
+\citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \citation{jin2025multitp}
-\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces SWA-DPBR Inference for Scenario $\mathbf  {x}$ in Country $c$}}{5}{algorithm.1}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{alg:swa}{{1}{5}{SWA-DPBR Inference for Scenario $\mathbf {x}$ in Country $c$}{algorithm.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces SWA-DPBR hyperparameters. PT parameters from \citet  {kahneman1979prospect}; others validated on a held-out synthetic set with author proxy labels (Appendix~\ref {app:hyperparams}).}}{5}{table.caption.11}\protected@file@percent }
+\newlabel{tab:hyperparams}{{1}{5}{SWA-DPBR hyperparameters. PT parameters from \citet {kahneman1979prospect}; others validated on a held-out synthetic set with author proxy labels (Appendix~\ref {app:hyperparams})}{table.caption.11}{}}
+\newlabel{eq:prospect}{{8}{5}{Per-persona gains and collective utility}{equation.3.8}{}}
 \@writefile{toc}{\contentsline {paragraph}{Per-pass IS update and ESS guard.}{5}{section*.9}\protected@file@percent }
 \newlabel{eq:is_pass}{{9}{5}{Per-pass IS update and ESS guard}{equation.3.9}{}}
 \@writefile{toc}{\contentsline {paragraph}{Bootstrap reliability and anchor blend.}{5}{section*.10}\protected@file@percent }
 \newlabel{eq:dpbr_rel}{{10}{5}{Bootstrap reliability and anchor blend}{equation.3.10}{}}
 \newlabel{eq:ess_anchor}{{11}{5}{Bootstrap reliability and anchor blend}{equation.3.11}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{5}{section.4}\protected@file@percent }
-\newlabel{sec:experiments}{{4}{5}{Experimental Setup}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Dataset}{5}{subsection.4.1}\protected@file@percent }
-\newlabel{sec:exp:data}{{4.1}{5}{Dataset}{subsection.4.1}{}}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces SWA-DPBR Inference for Scenario $\mathbf  {x}$ in Country $c$}}{6}{algorithm.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{alg:swa}{{1}{6}{SWA-DPBR Inference for Scenario $\mathbf {x}$ in Country $c$}{algorithm.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {SWA-DPBR pipeline.} \textbf  {Left:} WVS-grounded persona construction (3 age cohorts + utilitarian). \textbf  {Middle:} Batched forward pass with positional debiasing. \textbf  {Right:} Two independent IS passes merged with bootstrap reliability $r$ (Eq.~\ref {eq:dpbr_rel}). }}{6}{figure.caption.12}\protected@file@percent }
+\newlabel{fig:overview}{{1}{6}{\textbf {SWA-DPBR pipeline.} \textbf {Left:} WVS-grounded persona construction (3 age cohorts + utilitarian). \textbf {Middle:} Batched forward pass with positional debiasing. \textbf {Right:} Two independent IS passes merged with bootstrap reliability $r$ (Eq.~\ref {eq:dpbr_rel})}{figure.caption.12}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Setup}{6}{section.4}\protected@file@percent }
+\newlabel{sec:experiments}{{4}{6}{Experimental Setup}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Dataset}{6}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:exp:data}{{4.1}{6}{Dataset}{subsection.4.1}{}}
 \citation{kirk2024prism}
 \citation{arditi2025refusal}
 \citation{khanov2024args}
 \citation{mudgal2024controlled}
 \citation{jin2025multitp}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces SWA-DPBR hyperparameters. PT parameters from \citet  {kahneman1979prospect}; others validated on a held-out synthetic set with author proxy labels (Appendix~\ref {app:hyperparams}).}}{6}{table.caption.11}\protected@file@percent }
-\newlabel{tab:hyperparams}{{1}{6}{SWA-DPBR hyperparameters. PT parameters from \citet {kahneman1979prospect}; others validated on a held-out synthetic set with author proxy labels (Appendix~\ref {app:hyperparams})}{table.caption.11}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {SWA-DPBR pipeline.} \textbf  {Left:} WVS-grounded persona construction (3 age cohorts + utilitarian). \textbf  {Middle:} Batched forward pass with positional debiasing. \textbf  {Right:} Two independent IS passes merged with bootstrap reliability $r$ (Eq.~\ref {eq:dpbr_rel}). }}{6}{figure.caption.12}\protected@file@percent }
-\newlabel{fig:overview}{{1}{6}{\textbf {SWA-DPBR pipeline.} \textbf {Left:} WVS-grounded persona construction (3 age cohorts + utilitarian). \textbf {Middle:} Batched forward pass with positional debiasing. \textbf {Right:} Two independent IS passes merged with bootstrap reliability $r$ (Eq.~\ref {eq:dpbr_rel})}{figure.caption.12}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Models}{6}{subsection.4.2}\protected@file@percent }
-\newlabel{sec:exp:models}{{4.2}{6}{Models}{subsection.4.2}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces The six moral dimensions in MultiTP.}}{7}{table.caption.13}\protected@file@percent }
 \newlabel{tab:categories}{{2}{7}{The six moral dimensions in MultiTP}{table.caption.13}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces EXP-24 macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\downarrow $). ``Win'' counts countries where DPBR MIS is strictly lower than vanilla. Mean $r$ averages the per-country Pearson correlation between model and human AMCE vectors.}}{7}{table.caption.14}\protected@file@percent }
-\newlabel{tab:exp24_summary}{{3}{7}{EXP-24 macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\downarrow $). ``Win'' counts countries where DPBR MIS is strictly lower than vanilla. Mean $r$ averages the per-country Pearson correlation between model and human AMCE vectors}{table.caption.14}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Models}{7}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:exp:models}{{4.2}{7}{Models}{subsection.4.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Baselines and metrics}{7}{subsection.4.3}\protected@file@percent }
 \newlabel{sec:exp:baselines_metrics}{{4.3}{7}{Baselines and metrics}{subsection.4.3}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {5}Results}{7}{section.5}\protected@file@percent }
 \newlabel{sec:results}{{5}{7}{Results}{section.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Cross-Model Comparison (EXP-24, 20 Countries)}{7}{subsection.5.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces EXP-24 macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\downarrow $). ``Win'' counts countries where DPBR MIS is strictly lower than vanilla. Mean $r$ averages the per-country Pearson correlation between model and human AMCE vectors.}}{8}{table.caption.14}\protected@file@percent }
+\newlabel{tab:exp24_summary}{{3}{8}{EXP-24 macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\downarrow $). ``Win'' counts countries where DPBR MIS is strictly lower than vanilla. Mean $r$ averages the per-country Pearson correlation between model and human AMCE vectors}{table.caption.14}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Archival baseline comparison on Llama-3.1-70B (15-country MultiTP subset, single-pass SWA-PTIS before EXP-24). Included to show prompting/steering gaps; the DPBR numbers in Table~\ref {tab:exp24_summary} use Llama-3.3-70B on 20 countries.}}{8}{table.caption.16}\protected@file@percent }
 \newlabel{tab:baselines}{{4}{8}{Archival baseline comparison on Llama-3.1-70B (15-country MultiTP subset, single-pass SWA-PTIS before EXP-24). Included to show prompting/steering gaps; the DPBR numbers in Table~\ref {tab:exp24_summary} use Llama-3.3-70B on 20 countries}{table.caption.16}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Baseline Comparison on Llama-3.1-70B (Archival)}{8}{subsection.5.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Isolating the active mechanism (same panel).}{8}{section*.15}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Per-Country Grids and Failure Modes}{8}{subsection.5.3}\protected@file@percent }
 \newlabel{sec:percountry_main}{{5.3}{8}{Per-Country Grids and Failure Modes}{subsection.5.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Robustness Suite at a Glance}{8}{subsection.5.4}\protected@file@percent }
-\newlabel{sec:robustness}{{5.4}{8}{Robustness Suite at a Glance}{subsection.5.4}{}}
 \citation{awad2018moral,jin2025multitp}
 \citation{atari2023humans}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.4}Robustness Suite at a Glance}{9}{subsection.5.4}\protected@file@percent }
+\newlabel{sec:robustness}{{5.4}{9}{Robustness Suite at a Glance}{subsection.5.4}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Robustness suite. Each test independently probes one assumption behind SWA-DPBR; the bootstrap confidence interval on JSD is $\pm 0.004$.}}{9}{table.caption.17}\protected@file@percent }
 \newlabel{tab:robustness_summary}{{5}{9}{Robustness suite. Each test independently probes one assumption behind SWA-DPBR; the bootstrap confidence interval on JSD is $\pm 0.004$}{table.caption.17}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Ablation on Qwen2.5-72B, USA (342 scenarios), single-pass SWA-PTIS (pre-DPBR). Full system: JSD = 0.0425, $r$ = 0.724.}}{9}{table.caption.18}\protected@file@percent }
-\newlabel{tab:ablation}{{6}{9}{Ablation on Qwen2.5-72B, USA (342 scenarios), single-pass SWA-PTIS (pre-DPBR). Full system: JSD = 0.0425, $r$ = 0.724}{table.caption.18}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {6}Ablation Study}{9}{section.6}\protected@file@percent }
 \newlabel{sec:ablation}{{6}{9}{Ablation Study}{section.6}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{9}{section.7}\protected@file@percent }
 \newlabel{sec:discussion}{{7}{9}{Discussion}{section.7}{}}
+\@writefile{toc}{\contentsline {paragraph}{Limitations.}{9}{section*.19}\protected@file@percent }
 \citation{sorensen2024roadmap}
 \citation{kahneman1979prospect}
 \citation{sorensen2024roadmap}
 \bibstyle{abbrvnat}
 \bibdata{references}
-\@writefile{toc}{\contentsline {paragraph}{Limitations.}{10}{section*.19}\protected@file@percent }
+\bibcite{aakanksha2024evalmor}{{1}{2024}{{Aakanksha et~al.}}{{}}}
+\bibcite{arditi2025refusal}{{2}{2025}{{Arditi et~al.}}{{Arditi, Obeso, Syed, Paleka, Panickssery, Gurnee, and Nanda}}}
+\bibcite{atari2023humans}{{3}{2023}{{Atari et~al.}}{{Atari, Xue, Park, Blasi, and Henrich}}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Ablation on Qwen2.5-72B, USA (342 scenarios), single-pass SWA-PTIS (pre-DPBR). Full system: JSD = 0.0425, $r$ = 0.724.}}{10}{table.caption.18}\protected@file@percent }
+\newlabel{tab:ablation}{{6}{10}{Ablation on Qwen2.5-72B, USA (342 scenarios), single-pass SWA-PTIS (pre-DPBR). Full system: JSD = 0.0425, $r$ = 0.724}{table.caption.18}{}}
 \@writefile{toc}{\contentsline {paragraph}{Broader impact and safeguards.}{10}{section*.20}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{10}{section.8}\protected@file@percent }
 \newlabel{sec:conclusion}{{8}{10}{Conclusion}{section.8}{}}
+\bibcite{awad2018moral}{{4}{2018}{{Awad et~al.}}{{Awad, Dsouza, Kim, Schulz, Henrich, Shariff, Bonnefon, and Rahwan}}}
+\bibcite{bai2022constitutional}{{5}{2022}{{Bai et~al.}}{{Bai, Kadavath, Kundu, Askell, et~al.}}}
+\bibcite{deshpande2023toxicity}{{6}{2023}{{Deshpande et~al.}}{{Deshpande, Murahari, Rajpurohit, Kalyan, and Narasimhan}}}
+\bibcite{durmus2023global}{{7}{2023}{{Durmus et~al.}}{{Durmus, Nguyen, Liao, Schiefer, Askell, Bakhtin, et~al.}}}
+\bibcite{haerpfer2022wvs}{{8}{2022}{{Haerpfer et~al.}}{{Haerpfer, Inglehart, Moreno, Welzel, Kizilova, Diez-Medrano, Lagos, Norris, Ponarin, and Puranen}}}
+\bibcite{hendrycks2021aligning}{{9}{2021}{{Hendrycks et~al.}}{{Hendrycks, Burns, Basart, Critch, Li, Song, and Steinhardt}}}
+\bibcite{henrich2010weirdest}{{10}{2010}{{Henrich et~al.}}{{Henrich, Heine, and Norenzayan}}}
+\bibcite{huang2024mppi}{{11}{2024}{{Huang et~al.}}{{Huang, Chen, Lyu, et~al.}}}
+\bibcite{jin2022exceptions}{{12}{2022}{{Jin et~al.}}{{Jin, Levine, Gonzalez~Adauto, Kamal, Sap, Sachan, Mihalcea, Tenenbaum, and Sch{\"o}lkopf}}}
+\bibcite{jin2025multitp}{{13}{2025}{{Jin et~al.}}{{Jin, Kleiman-Weiner, Piatti, Levine, Liu, Gonzalez, Ortu, Strausz, Sachan, Mihalcea, Choi, and Sch{\"o}lkopf}}}
+\bibcite{kahneman1979prospect}{{14}{1979}{{Kahneman and Tversky}}{{}}}
+\bibcite{khanov2024args}{{15}{2024}{{Khanov et~al.}}{{Khanov, Burapacheep, and Li}}}
+\bibcite{kirk2024prism}{{16}{2024}{{Kirk et~al.}}{{Kirk, Whitefield, R{\"o}ttger, Bean, et~al.}}}
+\bibcite{kleiman2017learning}{{17}{2017}{{Kleiman-Weiner et~al.}}{{Kleiman-Weiner, Saxe, and Tenenbaum}}}
+\bibcite{li2024culturemanager}{{18}{2024}{{Li et~al.}}{{}}}
+\bibcite{liu2024lost}{{19}{2024}{{Liu et~al.}}{{Liu, Lin, Hewitt, Paranjape, Bevilacqua, Petroni, and Liang}}}
+\bibcite{mudgal2024controlled}{{20}{2024}{{Mudgal et~al.}}{{Mudgal, Lee, Ganapathy, Li, Wang, Huang, Chen, Cheng, Collins, Strohman, et~al.}}}
+\bibcite{myung2024carb}{{21}{2024}{{Myung et~al.}}{{}}}
+\bibcite{nie2023moca}{{22}{2023}{{Nie et~al.}}{{Nie, Zhang, Amdekar, Piech, Hashimoto, and Gerstenberg}}}
+\bibcite{ouyang2022instructgpt}{{23}{2022}{{Ouyang et~al.}}{{Ouyang, Wu, Jiang, Almeida, et~al.}}}
+\bibcite{ryan2024unintended}{{24}{2024}{{Ryan et~al.}}{{Ryan, Held, and Yang}}}
+\bibcite{santurkar2023opinions}{{25}{2023}{{Santurkar et~al.}}{{Santurkar, Durmus, Ladhak, Lee, Liang, and Hashimoto}}}
+\bibcite{sorensen2024roadmap}{{26}{2024}{{Sorensen et~al.}}{{Sorensen, Moore, Fisher, Gordon, Mireshghallah, Rytting, Ye, Jiang, Lu, Dziri, et~al.}}}
+\bibcite{williams2017mppi}{{27}{2018}{{Williams et~al.}}{{Williams, Drews, Goldfain, Rehg, and Theodorou}}}
+\bibcite{yao2024caredio}{{28}{2024}{{Yao et~al.}}{{}}}
+\bibcite{ogmar2024}{{29}{2024}{{Zhang et~al.}}{{}}}
+\bibcite{zou2023representation}{{30}{2023}{{Zou et~al.}}{{Zou, Phan, Chen, Campbell, Guo, et~al.}}}
 \citation{jin2025multitp}
 \citation{awad2018moral}
-\@writefile{toc}{\contentsline {section}{\numberline {A}AMCE Estimation Details}{11}{appendix.A}\protected@file@percent }
-\newlabel{app:amce}{{A}{11}{AMCE Estimation Details}{appendix.A}{}}
-\@writefile{toc}{\contentsline {paragraph}{Binary dimensions.}{11}{section*.21}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Utilitarianism dimension.}{11}{section*.22}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{11}{section*.23}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Consistency.}{11}{section*.24}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {B}Persona Construction Details}{11}{appendix.B}\protected@file@percent }
-\newlabel{app:personas}{{B}{11}{Persona Construction Details}{appendix.B}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Example Personas}{11}{subsection.B.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}WVS Data Processing Pipeline}{11}{subsection.B.2}\protected@file@percent }
-\newlabel{app:wvs_pipeline}{{B.2}{11}{WVS Data Processing Pipeline}{subsection.B.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}AMCE Estimation Details}{13}{appendix.A}\protected@file@percent }
+\newlabel{app:amce}{{A}{13}{AMCE Estimation Details}{appendix.A}{}}
+\@writefile{toc}{\contentsline {paragraph}{Binary dimensions.}{13}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Utilitarianism dimension.}{13}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{13}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Consistency.}{13}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {B}Persona Construction Details}{13}{appendix.B}\protected@file@percent }
+\newlabel{app:personas}{{B}{13}{Persona Construction Details}{appendix.B}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Example Personas}{13}{subsection.B.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}WVS Data Processing Pipeline}{13}{subsection.B.2}\protected@file@percent }
+\newlabel{app:wvs_pipeline}{{B.2}{13}{WVS Data Processing Pipeline}{subsection.B.2}{}}
 \citation{awad2018moral}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Complete WVS-dimension-to-descriptor threshold table used by the persona generator. For most dimensions the threshold operates on the \emph  {ratio} of the dimension mean to the WVS scale maximum (4.0); the exception is moral permissiveness, which operates on the raw 1--10 mean because its underlying items use a different scale. The \emph  {family importance} dimension is degenerate (universally high across all 15 countries) and is mapped to a single descriptor.}}{14}{table.caption.26}\protected@file@percent }
+\newlabel{tab:wvs_thresholds}{{7}{14}{Complete WVS-dimension-to-descriptor threshold table used by the persona generator. For most dimensions the threshold operates on the \emph {ratio} of the dimension mean to the WVS scale maximum (4.0); the exception is moral permissiveness, which operates on the raw 1--10 mean because its underlying items use a different scale. The \emph {family importance} dimension is degenerate (universally high across all 15 countries) and is mapped to a single descriptor}{table.caption.26}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}WVS-to-Trolley Dimension Linkage}{14}{subsection.B.3}\protected@file@percent }
+\newlabel{app:wvs_linkage}{{B.3}{14}{WVS-to-Trolley Dimension Linkage}{subsection.B.3}{}}
 \citation{williams2017mppi}
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Complete WVS-dimension-to-descriptor threshold table used by the persona generator. For most dimensions the threshold operates on the \emph  {ratio} of the dimension mean to the WVS scale maximum (4.0); the exception is moral permissiveness, which operates on the raw 1--10 mean because its underlying items use a different scale. The \emph  {family importance} dimension is degenerate (universally high across all 15 countries) and is mapped to a single descriptor.}}{12}{table.caption.25}\protected@file@percent }
-\newlabel{tab:wvs_thresholds}{{7}{12}{Complete WVS-dimension-to-descriptor threshold table used by the persona generator. For most dimensions the threshold operates on the \emph {ratio} of the dimension mean to the WVS scale maximum (4.0); the exception is moral permissiveness, which operates on the raw 1--10 mean because its underlying items use a different scale. The \emph {family importance} dimension is degenerate (universally high across all 15 countries) and is mapped to a single descriptor}{table.caption.25}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}WVS-to-Trolley Dimension Linkage}{12}{subsection.B.3}\protected@file@percent }
-\newlabel{app:wvs_linkage}{{B.3}{12}{WVS-to-Trolley Dimension Linkage}{subsection.B.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {C}PT--IS, Sampling, and Dual-Pass Reliability}{13}{appendix.C}\protected@file@percent }
-\newlabel{app:dpbr_theory}{{C}{13}{PT--IS, Sampling, and Dual-Pass Reliability}{appendix.C}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Utility shape and the omitted explicit KL-on-$\epsilon $ term}{13}{subsection.C.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Comparison with Simpler Alternatives}{13}{subsection.C.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Why split $K$ into two passes?}{13}{subsection.C.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Positional Debiasing: Implementation Detail}{13}{subsection.C.4}\protected@file@percent }
-\newlabel{app:debias_impl}{{C.4}{13}{Positional Debiasing: Implementation Detail}{subsection.C.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {D}Hyperparameter Validation}{13}{appendix.D}\protected@file@percent }
-\newlabel{app:hyperparams}{{D}{13}{Hyperparameter Validation}{appendix.D}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {E}Temperature Sensitivity}{14}{appendix.E}\protected@file@percent }
-\newlabel{app:temp_sensitivity}{{E}{14}{Temperature Sensitivity}{appendix.E}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{14}{table.caption.26}\protected@file@percent }
-\newlabel{tab:temperature_sensitivity}{{8}{14}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.26}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {F}Dataset Preprocessing and Sensitivity}{14}{appendix.F}\protected@file@percent }
-\newlabel{app:dataset}{{F}{14}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
-\newlabel{app:dataset_sens}{{F}{14}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
-\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{14}{section*.27}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{14}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {C}PT--IS, Sampling, and Dual-Pass Reliability}{15}{appendix.C}\protected@file@percent }
+\newlabel{app:dpbr_theory}{{C}{15}{PT--IS, Sampling, and Dual-Pass Reliability}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Utility shape and the omitted explicit KL-on-$\epsilon $ term}{15}{subsection.C.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Comparison with Simpler Alternatives}{15}{subsection.C.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Why split $K$ into two passes?}{15}{subsection.C.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Positional Debiasing: Implementation Detail}{15}{subsection.C.4}\protected@file@percent }
+\newlabel{app:debias_impl}{{C.4}{15}{Positional Debiasing: Implementation Detail}{subsection.C.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {D}Hyperparameter Validation}{15}{appendix.D}\protected@file@percent }
+\newlabel{app:hyperparams}{{D}{15}{Hyperparameter Validation}{appendix.D}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {E}Temperature Sensitivity}{16}{appendix.E}\protected@file@percent }
+\newlabel{app:temp_sensitivity}{{E}{16}{Temperature Sensitivity}{appendix.E}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{16}{table.caption.27}\protected@file@percent }
+\newlabel{tab:temperature_sensitivity}{{8}{16}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.27}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {F}Dataset Preprocessing and Sensitivity}{16}{appendix.F}\protected@file@percent }
+\newlabel{app:dataset}{{F}{16}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
+\newlabel{app:dataset_sens}{{F}{16}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
+\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{16}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{17}{section*.29}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{17}{table.caption.30}\protected@file@percent }
+\newlabel{tab:dataset_sens}{{9}{17}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.30}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {G}Cross-Lingual Token Elicitation}{17}{appendix.G}\protected@file@percent }
+\newlabel{app:token_elicitation}{{G}{17}{Cross-Lingual Token Elicitation}{appendix.G}{}}
+\@writefile{toc}{\contentsline {paragraph}{Native-language prompting system.}{17}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Token verification.}{17}{section*.32}\protected@file@percent }
 \citation{arditi2025refusal}
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{15}{table.caption.29}\protected@file@percent }
-\newlabel{tab:dataset_sens}{{9}{15}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.29}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {G}Cross-Lingual Token Elicitation}{15}{appendix.G}\protected@file@percent }
-\newlabel{app:token_elicitation}{{G}{15}{Cross-Lingual Token Elicitation}{appendix.G}{}}
-\@writefile{toc}{\contentsline {paragraph}{Native-language prompting system.}{15}{section*.30}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Token verification.}{15}{section*.31}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {H}Baseline Implementation Details}{15}{appendix.H}\protected@file@percent }
-\newlabel{app:baselines}{{H}{15}{Baseline Implementation Details}{appendix.H}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {H.1}Activation Steering}{15}{subsection.H.1}\protected@file@percent }
 \citation{khanov2024args}
 \citation{mudgal2024controlled}
-\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{16}{section*.32}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {H.2}ARGS and Controlled Decoding: from Incompatible to Reformulated}{16}{subsection.H.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {I}Detailed Ablation Analysis}{16}{appendix.I}\protected@file@percent }
-\newlabel{app:ablation_detail}{{I}{16}{Detailed Ablation Analysis}{appendix.I}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {J}Trigger Mechanism and Latency}{16}{appendix.J}\protected@file@percent }
-\newlabel{app:trigger}{{J}{16}{Trigger Mechanism and Latency}{appendix.J}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {K}Germany Pearson $r$ Analysis}{16}{appendix.K}\protected@file@percent }
-\newlabel{app:germany}{{K}{16}{Germany Pearson $r$ Analysis}{appendix.K}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {L}Per-Country Results for All Models}{16}{appendix.L}\protected@file@percent }
-\newlabel{app:percountry_all}{{L}{16}{Per-Country Results for All Models}{appendix.L}{}}
-\newlabel{app:percountry_qwen72b}{{L}{16}{Per-Country Results for All Models}{appendix.L}{}}
-\newlabel{app:percountry_qwen32b}{{L}{16}{Per-Country Results for All Models}{appendix.L}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {H}Baseline Implementation Details}{18}{appendix.H}\protected@file@percent }
+\newlabel{app:baselines}{{H}{18}{Baseline Implementation Details}{appendix.H}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {H.1}Activation Steering}{18}{subsection.H.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{18}{section*.33}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {H.2}ARGS and Controlled Decoding: from Incompatible to Reformulated}{18}{subsection.H.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {I}Detailed Ablation Analysis}{18}{appendix.I}\protected@file@percent }
+\newlabel{app:ablation_detail}{{I}{18}{Detailed Ablation Analysis}{appendix.I}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {J}Trigger Mechanism and Latency}{18}{appendix.J}\protected@file@percent }
+\newlabel{app:trigger}{{J}{18}{Trigger Mechanism and Latency}{appendix.J}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {K}Germany Pearson $r$ Analysis}{18}{appendix.K}\protected@file@percent }
+\newlabel{app:germany}{{K}{18}{Germany Pearson $r$ Analysis}{appendix.K}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {L}Per-Country Results for All Models}{19}{appendix.L}\protected@file@percent }
+\newlabel{app:percountry_all}{{L}{19}{Per-Country Results for All Models}{appendix.L}{}}
+\newlabel{app:percountry_qwen72b}{{L}{19}{Per-Country Results for All Models}{appendix.L}{}}
+\newlabel{app:percountry_qwen32b}{{L}{19}{Per-Country Results for All Models}{appendix.L}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-country results for \textbf  {Qwen2.5-72B-Instruct}.}}{19}{table.caption.34}\protected@file@percent }
+\newlabel{tab:percountry_qwen72b_app}{{10}{19}{Per-country results for \textbf {Qwen2.5-72B-Instruct}}{table.caption.34}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Per-country results for \textbf  {Llama-3.1-70B-Instruct}.}}{19}{table.caption.35}\protected@file@percent }
+\newlabel{tab:llama70b_percountry}{{11}{19}{Per-country results for \textbf {Llama-3.1-70B-Instruct}}{table.caption.35}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {M}Consensus-Shift Baselines}{19}{appendix.M}\protected@file@percent }
+\newlabel{app:cs_baseline}{{M}{19}{Consensus-Shift Baselines}{appendix.M}{}}
 \citation{khanov2024args}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-country results for \textbf  {Qwen2.5-72B-Instruct}.}}{17}{table.caption.33}\protected@file@percent }
-\newlabel{tab:percountry_qwen72b_app}{{10}{17}{Per-country results for \textbf {Qwen2.5-72B-Instruct}}{table.caption.33}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Per-country results for \textbf  {Llama-3.1-70B-Instruct}.}}{17}{table.caption.34}\protected@file@percent }
-\newlabel{tab:llama70b_percountry}{{11}{17}{Per-country results for \textbf {Llama-3.1-70B-Instruct}}{table.caption.34}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {M}Consensus-Shift Baselines}{17}{appendix.M}\protected@file@percent }
-\newlabel{app:cs_baseline}{{M}{17}{Consensus-Shift Baselines}{appendix.M}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Per-country results for \textbf  {Qwen2.5-7B-Instruct} (4-bit).}}{18}{table.caption.35}\protected@file@percent }
-\newlabel{tab:qwen7b_percountry}{{12}{18}{Per-country results for \textbf {Qwen2.5-7B-Instruct} (4-bit)}{table.caption.35}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Per-country results for \textbf  {Llama-3.1-8B-Instruct} (4-bit).}}{18}{table.caption.36}\protected@file@percent }
-\newlabel{tab:llama8b_percountry}{{13}{18}{Per-country results for \textbf {Llama-3.1-8B-Instruct} (4-bit)}{table.caption.36}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {N}Binary-ARGS Reward-Guided Decoding}{18}{appendix.N}\protected@file@percent }
-\newlabel{app:args}{{N}{18}{Binary-ARGS Reward-Guided Decoding}{appendix.N}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Per-country results for \textbf  {Qwen2.5-32B-Instruct} (4-bit). SWA-DPBR degrades in 7/15 countries due to concentrated logit distributions.}}{19}{table.caption.37}\protected@file@percent }
-\newlabel{tab:qwen32b_percountry}{{14}{19}{Per-country results for \textbf {Qwen2.5-32B-Instruct} (4-bit). SWA-DPBR degrades in 7/15 countries due to concentrated logit distributions}{table.caption.37}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Per-country JSD for the four consensus-shift baselines on Llama-3.1-70B (15 countries). \textsc  {CS-Clamp} is the strongest deterministic shift but still loses to SWA-DPBR in aggregate; \textsc  {CS-Std} is catastrophic for NGA ($+0.017$ vs.\ \textsc  {CS-Mean}) due to unbounded variance amplification.}}{19}{table.caption.38}\protected@file@percent }
-\newlabel{tab:consensus_shift_country}{{15}{19}{Per-country JSD for the four consensus-shift baselines on Llama-3.1-70B (15 countries). \textsc {CS-Clamp} is the strongest deterministic shift but still loses to SWA-DPBR in aggregate; \textsc {CS-Std} is catastrophic for NGA ($+0.017$ vs.\ \textsc {CS-Mean}) due to unbounded variance amplification}{table.caption.38}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {O}Entropy-Aware Adaptive $\sigma $ for Qwen2.5-32B}{19}{appendix.O}\protected@file@percent }
-\newlabel{app:adaptive_sigma}{{O}{19}{Entropy-Aware Adaptive $\sigma $ for Qwen2.5-32B}{appendix.O}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Binary-ARGS per-country results (Llama-3.1-70B, 15 countries). \textsc  {ARGS-PT} achieves best or tied JSD in 13/15 countries and best $r$ in 11/15, confirming SWA-DPBR is precisely an ARGS variant with the same distance-based Prospect-Theory utility as Eq.~\ref {eq:util_total}.}}{20}{table.caption.39}\protected@file@percent }
-\newlabel{tab:args_percountry}{{16}{20}{Binary-ARGS per-country results (Llama-3.1-70B, 15 countries). \textsc {ARGS-PT} achieves best or tied JSD in 13/15 countries and best $r$ in 11/15, confirming SWA-DPBR is precisely an ARGS variant with the same distance-based Prospect-Theory utility as Eq.~\ref {eq:util_total}}{table.caption.39}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Per-country JSD under fixed-$\sigma $ on Qwen2.5-32B. Two latent country clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma $ (USA: $0.0523\to 0.0317$ at $\sigma {=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma $. All 8 countries share $H\approx 0.52$~nats, so the entropy signal alone cannot discriminate them.}}{20}{table.caption.40}\protected@file@percent }
-\newlabel{tab:sigma_percountry}{{17}{20}{Per-country JSD under fixed-$\sigma $ on Qwen2.5-32B. Two latent country clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma $ (USA: $0.0523\to 0.0317$ at $\sigma {=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma $. All 8 countries share $H\approx 0.52$~nats, so the entropy signal alone cannot discriminate them}{table.caption.40}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {P}Extended Country Pipeline Run (Engineering Check)}{20}{appendix.P}\protected@file@percent }
-\newlabel{app:extended}{{P}{20}{Extended Country Pipeline Run (Engineering Check)}{appendix.P}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Extended country pipeline run (Llama-3.1-70B). The pipeline executes end-to-end for 4 script systems and 5 language families; IS-induced AMCE shifts are detected in all 8 countries (mean $+0.05\pm 0.02$~pp).}}{21}{table.caption.41}\protected@file@percent }
-\newlabel{tab:extended_countries}{{18}{21}{Extended country pipeline run (Llama-3.1-70B). The pipeline executes end-to-end for 4 script systems and 5 language families; IS-induced AMCE shifts are detected in all 8 countries (mean $+0.05\pm 0.02$~pp)}{table.caption.41}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {Q}Extended Limitations}{21}{appendix.Q}\protected@file@percent }
-\newlabel{app:limitations}{{Q}{21}{Extended Limitations}{appendix.Q}{}}
-\@writefile{toc}{\contentsline {paragraph}{Single seed and stochasticity.}{21}{section*.42}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Pearson $r$ in six dimensions.}{21}{section*.43}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{21}{section*.44}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{21}{section*.45}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and survey vintage.}{21}{section*.46}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Binary format.}{21}{section*.47}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Language--culture conflation.}{21}{section*.48}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{21}{section*.49}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{WVS temporal staleness.}{21}{section*.50}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Qwen2.5-32B failure mode.}{21}{section*.51}\protected@file@percent }
-\gdef \@abspage@last{21}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Per-country results for \textbf  {Qwen2.5-7B-Instruct} (4-bit).}}{20}{table.caption.36}\protected@file@percent }
+\newlabel{tab:qwen7b_percountry}{{12}{20}{Per-country results for \textbf {Qwen2.5-7B-Instruct} (4-bit)}{table.caption.36}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Per-country results for \textbf  {Llama-3.1-8B-Instruct} (4-bit).}}{20}{table.caption.37}\protected@file@percent }
+\newlabel{tab:llama8b_percountry}{{13}{20}{Per-country results for \textbf {Llama-3.1-8B-Instruct} (4-bit)}{table.caption.37}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {N}Binary-ARGS Reward-Guided Decoding}{20}{appendix.N}\protected@file@percent }
+\newlabel{app:args}{{N}{20}{Binary-ARGS Reward-Guided Decoding}{appendix.N}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Per-country results for \textbf  {Qwen2.5-32B-Instruct} (4-bit). SWA-DPBR degrades in 7/15 countries due to concentrated logit distributions.}}{21}{table.caption.38}\protected@file@percent }
+\newlabel{tab:qwen32b_percountry}{{14}{21}{Per-country results for \textbf {Qwen2.5-32B-Instruct} (4-bit). SWA-DPBR degrades in 7/15 countries due to concentrated logit distributions}{table.caption.38}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Per-country JSD for the four consensus-shift baselines on Llama-3.1-70B (15 countries). \textsc  {CS-Clamp} is the strongest deterministic shift but still loses to SWA-DPBR in aggregate; \textsc  {CS-Std} is catastrophic for NGA ($+0.017$ vs.\ \textsc  {CS-Mean}) due to unbounded variance amplification.}}{21}{table.caption.39}\protected@file@percent }
+\newlabel{tab:consensus_shift_country}{{15}{21}{Per-country JSD for the four consensus-shift baselines on Llama-3.1-70B (15 countries). \textsc {CS-Clamp} is the strongest deterministic shift but still loses to SWA-DPBR in aggregate; \textsc {CS-Std} is catastrophic for NGA ($+0.017$ vs.\ \textsc {CS-Mean}) due to unbounded variance amplification}{table.caption.39}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {O}Entropy-Aware Adaptive $\sigma $ for Qwen2.5-32B}{21}{appendix.O}\protected@file@percent }
+\newlabel{app:adaptive_sigma}{{O}{21}{Entropy-Aware Adaptive $\sigma $ for Qwen2.5-32B}{appendix.O}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Binary-ARGS per-country results (Llama-3.1-70B, 15 countries). \textsc  {ARGS-PT} achieves best or tied JSD in 13/15 countries and best $r$ in 11/15, confirming SWA-DPBR is precisely an ARGS variant with the same distance-based Prospect-Theory utility as Eq.~\ref {eq:util_total}.}}{22}{table.caption.40}\protected@file@percent }
+\newlabel{tab:args_percountry}{{16}{22}{Binary-ARGS per-country results (Llama-3.1-70B, 15 countries). \textsc {ARGS-PT} achieves best or tied JSD in 13/15 countries and best $r$ in 11/15, confirming SWA-DPBR is precisely an ARGS variant with the same distance-based Prospect-Theory utility as Eq.~\ref {eq:util_total}}{table.caption.40}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Per-country JSD under fixed-$\sigma $ on Qwen2.5-32B. Two latent country clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma $ (USA: $0.0523\to 0.0317$ at $\sigma {=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma $. All 8 countries share $H\approx 0.52$~nats, so the entropy signal alone cannot discriminate them.}}{22}{table.caption.41}\protected@file@percent }
+\newlabel{tab:sigma_percountry}{{17}{22}{Per-country JSD under fixed-$\sigma $ on Qwen2.5-32B. Two latent country clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma $ (USA: $0.0523\to 0.0317$ at $\sigma {=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma $. All 8 countries share $H\approx 0.52$~nats, so the entropy signal alone cannot discriminate them}{table.caption.41}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {P}Extended Country Pipeline Run (Engineering Check)}{22}{appendix.P}\protected@file@percent }
+\newlabel{app:extended}{{P}{22}{Extended Country Pipeline Run (Engineering Check)}{appendix.P}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Extended country pipeline run (Llama-3.1-70B). The pipeline executes end-to-end for 4 script systems and 5 language families; IS-induced AMCE shifts are detected in all 8 countries (mean $+0.05\pm 0.02$~pp).}}{23}{table.caption.42}\protected@file@percent }
+\newlabel{tab:extended_countries}{{18}{23}{Extended country pipeline run (Llama-3.1-70B). The pipeline executes end-to-end for 4 script systems and 5 language families; IS-induced AMCE shifts are detected in all 8 countries (mean $+0.05\pm 0.02$~pp)}{table.caption.42}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {Q}Extended Limitations}{23}{appendix.Q}\protected@file@percent }
+\newlabel{app:limitations}{{Q}{23}{Extended Limitations}{appendix.Q}{}}
+\@writefile{toc}{\contentsline {paragraph}{Single seed and stochasticity.}{23}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Pearson $r$ in six dimensions.}{23}{section*.44}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{23}{section*.45}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{23}{section*.46}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and survey vintage.}{23}{section*.47}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Binary format.}{23}{section*.48}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Language--culture conflation.}{23}{section*.49}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{23}{section*.50}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WVS temporal staleness.}{23}{section*.51}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Qwen2.5-32B failure mode.}{23}{section*.52}\protected@file@percent }
+\gdef \@abspage@last{24}

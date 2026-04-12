@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/open_ended/evaluation/mc_data/v1.1/mc_questions_file-*.csv)",
+      "Bash(ls -la /d/AI_RESEARCH/moral_machine/open_ended/evaluation/*.py)",
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/open_ended/*.py /d/AI_RESEARCH/moral_machine/open_ended/evaluation/*.py)",
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/open_ended/data/questions/*.csv)",
+      "Bash(find d:/AI_RESEARCH/moral_machine/open_ended -type f -name *.md -o -name *.txt -o -name *.json -o -name *.csv)",
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/open_ended/*.py)"
+    ]
+  }
+}
