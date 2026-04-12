@@ -28,6 +28,7 @@ import gc
 import csv
 import json
 import re
+import signal
 import time
 import unicodedata as ud
 from string import punctuation
@@ -65,35 +66,49 @@ if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
 
     # -----------------------------------------------------------------------
-    # transformers + huggingface_hub compat fix.
-    # Kaggle ships a mismatched pair: the system transformers calls APIs
-    # (validate_typed_dict, is_offline_mode, …) that only exist in specific
-    # huggingface_hub version windows.  Upgrading both together gives pip
-    # the freedom to resolve a self-consistent pair — the same strategy used
-    # by paper_runtime.py when it installs vllm (which brings its own
-    # compatible transformers+huggingface_hub combo).
-    # Flush sys.modules afterwards so any stale cached import is discarded.
+    # Mirrors paper_runtime.py vLLM install path exactly (same as exp_paper).
+    # Step order matters:
+    #   1. huggingface_hub upgrade first — vLLM's import chain needs it.
+    #   2. vLLM — brings its own compatible transformers stack.
+    #   3. NLP tools last — hazm etc. may try to downgrade huggingface_hub,
+    #      but we flush sys.modules after so any stale cache is cleared.
     # -----------------------------------------------------------------------
-    print("[SETUP] (1/7) transformers + huggingface_hub upgrade (compat fix) ...")
-    _run("pip install -q --upgrade transformers huggingface_hub", verbose=True)
+    print("[SETUP] (1/8) huggingface_hub ...")
+    _run("pip install --upgrade -q 'huggingface_hub>=0.24.0'", verbose=True)
     for _mod in list(sys.modules):
-        if _mod.startswith(("huggingface_hub", "transformers")):
+        if _mod.startswith("huggingface_hub"):
             del sys.modules[_mod]
 
-    print("[SETUP] (2/7) scipy tqdm matplotlib seaborn ...")
-    _run("pip install scipy tqdm matplotlib seaborn", verbose=True)
-    print("[SETUP] (3/7) pyarrow ...")
-    _run("pip install --no-deps --force-reinstall pyarrow", verbose=True)
-    print("[SETUP] (4/7) datasets ...")
-    _run("pip install 'datasets>=3.4.1,<4.4.0'", verbose=True)
-    print("[SETUP] (5/7) accelerate (for device_map=auto) ...")
-    _run("pip install --upgrade accelerate", verbose=True)
-    print("[SETUP] (6/7) spacy + en_core_web_sm ...")
-    _run("pip install spacy", verbose=True)
+    print("[SETUP] (2/8) numpy / protobuf / grpcio ...")
+    _run('pip install -q "numpy<2.3"', verbose=True)
+    _run("pip uninstall -y -q tensorflow tensorflow-cpu tf_keras 2>/dev/null || true")
+    _run('pip install -q --upgrade "protobuf>=5.29.6,<6" "grpcio>=1.68" "googleapis-common-protos>=1.66"', verbose=True)
+
+    print("[SETUP] (3/8) scipy tqdm sentencepiece ...")
+    _run("pip install -q scipy tqdm sentencepiece", verbose=True)
+
+    print("[SETUP] (4/8) vllm ...")
+    _run("pip install -q vllm", verbose=True)
+
+    print("[SETUP] (5/8) datasets ...")
+    _run('pip install -q "datasets>=3.4.1,<4.4.0"', verbose=True)
+
+    print("[SETUP] (6/8) spacy + en_core_web_sm ...")
+    _run("pip install -q spacy", verbose=True)
     _run("python -m spacy download en_core_web_sm", verbose=True)
-    print("[SETUP] (7/7) konlpy jieba hazm qalsadi nlp-id hausastemmer ...")
-    _run("pip install konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
+
+    print("[SETUP] (7/8) matplotlib seaborn ...")
+    _run("pip install -q matplotlib seaborn", verbose=True)
+
+    print("[SETUP] (8/8) konlpy jieba hazm qalsadi nlp-id hausastemmer ...")
+    _run("pip install -q konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
     # NOTE: cltk, pyspark, spark-nlp are heavy — installed lazily per language.
+
+    # Flush huggingface_hub cache after all installs (hazm may have touched it)
+    for _mod in list(sys.modules):
+        if _mod.startswith("huggingface_hub"):
+            del sys.modules[_mod]
+
     print("[SETUP] Installation complete.")
 
 
@@ -222,6 +237,7 @@ MAX_NEW_TOKENS = 512       # same as paper (max_tokens=512)
 TEMPERATURE = 0.0          # paper: temperature=0 (deterministic)
 TOP_P = 1.0                # paper: top_p=1
 BATCH_SIZE = 4             # H100 80GB, conservative for 14B BF16 (~28GB)
+LOAD_TIMEOUT_MINUTES = int(os.environ.get("BLEND_LOAD_TIMEOUT_MINUTES", "15"))
 
 # ---------------------------------------------------------------------------
 # Countries & languages — exact 16 from the paper
@@ -292,48 +308,72 @@ def make_prompt(question: str, prompt_no: str, language: str,
 # 3. MODEL LOADING
 # ============================================================================
 
+MODEL_LOAD_TIMEOUT_SEC = 900   # 15 minutes — abort if exceeded
+
+
+def _model_load_watchdog(timeout: int):
+    """
+    Daemon threading.Timer that calls os.abort() after `timeout` seconds.
+    os.abort() (SIGABRT) guarantees the kernel releases GPU memory immediately.
+    Call .start() before from_pretrained(), .cancel() after success.
+    """
+    import threading, os as _os
+
+    def _handler():
+        print(
+            f"\n[FATAL] Model load exceeded {timeout // 60} min ({timeout}s). "
+            "Aborting to free Kaggle GPU resources.",
+            flush=True,
+        )
+        _os.abort()
+
+    t = threading.Timer(timeout, _handler)
+    t.daemon = True
+    return t
+
+
 def load_model():
     """
-    Load Phi-4 14B with H100-optimized settings.
-    - BF16 full precision (14B model ~28GB, well within H100 80GB)
-    - SDPA attention (PyTorch built-in, dispatches FA kernel on H100 via cuDNN)
-    - torch.compile() for graph fusion (first batch slower, rest faster)
-    - Padding side left for correct batched generation
+    Load Phi-4 14B via vLLM — mirrors exp_paper/exp_paper_phi_4.py approach.
+    Returns (llm, tokenizer) where llm is a vllm.LLM instance.
+    Watchdog aborts the process if loading exceeds 15 min.
     """
-    print(f"[MODEL] Loading {MODEL_ID} (BF16 + SDPA) ...")
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from vllm import LLM
+    from transformers import AutoTokenizer
 
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
-        device_map="auto",
-        dtype=torch.bfloat16,
-        attn_implementation="sdpa",  # PyTorch built-in, dispatches FA on H100
-        token=HF_TOKEN if HF_TOKEN else None,
-        trust_remote_code=True,      # required for Phi-4
+    gpu_mem = float(os.environ.get("MORAL_VLLM_GPU_MEM", "0.90"))
+    print(
+        f"[MODEL] Loading {MODEL_ID} via vLLM (BF16, gpu_mem={gpu_mem}) ..."
+        f"  [watchdog: {MODEL_LOAD_TIMEOUT_SEC // 60} min]"
     )
-    tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_ID,
-        token=HF_TOKEN if HF_TOKEN else None,
-        padding_side="left",         # required for batched generation
-        trust_remote_code=True,
-    )
-    # Phi-4 uses eos as pad; ensure pad_token_id is set
+
+    wd = _model_load_watchdog(MODEL_LOAD_TIMEOUT_SEC)
+    wd.start()
+    try:
+        llm = LLM(
+            model=MODEL_ID,
+            trust_remote_code=True,
+            dtype="bfloat16",
+            max_model_len=4096,
+            gpu_memory_utilization=gpu_mem,
+        )
+        tokenizer = AutoTokenizer.from_pretrained(
+            MODEL_ID,
+            token=HF_TOKEN if HF_TOKEN else None,
+            trust_remote_code=True,
+        )
+    except Exception:
+        wd.cancel()
+        raise
+    else:
+        wd.cancel()
+
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
-    model.eval()
-    model.generation_config.max_length = None
-
-    # torch.compile: mode="reduce-overhead" best for repeated same-shape batches
-    try:
-        model = torch.compile(model, mode="reduce-overhead")
-        print("[MODEL] torch.compile() enabled (reduce-overhead mode)")
-    except Exception as e:
-        print(f"[MODEL] torch.compile() skipped: {e}")
-
     vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
-    print(f"[MODEL] Loaded (BF16 + SDPA). GPU: {torch.cuda.get_device_name(0)} ({vram_gb:.0f}GB)")
-    return model, tokenizer
+    print(f"[MODEL] vLLM loaded. GPU: {torch.cuda.get_device_name(0)} ({vram_gb:.0f}GB)")
+    return llm, tokenizer
 
 
 # ============================================================================
@@ -342,47 +382,28 @@ def load_model():
 
 def generate_batch(model, tokenizer, prompts: List[str]) -> List[str]:
     """
-    Batched generation for H100 throughput.
-    Left-pads all prompts to same length, generates in one forward pass.
+    Batched generation via vLLM — mirrors exp_paper inference approach.
+    `model` is a vllm.LLM instance returned by load_model().
     """
-    messages_list = [[{"role": "user", "content": p}] for p in prompts]
+    from vllm import SamplingParams
 
-    # apply_chat_template with padding
-    encoded = tokenizer.apply_chat_template(
-        messages_list,
-        tokenize=True,
-        add_generation_prompt=True,
-        return_tensors="pt",
-        return_dict=True,
-        padding=True,
-    )
-    input_ids = encoded["input_ids"].to(model.device)
-    attention_mask = encoded["attention_mask"].to(model.device)
-    input_len = input_ids.shape[1]
-
-    from transformers import GenerationConfig
-    gen_config = GenerationConfig(
-        max_new_tokens=MAX_NEW_TOKENS,
-        max_length=None,
-        do_sample=False,
-        pad_token_id=tokenizer.eos_token_id,
-        use_cache=True,
+    sp = SamplingParams(
+        max_tokens=MAX_NEW_TOKENS,
+        temperature=TEMPERATURE,
+        top_p=TOP_P,
     )
 
-    with torch.no_grad():
-        output_ids = model.generate(
-            input_ids,
-            attention_mask=attention_mask,
-            generation_config=gen_config,
+    formatted = [
+        tokenizer.apply_chat_template(
+            [{"role": "user", "content": p}],
+            tokenize=False,
+            add_generation_prompt=True,
         )
+        for p in prompts
+    ]
 
-    # Decode only new tokens for each item in batch
-    responses = []
-    for out in output_ids:
-        new_tokens = out[input_len:]
-        text = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
-        responses.append(text)
-    return responses
+    outputs = model.generate(formatted, sampling_params=sp, use_tqdm=False)
+    return [o.outputs[0].text.strip() for o in outputs]
 
 
 def generate_response(model, tokenizer, prompt: str) -> str:
@@ -868,6 +889,56 @@ def print_summary(df: pd.DataFrame):
 
 
 # ============================================================================
+# 5b. MODEL LOAD WITH TIMEOUT
+#     Same safety pattern as exp_model/_base_dpbr.py: if the model cannot
+#     be loaded within LOAD_TIMEOUT_MINUTES, abort rather than hang the GPU.
+#     Uses SIGALRM (Unix/Kaggle only); on Windows falls back to plain load.
+# ============================================================================
+
+class _LoadTimeout(Exception):
+    pass
+
+
+def _load_model_with_timeout(timeout_minutes: int = LOAD_TIMEOUT_MINUTES):
+    """
+    Call load_model() with a hard wall-clock timeout.
+
+    On Kaggle (Linux): uses signal.SIGALRM — raises _LoadTimeout if the
+    model has not finished loading within *timeout_minutes*.  On timeout
+    the run is aborted via SystemExit so Kaggle does not keep burning GPU.
+
+    On Windows: SIGALRM is not available; loads without timeout.
+    Override the limit with env var BLEND_LOAD_TIMEOUT_MINUTES.
+    """
+    if sys.platform == "win32" or not hasattr(signal, "SIGALRM"):
+        print(f"[LOAD] SIGALRM unavailable on {sys.platform} — loading without timeout")
+        return load_model()
+
+    def _handler(signum, frame):
+        raise _LoadTimeout(
+            f"Model load exceeded {timeout_minutes} minute(s). "
+            "Check VRAM availability or increase BLEND_LOAD_TIMEOUT_MINUTES."
+        )
+
+    prev_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(timeout_minutes * 60)
+    print(f"[LOAD] Timeout set to {timeout_minutes} minute(s) "
+          f"(override: BLEND_LOAD_TIMEOUT_MINUTES)")
+    try:
+        result = load_model()
+        signal.alarm(0)                        # cancel alarm on success
+        return result
+    except _LoadTimeout as exc:
+        signal.alarm(0)
+        print(f"\n[LOAD][ERROR] {exc}")
+        if _ON_KAGGLE:
+            raise SystemExit("[LOAD] Stopping Kaggle run to avoid wasting GPU.") from exc
+        raise RuntimeError(str(exc)) from exc
+    finally:
+        signal.signal(signal.SIGALRM, prev_handler)  # restore previous handler
+
+
+# ============================================================================
 # 6. MAIN
 # ============================================================================
 
@@ -889,8 +960,8 @@ def main():
             print("and adjust DATA_ROOT in this script.")
             sys.exit(1)
 
-    # --- Step 1: Load model ---
-    model, tokenizer = load_model()
+    # --- Step 1: Load model (abort after LOAD_TIMEOUT_MINUTES if hung) ---
+    model, tokenizer = _load_model_with_timeout()
 
     # --- Step 2: Run inference + evaluate per combo ---
     results_df = run_all_inference_and_eval(model, tokenizer)

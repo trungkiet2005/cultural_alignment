@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import gc
 import os
+import signal
 import sys
 import time
 from dataclasses import dataclass
@@ -154,6 +155,7 @@ ABLATION_COUNTRIES: List[str] = [
 N_SCENARIOS: int = int(os.environ.get("ABLATION_N_SCENARIOS", "342"))
 SEED: int = int(os.environ.get("ABLATION_SEED", "42"))
 LAMBDA_COOP: float = 0.70
+LOAD_TIMEOUT_MINUTES: int = int(os.environ.get("ABLATION_LOAD_TIMEOUT_MINUTES", "15"))
 
 RESULTS_BASE = (
     "/kaggle/working/cultural_alignment/results/exp24_ablation_phi4"
@@ -862,6 +864,66 @@ def print_cross_country_summary(df: pd.DataFrame) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Model load with timeout — mirrors exp_model/_base_dpbr.py safety pattern
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class _LoadTimeout(Exception):
+    pass
+
+
+def _load_model_timed(
+    backend: str,
+    use_4bit: bool,
+    timeout_minutes: int = LOAD_TIMEOUT_MINUTES,
+):
+    """
+    Load the model and abort if it hangs beyond *timeout_minutes*.
+
+    On Kaggle (Linux): uses signal.SIGALRM so a frozen download/OOM does
+    not waste the full GPU session.  On Windows SIGALRM is unavailable and
+    the load proceeds without a timeout.
+
+    Override the limit with env var ABLATION_LOAD_TIMEOUT_MINUTES.
+    """
+    def _do_load():
+        if backend == "vllm":
+            from src.vllm_causal import load_model_vllm  # type: ignore[import]
+            return load_model_vllm(MODEL_NAME, max_seq_length=2048, load_in_4bit=False)
+        elif backend == "hf_native":
+            return load_model_hf_native(MODEL_NAME, max_seq_length=2048, load_in_4bit=False)
+        else:
+            return load_model(MODEL_NAME, max_seq_length=2048, load_in_4bit=use_4bit)
+
+    if sys.platform == "win32" or not hasattr(signal, "SIGALRM"):
+        print(f"[LOAD] SIGALRM unavailable on {sys.platform} — loading without timeout")
+        return _do_load()
+
+    def _handler(signum, frame):
+        raise _LoadTimeout(
+            f"Model load exceeded {timeout_minutes} minute(s). "
+            "Check VRAM / network. Override: ABLATION_LOAD_TIMEOUT_MINUTES."
+        )
+
+    prev = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(timeout_minutes * 60)
+    print(f"[LOAD] timeout={timeout_minutes} min  "
+          f"(override: ABLATION_LOAD_TIMEOUT_MINUTES)")
+    try:
+        result = _do_load()
+        signal.alarm(0)
+        return result
+    except _LoadTimeout as exc:
+        signal.alarm(0)
+        print(f"\n[LOAD][ERROR] {exc}")
+        err = SystemExit("[LOAD] Stopping Kaggle run to avoid wasting GPU.") if _on_kaggle() \
+              else RuntimeError(str(exc))
+        raise err from exc
+    finally:
+        signal.signal(signal.SIGALRM, prev)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Main
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -889,19 +951,7 @@ def main() -> None:
     use_4bit = (backend == "unsloth")
     print(f"[LOAD] backend={backend}  model={MODEL_NAME}  4bit={use_4bit}")
 
-    if backend == "vllm":
-        from src.vllm_causal import load_model_vllm  # type: ignore[import]
-        model, tokenizer = load_model_vllm(
-            MODEL_NAME, max_seq_length=2048, load_in_4bit=False   # BF16
-        )
-    elif backend == "hf_native":
-        model, tokenizer = load_model_hf_native(
-            MODEL_NAME, max_seq_length=2048, load_in_4bit=False   # BF16
-        )
-    else:  # unsloth (not recommended for Phi-4 — causes flat logits)
-        model, tokenizer = load_model(
-            MODEL_NAME, max_seq_length=2048, load_in_4bit=True
-        )
+    model, tokenizer = _load_model_timed(backend, use_4bit)
 
     cfg = _build_cfg(ABLATION_COUNTRIES, load_in_4bit=use_4bit)
     all_rows: List[Dict] = []
@@ -1043,20 +1093,22 @@ def _print_latex_table(rows: List[Dict], country: str) -> None:
         ),
         (
             rf"Full configuration: JSD = {ref['jsd']:.4f},"
-            rf" $r$ = {ref['pearson_r']:.3f}."
+            rf" $r$ = {ref['pearson_r']:.3f},"
+            rf" MIS = {ref['mis']:.4f}."
             r"}"
         ),
         r"\label{tab:ablation_phi4}",
         r"\centering\small",
         r"\setlength{\tabcolsep}{4pt}",
-        r"\begin{tabular}{llccccc}",
+        r"\begin{tabular}{llcccccc}",
         r"\toprule",
         r"\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & "
-        r"$r$ $\uparrow$ & $\Delta r$ & MAE \\",
+        r"$r$ $\uparrow$ & $\Delta r$ & MIS $\downarrow$ & $\Delta$MIS \\",
         r"\midrule",
         (
             rf"  & \textbf{{Full SWA-DPBR}} & \textbf{{{ref['jsd']:.4f}}} & -- &"
-            rf" \textbf{{{ref['pearson_r']:.3f}}} & -- & \textbf{{{ref['mae']:.2f}}} \\"
+            rf" \textbf{{{ref['pearson_r']:.3f}}} & -- &"
+            rf" \textbf{{{ref['mis']:.4f}}} & -- \\"
         ),
         r"\midrule",
     ]
@@ -1066,13 +1118,14 @@ def _print_latex_table(rows: List[Dict], country: str) -> None:
         if row["ablation"] == "Full SWA-DPBR":
             continue
         idx = row_idx.get(row["ablation"], "?")
-        jsd_d = _δ(row["jsd"],      ref["jsd"],      low=True)
-        r_d   = _δ(row["pearson_r"], ref["pearson_r"], low=False)
+        jsd_d = _δ(row["jsd"],       ref["jsd"],       low=True)
+        r_d   = _δ(row["pearson_r"],  ref["pearson_r"], low=False)
+        mis_d = _δ(row["mis"],        ref["mis"],       low=True)
         lines.append(
             rf"{idx} & {row['ablation']}"
             rf" & {row['jsd']:.4f} & {jsd_d}"
             rf" & {row['pearson_r']:.3f} & {r_d}"
-            rf" & {row['mae']:.2f} \\"
+            rf" & {row['mis']:.4f} & {mis_d} \\"
         )
 
     lines += [

@@ -16,24 +16,124 @@ Runtime   : ~6–9 h on Kaggle H100 80 GB (bf16, batch=5 per forward)
 import sys, os, subprocess
 from pathlib import Path
 
-def _run(cmd: str, verbose: bool = True) -> int:
-    """Run shell command, streaming stdout line-by-line when verbose=True."""
+def _run(cmd: str, verbose: bool = True, timeout: int = 0) -> int:
+    """
+    Run shell command, streaming stdout line-by-line when verbose=True.
+    timeout > 0: kill process after that many seconds and return -1.
+    """
     if verbose:
         proc = subprocess.Popen(
             cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
+        if timeout > 0:
+            import threading
+            def _killer():
+                proc.kill()
+                print(f"\n[SETUP] Killed after {timeout}s timeout.", flush=True)
+            t = threading.Timer(timeout, _killer)
+            t.daemon = True
+            t.start()
         for line in proc.stdout:
             line = line.rstrip()
             if line:
                 print(line)
         proc.wait()
+        if timeout > 0:
+            t.cancel()
         return proc.returncode
     else:
         r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if r.returncode != 0 and r.stderr:
             print(r.stderr.strip())
         return r.returncode
+
+
+def _install_flash_attn() -> bool:
+    """
+    Install flash-attn from pre-built wheel (no source compile).
+    Strategy:
+      1. Try pre-built wheel index (fast, ~30s) — avoids 20-min source build.
+      2. Fallback: pip install with --no-build-isolation + 5-min timeout.
+      3. If both fail: skip silently — _load_model_hf() falls back to SDPA.
+    Returns True if installation succeeded.
+    """
+    # Try pre-built wheel from the official flash-attn release page
+    # (covers Kaggle: Python 3.10/3.11/3.12, CUDA 12.x, PyTorch 2.x)
+    prebuilt_cmd = (
+        "pip install flash-attn "
+        "--find-links https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.7.4 "
+        "--no-build-isolation"
+    )
+    print("[SETUP] (3/3) flash-attn — trying pre-built wheel ...")
+    rc = _run(prebuilt_cmd, timeout=120)   # 2 min max for wheel download
+    if rc == 0:
+        print("[SETUP] flash-attn installed (pre-built wheel).")
+        return True
+
+    # Fallback: build from source with 5-min hard timeout
+    print("[SETUP] Pre-built wheel not found — building from source (5 min timeout) ...")
+    rc = _run("pip install flash-attn --no-build-isolation", timeout=300)
+    if rc == 0:
+        print("[SETUP] flash-attn installed (built from source).")
+        return True
+
+    print("[SETUP] flash-attn install failed/timed out — will use SDPA attention (no speed loss on H100).")
+    return False
+
+
+def _apply_hf_credentials() -> None:
+    """
+    Load HF token from .env or Kaggle UserSecretsClient, then login to HF Hub.
+    Mirrors src/hf_env.py:apply_hf_credentials() — inlined here so swa_open_ended.py
+    works as a fully standalone script without the src/ package on the path.
+    """
+    # 1. Read .env from cwd if present (does not overwrite existing env vars)
+    try:
+        env_path = Path(os.getcwd()) / ".env"
+        if env_path.is_file():
+            for raw in env_path.read_text(encoding="utf-8").splitlines():
+                s = raw.strip()
+                if not s or s.startswith("#") or "=" not in s:
+                    continue
+                k, _, v = s.partition("=")
+                k, v = k.strip(), v.strip()
+                if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                    v = v[1:-1]
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    except Exception:
+        pass
+
+    # 2. On Kaggle: pull HF_TOKEN from UserSecretsClient if still missing
+    if not os.environ.get("HF_TOKEN") and not os.environ.get("HUGGING_FACE_HUB_TOKEN"):
+        if os.path.isdir("/kaggle/working"):
+            try:
+                from kaggle_secrets import UserSecretsClient
+                t = UserSecretsClient().get_secret("HF_TOKEN")
+                if t:
+                    os.environ["HF_TOKEN"] = t
+                    os.environ["HUGGING_FACE_HUB_TOKEN"] = t
+                    print("[SETUP] HF token loaded from Kaggle secrets.")
+            except Exception:
+                pass
+
+    # 3. Mirror HF_TOKEN <-> HUGGING_FACE_HUB_TOKEN
+    if os.environ.get("HF_TOKEN") and not os.environ.get("HUGGING_FACE_HUB_TOKEN"):
+        os.environ["HUGGING_FACE_HUB_TOKEN"] = os.environ["HF_TOKEN"]
+    elif os.environ.get("HUGGING_FACE_HUB_TOKEN") and not os.environ.get("HF_TOKEN"):
+        os.environ["HF_TOKEN"] = os.environ["HUGGING_FACE_HUB_TOKEN"]
+
+    # 4. Login to HF Hub (required for gated models)
+    token = (os.environ.get("HF_TOKEN") or "").strip()
+    if token:
+        try:
+            from huggingface_hub import login
+            login(token=token, add_to_git_credential_helper=False)
+            print("[SETUP] Logged in to Hugging Face Hub.")
+        except Exception:
+            pass
+
 
 _ON_KAGGLE = os.path.exists("/kaggle/working")
 if _ON_KAGGLE:
@@ -42,8 +142,11 @@ if _ON_KAGGLE:
     _run("pip install accelerate bitsandbytes scipy tqdm matplotlib seaborn sentencepiece protobuf")
     print("[SETUP] (2/3) datasets ...")
     _run("pip install 'datasets>=3.4.1,<4.4.0'")
-    print("[SETUP] (3/3) flash-attn (may take a few minutes) ...")
-    _run("pip install flash-attn --no-build-isolation")
+    _flash_ok = _install_flash_attn()
+    if _flash_ok:
+        os.environ.setdefault("HF_ATTN_IMPLEMENTATION", "flash_attention_2")
+
+    _apply_hf_credentials()
 
     WORK_DIR = Path("/kaggle/working/SWA_MPPI_DPBR")
     DATA_DIR = WORK_DIR / "data"
@@ -3872,21 +3975,52 @@ def print_final_statistics(all_summaries, vanilla_metrics, config):
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
+MODEL_LOAD_TIMEOUT_SEC = 900   # 15 minutes — abort if exceeded
+
+
+def _model_load_watchdog(timeout: int):
+    """
+    Daemon threading.Timer that calls os.abort() after `timeout` seconds.
+    os.abort() (SIGABRT) guarantees the kernel releases GPU memory immediately.
+    Call .start() before from_pretrained(), .cancel() after success.
+    """
+    import threading, os as _os
+
+    def _handler():
+        print(
+            f"\n[FATAL] Model load exceeded {timeout // 60} min ({timeout}s). "
+            "Aborting to free Kaggle GPU resources.",
+            flush=True,
+        )
+        _os.abort()
+
+    t = threading.Timer(timeout, _handler)
+    t.daemon = True
+    return t
+
+
 def _load_model_hf(config: SWAConfig):
     """
     Load Qwen2.5-7B-Instruct (or any HF model) in bf16 with Flash-Attention 2.
     Falls back gracefully if flash-attn is not installed.
+    Watchdog: aborts process if load takes > 15 min.
     """
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-    print(f"[MODEL] Loading {config.model_name} ...")
+    print(f"[MODEL] Loading {config.model_name} ..."
+          f"  [watchdog: {MODEL_LOAD_TIMEOUT_SEC // 60} min]")
     print(f"        precision={'4-bit' if config.load_in_4bit else 'bf16'}  "
-          f"flash_attn={config.use_flash_attention}")
+          f"HF_ATTN_IMPLEMENTATION={os.environ.get('HF_ATTN_IMPLEMENTATION', 'sdpa (default)')}")
+
+    # HF token for gated models (set by _apply_hf_credentials() at startup)
+    hf_token = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip() or None
+    tok_kw = {"token": hf_token} if hf_token else {}
 
     tokenizer = AutoTokenizer.from_pretrained(
         config.model_name,
         trust_remote_code=True,
         padding_side="left",
+        **tok_kw,
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -3896,6 +4030,7 @@ def _load_model_hf(config: SWAConfig):
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
         device_map="auto",
+        **tok_kw,
     )
     if config.load_in_4bit:
         load_kwargs["quantization_config"] = BitsAndBytesConfig(
@@ -3904,15 +4039,25 @@ def _load_model_hf(config: SWAConfig):
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
-    if config.use_flash_attention:
-        try:
-            import flash_attn  # noqa: F401
-            load_kwargs["attn_implementation"] = "flash_attention_2"
-            print("[MODEL] Flash-Attention 2 enabled.")
-        except ImportError:
-            print("[MODEL] flash-attn not found — using eager attention.")
+    # Use HF_ATTN_IMPLEMENTATION env var (set to "flash_attention_2" by setup block
+    # when flash-attn installed successfully; falls back to transformers default = SDPA)
+    attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip()
+    if attn_impl:
+        load_kwargs["attn_implementation"] = attn_impl
+        print(f"[MODEL] attn_implementation = {attn_impl}")
+    else:
+        print("[MODEL] attn_implementation = sdpa (default)")
 
-    model = AutoModelForCausalLM.from_pretrained(config.model_name, **load_kwargs)
+    wd = _model_load_watchdog(MODEL_LOAD_TIMEOUT_SEC)
+    wd.start()
+    try:
+        model = AutoModelForCausalLM.from_pretrained(config.model_name, **load_kwargs)
+    except Exception:
+        wd.cancel()
+        raise
+    else:
+        wd.cancel()
+
     model.eval()
 
     vram_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
