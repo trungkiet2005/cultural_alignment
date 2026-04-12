@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-BLEnD Short-Answer Question Evaluation — Qwen2.5-7B on Kaggle H100
-=====================================================================
+BLEnD Short-Answer Question Evaluation — Phi-4 14B on Kaggle H100
+==================================================================
 Reproduces the exact methodology from:
   "BLEnD: A Benchmark for LLMs on Everyday Knowledge in Diverse Cultures
    and Languages" (NeurIPS 2024 Datasets and Benchmarks Track)
 
 Pipeline:
   Step 1 — Install dependencies & setup paths
-  Step 2 — Load Qwen2.5-7B-Instruct (BF16, Flash Attention 2, fits H100 80GB)
+  Step 2 — Load Phi-4 14B (BF16, SDPA attention, fits H100 80GB)
   Step 3 — Run inference on all 16 countries × 2 prompts (inst-4, pers-3)
             × 2 languages (local + English) — exactly like the paper
   Step 4 — Evaluate with Soft Exact Match (SEM-B & SEM-W)
 
 H100 optimizations:
-  - BF16 full precision (7B model only ~14GB, no quantization needed)
+  - BF16 full precision (14B model ~28GB, well within H100 80GB)
   - SDPA attention (PyTorch built-in, dispatches FA kernel on H100 via cuDNN)
-  - Batched inference (batch_size=8) for throughput
-  - torch.compile() for graph optimization
+  - Batched inference (batch_size=4) for throughput
+  - Language-tool lazy install (only installs what's needed per language)
 
 """
 
@@ -37,44 +37,89 @@ from typing import List, Dict, Tuple, Optional
 # ============================================================================
 # 0. ENVIRONMENT SETUP
 # ============================================================================
-_ON_KAGGLE = True
+_ON_KAGGLE = os.path.exists("/kaggle/working")
+
 
 def _run(cmd: str, verbose: bool = False) -> int:
-    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if verbose and r.stdout: print(r.stdout.strip())
-    if r.returncode != 0 and r.stderr: print(r.stderr.strip())
-    return r.returncode
+    """Run a shell command, streaming stdout in real-time when verbose=True."""
+    if verbose:
+        # Stream output line-by-line so long installs show progress
+        proc = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                print(line)
+        proc.wait()
+        return proc.returncode
+    else:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if r.returncode != 0 and r.stderr:
+            print(r.stderr.strip())
+        return r.returncode
+
 
 if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
-    # Core ML — no bitsandbytes needed (BF16 full precision for 7B)
-    _run("pip install -q scipy tqdm matplotlib seaborn")
-    _run("pip install --quiet --no-deps --force-reinstall pyarrow")
-    _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'")
-    # flash-attn requires CUDA compile (20+ min) — skip, use torch SDPA instead
-
-    # Evaluation — lemmatizers per language
-    _run("pip install -q spacy")
-    _run("python -m spacy download en_core_web_sm")
-    _run("pip install -q konlpy")          # Korean
-    _run("pip install -q jieba")           # Chinese
-    _run("pip install -q hazm")            # Persian
-    _run("pip install -q qalsadi")         # Arabic
-    # Additional packages for full 16 countries
-    _run("pip install -q nlp-id")        # Indonesian
-    _run("pip install -q hausastemmer")   # Hausa
-    _run("pip install -q cltk")          # Greek
-    _run("pip install -q pyspark spark-nlp")  # Spanish, Amharic
-
-    for repo, url in [
-        ("stemmer", "https://github.com/aznlp-disc/stemmer.git"),
-        ("indic_nlp_library", "https://github.com/anoopkunchukuttan/indic_nlp_library.git"),
-        ("SUSTEM", "https://github.com/andhikaprima/SUSTEM.git"),
-    ]:
-        if not os.path.exists(f"/kaggle/working/{repo}"):
-            _run(f"cd /kaggle/working && git clone {url}")
-
+    print("[SETUP] (1/7) scipy tqdm matplotlib seaborn ...")
+    _run("pip install -q scipy tqdm matplotlib seaborn", verbose=True)
+    print("[SETUP] (2/7) pyarrow ...")
+    _run("pip install --quiet --no-deps --force-reinstall pyarrow", verbose=True)
+    print("[SETUP] (3/7) datasets ...")
+    _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'", verbose=True)
+    print("[SETUP] (4/7) huggingface_hub + transformers + accelerate ...")
+    # Must upgrade all three together — huggingface_hub 0.21+ removed is_offline_mode
+    # so the pre-installed transformers breaks if only huggingface_hub is upgraded.
+    _run("pip install -q 'huggingface_hub>=0.26.0' 'transformers>=4.47.0' accelerate", verbose=True)
+    print("[SETUP] (5/7) spacy ...")
+    _run("pip install -q spacy", verbose=True)
+    print("[SETUP] (6/7) spacy en_core_web_sm model ...")
+    _run("python -m spacy download en_core_web_sm -q", verbose=True)
+    print("[SETUP] (7/7) konlpy jieba hazm qalsadi nlp-id hausastemmer ...")
+    _run("pip install -q konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
+    # NOTE: cltk, pyspark, spark-nlp are heavy and slow — installed lazily
+    #       per language in _ensure_lang_tools() below, only when needed.
     print("[SETUP] Installation complete.")
+
+
+def _ensure_lang_tools(language: str):
+    """Install heavy language tools on-demand (not at startup)."""
+    if language == "Greek":
+        try:
+            import cltk  # noqa: F401
+        except ImportError:
+            print(f"[SETUP] Installing cltk for {language}...")
+            _run("pip install -q cltk")
+
+    elif language in ("Spanish", "Amharic"):
+        try:
+            import sparknlp  # noqa: F401
+        except ImportError:
+            print(f"[SETUP] Installing spark-nlp for {language} (may take a few minutes)...")
+            _run("pip install -q pyspark spark-nlp")
+
+    elif language == "Azerbaijani":
+        repo = "/kaggle/working/stemmer" if _ON_KAGGLE else "stemmer"
+        if not os.path.exists(repo):
+            print(f"[SETUP] Cloning Azerbaijani stemmer...")
+            base = "/kaggle/working" if _ON_KAGGLE else "."
+            _run(f"cd {base} && git clone https://github.com/aznlp-disc/stemmer.git")
+
+    elif language == "Assamese":
+        lib = "/kaggle/working/indic_nlp_library" if _ON_KAGGLE else "indic_nlp_library"
+        if not os.path.exists(lib):
+            print(f"[SETUP] Cloning indic_nlp_library for {language}...")
+            base = "/kaggle/working" if _ON_KAGGLE else "."
+            _run(f"cd {base} && git clone https://github.com/anoopkunchukuttan/indic_nlp_library.git")
+
+    elif language == "Sundanese":
+        repo = "/kaggle/working/SUSTEM" if _ON_KAGGLE else "SUSTEM"
+        if not os.path.exists(repo):
+            print(f"[SETUP] Cloning SUSTEM for {language}...")
+            base = "/kaggle/working" if _ON_KAGGLE else "."
+            _run(f"cd {base} && git clone https://github.com/andhikaprima/SUSTEM.git")
 
 import numpy as np
 import pandas as pd
@@ -154,16 +199,16 @@ for d in [RESULTS_DIR, EVAL_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
-# Model — Qwen2.5-7B-Instruct (BF16 full precision, ~14GB VRAM on H100)
-# H100 optimizations: Flash Attention 2, batched inference, torch.compile
+# Model — Phi-4 14B (BF16 full precision, ~28GB VRAM on H100)
+# H100 optimizations: SDPA attention, batched inference, torch.compile
 # ---------------------------------------------------------------------------
-MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
-MODEL_NAME = "Qwen2.5-7B-Instruct"
+MODEL_ID = "microsoft/phi-4"
+MODEL_NAME = "Phi-4-14B"
 HF_TOKEN = os.environ.get("HF_TOKEN")
 MAX_NEW_TOKENS = 512       # same as paper (max_tokens=512)
 TEMPERATURE = 0.0          # paper: temperature=0 (deterministic)
 TOP_P = 1.0                # paper: top_p=1
-BATCH_SIZE = 8             # H100 80GB can handle large batches for 7B model
+BATCH_SIZE = 4             # H100 80GB, conservative for 14B BF16 (~28GB)
 
 # ---------------------------------------------------------------------------
 # Countries & languages — exact 16 from the paper
@@ -236,14 +281,12 @@ def make_prompt(question: str, prompt_no: str, language: str,
 
 def load_model():
     """
-    Load Qwen2.5-7B-Instruct with H100-optimized settings.
-    - BF16 full precision (7B model ~14GB, well within H100 80GB)
-    - Flash Attention 2 for ~2x throughput vs standard attention
+    Load Phi-4 14B with H100-optimized settings.
+    - BF16 full precision (14B model ~28GB, well within H100 80GB)
+    - SDPA attention (PyTorch built-in, dispatches FA kernel on H100 via cuDNN)
     - torch.compile() for graph fusion (first batch slower, rest faster)
     - Padding side left for correct batched generation
     """
-    # Use torch SDPA (built-in PyTorch 2.0+, no extra install needed)
-    # On H100 this dispatches to FlashAttention kernel automatically via cuDNN
     print(f"[MODEL] Loading {MODEL_ID} (BF16 + SDPA) ...")
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -252,14 +295,16 @@ def load_model():
         device_map="auto",
         torch_dtype=torch.bfloat16,
         attn_implementation="sdpa",  # PyTorch built-in, dispatches FA on H100
-        token=HF_TOKEN,
+        token=HF_TOKEN if HF_TOKEN else None,
+        trust_remote_code=True,      # required for Phi-4
     )
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_ID,
-        token=HF_TOKEN,
-        padding_side="left",   # required for batched generation
+        token=HF_TOKEN if HF_TOKEN else None,
+        padding_side="left",         # required for batched generation
+        trust_remote_code=True,
     )
-    # Qwen2.5 uses eos as pad by default; ensure it's set
+    # Phi-4 uses eos as pad; ensure pad_token_id is set
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
 
@@ -512,7 +557,11 @@ def get_llm_response_by_id(res_df: pd.DataFrame, qid: str,
 
 
 def _load_lemma_tools(language: str):
-    """Load language-specific NLP pipeline for lemmatization."""
+    """Load language-specific NLP pipeline for lemmatization.
+    Heavy packages (spark-nlp, cltk, git repos) are installed on-demand.
+    """
+    _ensure_lang_tools(language)
+
     if language == "Spanish":
         import sparknlp
         from sparknlp.base import DocumentAssembler, Pipeline

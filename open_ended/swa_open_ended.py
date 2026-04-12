@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """
-Dynamic Social Consensus for Cross-Cultural Value Negotiation
-via Implicit Pre-Logit Control (SWA-MPPI v3 — Paper-Ready)
+SWA-MPPI v3 + EXP-24 DPBR — Qwen2.5-7B-Instruct — 20-Country Paper Run
+========================================================================
+Algorithm : EXP-24 Dual-Pass Bootstrap IS Reliability Filter (DPBR)
+Model     : Qwen/Qwen2.5-7B-Instruct  (HF native, bf16, Flash-Attn 2)
+Countries : PAPER_20_COUNTRIES (20 countries, full dataset)
+Metrics   : MIS, JSD, Pearson r, Spearman ρ, MAE, RMSE,
+            per-dim alignment, utilitarianism slope, DPBR diagnostics
+Runtime   : ~6–9 h on Kaggle H100 80 GB (bf16, batch=5 per forward)
 """
 
 # ============================================================================
@@ -19,13 +25,11 @@ def _run(cmd: str, verbose: bool = False) -> int:
 _ON_KAGGLE = os.path.exists("/kaggle/working")
 if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
-    _run("pip install -q bitsandbytes scipy tqdm matplotlib seaborn")
-    _run("pip install --upgrade --no-deps unsloth")
-    _run("pip install -q unsloth_zoo")
-    _run("pip install --quiet --no-deps --force-reinstall pyarrow")
+    _run("pip install -q accelerate bitsandbytes scipy tqdm matplotlib seaborn sentencepiece protobuf")
     _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'")
+    _run("pip install -q flash-attn --no-build-isolation", verbose=False)
 
-    WORK_DIR = Path("/kaggle/working/SWA_MPPI")
+    WORK_DIR = Path("/kaggle/working/SWA_MPPI_DPBR")
     DATA_DIR = WORK_DIR / "data"
     RESULTS_DIR = WORK_DIR / "results"
     for d in [DATA_DIR, RESULTS_DIR]:
@@ -33,19 +37,18 @@ if _ON_KAGGLE:
     print(f"[SETUP] Working directory: {WORK_DIR}")
     print("[SETUP] Done")
 
+# Disable torch.compile to avoid Kaggle incompatibilities
+os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
+os.environ.setdefault("TORCH_COMPILE_DISABLE", "1")
+
 # ============================================================================
-# IMPORTS (unsloth must be imported before transformers)
+# IMPORTS
 # ============================================================================
 import ast, json, gc, time, warnings, pickle, shutil, random as _rng, hashlib
 from math import pi
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional
 from collections import Counter
-
-try:
-    import unsloth  # noqa: F401
-except Exception:
-    pass
 
 import torch
 import torch.nn.functional as F
@@ -92,25 +95,44 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
+# EXP-24 DPBR constants (override via env before import for ablations)
+_K_HALF    = int(os.environ.get("EXP24_K_HALF",    "64"))   # samples per IS pass; total K = 2*K_HALF
+_VAR_SCALE = float(os.environ.get("EXP24_VAR_SCALE", "0.04"))  # r = exp(-bootstrap_var / VAR_SCALE)
+_DPBR_N_WARMUP   = 50
+_DPBR_DECAY_TAU  = 100
+_DPBR_BETA_EMA   = 0.10
+
+# Paper-20 country list (EXP-24 sweep)
+PAPER_20_COUNTRIES = [
+    "USA", "GBR", "DEU", "ARG", "BRA",
+    "MEX", "COL", "VNM", "MMR", "THA",
+    "MYS", "IDN", "CHN", "JPN", "BGD",
+    "IRN", "SRB", "ROU", "KGZ", "ETH",
+]
+
+
 @dataclass
 class SWAConfig:
-    """All hyperparameters for the SWA-MPPI experiment (v3 — Paper-Ready)."""
-    model_name: str = "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit"
+    """All hyperparameters for the SWA-MPPI / EXP-24 DPBR experiment."""
+    # ── Model ──
+    model_name: str = "Qwen/Qwen2.5-7B-Instruct"
+    model_family: str = "qwen"          # "qwen" | "llama" — controls chat template
     max_seq_length: int = 2048
-    load_in_4bit: bool = True
+    load_in_4bit: bool = False          # bf16 full precision on H100 (~16 GB)
+    use_flash_attention: bool = True    # Flash-Attention 2 for ~2× throughput
 
-    # SWA-MPPI Core
-    lambda_coop: float = 0.7
+    # ── SWA-MPPI / DPBR Core ──
+    lambda_coop: float = 0.70
     alpha_kl: float = 0.05
-    # Prospect Theory value function (Kahneman & Tversky, 1979)
-    pt_alpha: float = 0.88            # gain curvature (diminishing sensitivity)
-    pt_beta: float = 0.88             # loss curvature
-    pt_kappa: float = 2.25            # loss aversion coefficient (λ in K&T notation)
-    K_samples: int = 128
+    # Prospect Theory (Kahneman & Tversky, 1979)
+    pt_alpha: float = 0.88
+    pt_beta:  float = 0.88
+    pt_kappa: float = 2.25
+    K_samples: int = 128                # total IS samples = K_HALF * 2
     noise_std: float = 0.3
     temperature: float = 0.5
-    tau_conflict: float = 0.001      # Auto-calibrated per country
-    logit_temperature: float = 3.0   # Global default; overridden per-category
+    tau_conflict: float = 0.001         # auto-calibrated per country
+    logit_temperature: float = 3.0      # global default; overridden per-category
 
     category_logit_temperatures: Dict[str, float] = field(default_factory=lambda: {
         "Species":        4.0,
@@ -121,31 +143,29 @@ class SWAConfig:
         "Utilitarianism": 1.5,
     })
 
-    # Decision sharpening (< 1 amplifies final output, undoes RLHF compression)
+    # Decision sharpening (< 1 amplifies output, counters RLHF prob-mass compression)
     decision_temperature: float = 0.5
 
-    # Adaptive tau target trigger rate
+    # ── DPBR-specific ──
+    dpbr_var_scale: float = _VAR_SCALE  # r = exp(-(δ*₁-δ*₂)² / var_scale)
+    dpbr_k_half: int = _K_HALF          # IS samples per pass
+    dpbr_ess_anchor_reg: bool = True    # ESS-adaptive anchor blend (EXP-05)
+    rho_eff: float = field(default_factory=lambda: 1.0 / max(1, _K_HALF))
+
+    # ── Adaptive tau calibration ──
     tau_target_trigger_rate: float = 0.35
-    tau_calibration_n: int = 50
+    tau_calibration_n: int = 30         # reduced for speed (was 50)
 
-    # Experiment
+    # ── Experiment ──
     n_scenarios: int = 500
-    target_countries: List[str] = field(default_factory=lambda: [
-        "USA", "DEU", "CHN", "JPN", "BRA", "SAU", "VNM", "FRA", "IND", "KOR",
-        "GBR", "RUS", "MEX", "NGA", "AUS"
-    ])
+    batch_size: int = 1
+    target_countries: List[str] = field(default_factory=lambda: list(PAPER_20_COUNTRIES))
 
-    # Ablation ranges
-    lambda_range: List[float] = field(default_factory=lambda: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-    K_range: List[int] = field(default_factory=lambda: [16, 32, 64, 128, 256, 512])
-    tau_range: List[float] = field(default_factory=lambda: [0.001, 0.005, 0.01, 0.02, 0.05, 0.1])
-    logit_temp_range: List[float] = field(default_factory=lambda: [1.0, 2.0, 3.0, 5.0, 8.0])
-
-    # Paths
+    # ── Paths ──
     dataset_path: str = "data/scenarios.csv"
-    output_dir: str = "results"
+    output_dir: str = "/kaggle/working/SWA_MPPI_DPBR/results"
 
-    # MultiTP real dataset loading (Kaggle)
+    # MultiTP real dataset (Kaggle input)
     multitp_data_path: str = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
     multitp_lang: str = "en"
     multitp_translator: str = "google"
@@ -165,7 +185,6 @@ class SWAConfig:
     })
     # WVS data path (World Values Survey Wave 7)
     wvs_data_path: str = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
-
     # Human AMCE data from MultiTP (long format: Estimates, se, Label, Country)
     human_amce_path: str = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
 
@@ -506,22 +525,60 @@ def load_multitp_dataset(data_base_path, lang="en", translator="google",
 # COUNTRY PERSONAS
 # ============================================================================
 _COUNTRY_FULL_NAMES = {
+    # Original 15
     "USA": "the United States", "DEU": "Germany", "CHN": "China",
     "JPN": "Japan", "BRA": "Brazil", "SAU": "Saudi Arabia",
     "VNM": "Vietnam", "FRA": "France", "IND": "India",
     "KOR": "South Korea", "GBR": "Great Britain", "RUS": "Russia",
     "MEX": "Mexico", "NGA": "Nigeria", "AUS": "Australia",
+    # Paper-20 additions
+    "ARG": "Argentina", "COL": "Colombia", "MMR": "Myanmar",
+    "THA": "Thailand", "MYS": "Malaysia", "IDN": "Indonesia",
+    "BGD": "Bangladesh", "IRN": "Iran", "SRB": "Serbia",
+    "ROU": "Romania", "KGZ": "Kyrgyzstan", "ETH": "Ethiopia",
+    # Additional common countries (WVS supported)
+    "HKG": "Hong Kong", "TWN": "Taiwan", "PHL": "the Philippines",
+    "PAK": "Pakistan", "UKR": "Ukraine", "TUR": "Turkey",
+    "EGY": "Egypt", "CHL": "Chile", "PER": "Peru",
+    "NZL": "New Zealand", "IRQ": "Iraq", "MAR": "Morocco",
+    "KAZ": "Kazakhstan", "GEO": "Georgia", "ZWE": "Zimbabwe",
+    "TJK": "Tajikistan", "BLR": "Belarus", "GRC": "Greece",
+    "ECU": "Ecuador", "GTM": "Guatemala", "BOL": "Bolivia",
+    "NIC": "Nicaragua", "TUN": "Tunisia", "LBN": "Lebanon",
+    "POL": "Poland", "SWE": "Sweden", "ZAF": "South Africa",
 }
 
 # ============================================================================
 # MULTILINGUAL SUPPORT (Native Language Prompting)
 # ============================================================================
-# Language codes per country
+# Language codes per country — use English fallback for unsupported languages
 _COUNTRY_LANG = {
-    "USA": "en", "GBR": "en", "AUS": "en", "NGA": "en",
-    "DEU": "de", "CHN": "zh", "JPN": "ja", "FRA": "fr",
-    "BRA": "pt", "SAU": "ar", "VNM": "vi",
-    "IND": "hi", "KOR": "ko", "RUS": "ru", "MEX": "es",
+    # Paper-20 countries
+    "USA": "en", "GBR": "en", "DEU": "de", "ARG": "es",
+    "BRA": "pt", "MEX": "es", "COL": "es", "VNM": "vi",
+    "MMR": "en",  # Burmese (my) — fallback to English
+    "THA": "en",  # Thai (th) — fallback to English
+    "MYS": "en",  # Malay (ms) — fallback to English
+    "IDN": "en",  # Indonesian (id) — fallback to English
+    "CHN": "zh", "JPN": "ja",
+    "BGD": "en",  # Bengali (bn) — fallback to English
+    "IRN": "en",  # Farsi (fa) — fallback to English
+    "SRB": "en",  # Serbian (sr) — fallback to English
+    "ROU": "en",  # Romanian (ro) — fallback to English
+    "KGZ": "en",  # Kyrgyz (ky) — fallback to English
+    "ETH": "en",  # Amharic (am) — fallback to English
+    # Additional
+    "SAU": "ar", "FRA": "fr", "IND": "hi", "KOR": "ko",
+    "RUS": "ru", "NGA": "en", "AUS": "en",
+    "HKG": "zh", "TWN": "zh", "PHL": "en",
+    "PAK": "en", "UKR": "ru", "TUR": "en",
+    "EGY": "ar", "CHL": "es", "PER": "es",
+    "NZL": "en", "IRQ": "ar", "MAR": "ar",
+    "KAZ": "en", "GEO": "en", "ZWE": "en",
+    "TJK": "en", "BLR": "ru", "GRC": "en",
+    "ECU": "es", "GTM": "es", "BOL": "es",
+    "NIC": "es", "TUN": "ar", "LBN": "ar",
+    "POL": "en", "SWE": "en", "ZAF": "en",
 }
 
 _PROMPT_FRAME_I18N: Dict[str, str] = {
@@ -1217,24 +1274,137 @@ _BASE_PERSONAS: Dict[str, List[str]] = {
         "Eres un anciano líder comunitario mexicano. Los lazos familiares, el respeto por la edad y la solidaridad comunitaria son los fundamentos de tu universo moral.",
         "Eres un médico mexicano en un hospital público. La ética de triaje exige salvar la mayor cantidad de vidas: los jóvenes y sanos tienen más vida por delante.",
     ],
+
+    # ── Paper-20 additions ─────────────────────────────────────────────────
+
+    # Argentina (Spanish)
+    "ARG": [
+        "Eres un joven argentino universitario en Buenos Aires, influenciado por el feminismo y los movimientos de derechos humanos post-dictadura. Crees en la igualdad absoluta de todas las vidas, sin importar género, estatus ni edad.",
+        "Eres un peronista argentino de mediana edad, obrero sindicalizado. Valoras la solidaridad colectiva, la protección de los trabajadores y la justicia social. Los más vulnerables merecen mayor protección.",
+        "Eres una abuela argentina de clase media. La familia y los lazos comunitarios son sagrados. Proteger a los jóvenes y a las mujeres embarazadas es una obligación moral incuestionable.",
+        "Eres un utilitarista comprometido de Argentina. La decisión moralmente correcta es siempre la que salva el mayor número de vidas, sin excepción.",
+    ],
+
+    # Colombia (Spanish)
+    "COL": [
+        "Eres un joven colombiano de Medellín que creció viendo los efectos del conflicto armado. Valoras la vida humana por encima de todo; el estatus social y la condición física jamás determinan quién merece vivir.",
+        "Eres un colombiano católico de mediana edad de una ciudad intermedia. Tu fe guía tu moral: la vida de cada persona es igualmente sagrada ante Dios, y proteger a mujeres y niños es un deber sagrado.",
+        "Eres un líder comunitario indígena colombiano mayor. La visión cosmológica de tu comunidad prioriza el equilibrio colectivo: proteger a los jóvenes asegura la continuidad de la comunidad.",
+        "Eres un médico colombiano de urgencias. Tu formación en ética médica y triaje te impone salvar la mayor cantidad de vidas posibles; los jóvenes y sanos tienen mayor esperanza de vida.",
+    ],
+
+    # Myanmar (English — native Burmese not supported in MultiTP)
+    "MMR": [
+        "You are a young urban Burmese professional in Yangon, shaped by the pro-democracy movement. You believe all human lives are equal regardless of social status, fitness, or gender.",
+        "You are a middle-aged Buddhist monk and community advisor in Myanmar. Compassion (karuna) and non-harm (ahimsa) guide your moral reasoning. Protecting the young and preserving life are paramount.",
+        "You are an elderly ethnic-minority villager in Myanmar. Your community's survival depends on protecting the young and the women — continuity of the clan is the highest moral obligation.",
+        "You are a utilitarian thinker from Myanmar who believes the morally correct choice is always to save the greatest number of lives.",
+    ],
+
+    # Thailand (English — Thai not in MultiTP datasets)
+    "THA": [
+        "You are a young Thai university student in Bangkok. Buddhist principles of compassion and equality guide you — all lives have equal worth regardless of social status or physical condition.",
+        "You are a middle-aged Thai Buddhist monk. The dharma teaches that all sentient beings deserve protection. Saving more lives is always preferable; merit (bun) is accumulated through protecting the vulnerable.",
+        "You are an elderly Thai village elder. Respect for elders, protection of children, and communal solidarity define your moral universe. The young must be protected to ensure the village's future.",
+        "You are a utilitarian thinker from Thailand. The morally correct action maximizes the number of lives saved.",
+    ],
+
+    # Malaysia (English)
+    "MYS": [
+        "You are a young Malaysian professional from Kuala Lumpur, raised in a multicultural society. You value equality across ethnicities, religions, and social classes — no life is more valuable than another.",
+        "You are a middle-aged Malay Muslim from a traditional community. Islamic values of justice (adl) and mercy (rahma) guide you. Protecting women, children, and the elderly is a religious duty.",
+        "You are an elderly Chinese-Malaysian businessperson. Confucian filial piety, community solidarity, and protecting younger generations define your ethical framework.",
+        "You are a utilitarian thinker from Malaysia. Saving the greatest number of lives is always the morally superior choice.",
+    ],
+
+    # Indonesia (English)
+    "IDN": [
+        "You are a young Indonesian activist from Jakarta. You believe in Pancasila's principle of humanity (kemanusiaan) — all human lives are equally sacred regardless of gender, status, or religion.",
+        "You are a middle-aged Indonesian Islamic scholar. Islamic jurisprudence prioritizes preservation of life (hifdz al-nafs). More lives saved is always better; protecting the young ensures community continuity.",
+        "You are an elderly Javanese village leader. Traditional Javanese values of communal harmony (rukun), respect for elders, and protecting the weak shape your moral reasoning.",
+        "You are a utilitarian thinker from Indonesia. Saving the maximum number of lives is the only morally defensible choice.",
+    ],
+
+    # Bangladesh (English)
+    "BGD": [
+        "You are a young Bangladeshi NGO worker in Dhaka. Having witnessed poverty and inequality, you believe every human life has equal worth — social status and physical condition should never decide who lives.",
+        "You are a middle-aged Bangladeshi Islamic scholar. Islamic ethics demand protection of human life above all. Women and children deserve special protection as the most vulnerable members of society.",
+        "You are an elderly Bangladeshi rural community elder. Protecting the young, ensuring the next generation's survival, and preserving family lineage are the highest moral obligations in your community.",
+        "You are a utilitarian thinker from Bangladesh. The correct moral choice saves the greatest number of lives.",
+    ],
+
+    # Iran (English — Farsi not in MultiTP datasets)
+    "IRN": [
+        "You are a young educated Iranian urban professional. You value individual rights, equality, and rational moral reasoning. Social status and physical condition should not determine who lives.",
+        "You are a middle-aged Iranian Islamic cleric. Islamic jurisprudence prioritizes the sanctity of all human life (hurmat al-nafs). Protecting women, children, and the elderly is a religious imperative.",
+        "You are an elderly Iranian family patriarch from a traditional background. Family honor, protecting women and children, and respecting elders are the foundations of your moral universe.",
+        "You are a utilitarian thinker from Iran. Saving the maximum number of lives is the morally correct choice in all scenarios.",
+    ],
+
+    # Serbia (English)
+    "SRB": [
+        "You are a young Serbian IT professional. Rational decision-making, meritocracy, and utilitarian thinking guide you. More lives saved is always better.",
+        "You are a middle-aged Serbian Orthodox Christian from a rural area. Traditional Christian values, family solidarity, and protection of the most vulnerable define your moral framework.",
+        "You are an elderly Serbian war survivor. Communal solidarity, protecting the young as the future of the nation, and loyalty to family and kin are your deepest moral commitments.",
+        "You are a utilitarian thinker from Serbia. The morally correct choice always maximizes lives saved.",
+    ],
+
+    # Romania (English)
+    "ROU": [
+        "You are a young Romanian urban professional shaped by EU integration values. You believe in equality, human dignity, and rational utilitarian reasoning.",
+        "You are a middle-aged Romanian Orthodox Christian. Faith, family, and protection of children and the elderly define your moral priorities. All human life is sacred.",
+        "You are an elderly Romanian rural villager with deep traditional values. Protecting the young to ensure the community's future and respecting elders are core moral obligations.",
+        "You are a utilitarian thinker from Romania. The morally superior decision is always the one that saves the most lives.",
+    ],
+
+    # Kyrgyzstan (English)
+    "KGZ": [
+        "You are a young Kyrgyz student shaped by both Soviet egalitarian values and traditional Islamic culture. You believe every life is equally valuable regardless of social status.",
+        "You are a middle-aged Kyrgyz Islamic community leader. Islamic ethics prioritize preservation of life; protecting women, children, and the elderly is a sacred duty.",
+        "You are an elderly Kyrgyz tribal elder. Traditional clan values prioritize protecting the young to ensure the tribe's continuation. Community solidarity and collective survival are supreme.",
+        "You are a utilitarian thinker from Kyrgyzstan. Saving the most lives is always the morally correct choice.",
+    ],
+
+    # Ethiopia (English)
+    "ETH": [
+        "You are a young Ethiopian professional in Addis Ababa. Shaped by Ethiopia's complex history of resilience, you believe all human lives have equal value regardless of gender, status, or age.",
+        "You are a middle-aged Ethiopian Orthodox Christian community leader. Faith, communal solidarity, and protecting the vulnerable are central to your moral worldview.",
+        "You are an elderly Ethiopian community elder guided by Ubuntu philosophy ('I am because we are'). Protecting children and women to ensure community continuity is the highest moral obligation.",
+        "You are a utilitarian thinker from Ethiopia. The morally correct choice always saves the greatest number of lives.",
+    ],
+
+    # GBR (already in src/personas.py, adding here for completeness)
+    "GBR": [
+        "You are a young British university student. Liberal democratic values, individual rights, and equality before the law guide your moral thinking.",
+        "You are a middle-aged British civil servant. Pragmatic utilitarianism — the greatest good for the greatest number — is the British philosophical tradition you follow.",
+        "You are an elderly British citizen with traditional values of duty, fairness, and protecting the vulnerable.",
+        "You are a British utilitarian philosopher in the tradition of Mill and Bentham. Rational utility maximization — saving the most lives — is the foundation of your moral calculus.",
+    ],
 }
 
 
 def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
     """
-    Return 4 personas per country.
+    Return exactly 4 optimized personas per country.
 
-    Priority: WVS data (3 age-cohort personas + 1 utilitarian) → _BASE_PERSONAS fallback.
-    WVS personas are always in English (model-agnostic); native-language framing
-    is handled separately by native-language prompt framing.
+    Priority order:
+      1. WVS Wave 7 data (3 age-cohort personas + 1 utilitarian anchor)
+      2. Hand-crafted culturally-specific personas (_BASE_PERSONAS)
+      3. Generic country-aware fallback
+
+    Personas are always in English (Qwen2.5 understands English system prompts
+    regardless of the scenario language).  The 4-persona design spans:
+      - Young adult (progressive / modern values)
+      - Middle-aged (traditional / community values)
+      - Elderly (conservative / filial values)
+      - Utilitarian anchor (maximize lives saved) — pins the IS distribution
     """
     country_name = _COUNTRY_FULL_NAMES.get(country_iso, country_iso)
 
-    # Try WVS-based generation
+    # 1. WVS-based generation (primary — empirically grounded)
     if wvs_path and os.path.exists(wvs_path):
         profiles = _load_wvs_profiles(wvs_path, list(_COUNTRY_FULL_NAMES.keys()))
         country_profile = profiles.get(country_iso, {})
-
         if country_profile and country_profile.get("all", {}).get("religion", 0) > 0:
             personas = []
             for ag in ["young", "middle", "older"]:
@@ -1242,38 +1412,127 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
                 if p.get("religion", 0) > 0:
                     personas.append(_generate_wvs_persona(
                         country_iso, ag, p, country_name,
-                        lang=_COUNTRY_LANG.get(country_iso, "en"),
+                        lang="en",   # always English for Qwen system prompts
                     ))
-            # 4th persona: utilitarian (save more lives)
+            # Utilitarian anchor: pins persona ensemble toward saving more lives
+            # This is critical for DPBR: without it the IS anchor can drift neutral
             personas.append(
-                f"You are a utilitarian thinker from {country_name}. "
-                f"You believe the morally correct choice is always to save the greater "
-                f"number of lives. The number of lives at stake is the single most "
-                f"important factor in your moral reasoning."
+                f"You are a utilitarian moral philosopher from {country_name}. "
+                f"You hold that the morally correct action in any dilemma is always the one "
+                f"that saves the greatest number of human lives. Numerical quantity of lives "
+                f"is the single decisive factor; social status, fitness, and gender are morally "
+                f"irrelevant. Sparing more lives is categorically better than sparing fewer."
             )
-            # Ensure exactly 4
             while len(personas) < 4:
                 personas.append(_generate_wvs_persona(
-                    country_iso, "all", country_profile["all"], country_name,
-                    lang=_COUNTRY_LANG.get(country_iso, "en"),
+                    country_iso, "all", country_profile["all"], country_name, lang="en"
                 ))
-            print(f"[WVS] Generated {len(personas)} personas for {country_iso} from WVS data")
+            print(f"[WVS] {country_iso}: generated {len(personas)} personas from WVS Wave 7")
             return personas[:4]
 
-    # Fallback: manually written personas (for SAU, FRA, or if WVS unavailable)
-    base = _BASE_PERSONAS.get(country_iso, [
-        f"You are a thoughtful person from {country_name} who weighs moral dilemmas carefully."
-    ] * 4)
-    return list(base)
+    # 2. Hand-crafted fallback (for countries with specific cultural context)
+    if country_iso in _BASE_PERSONAS:
+        base = _BASE_PERSONAS[country_iso]
+        if len(base) >= 4:
+            return list(base[:4])
+        # Pad with generic if fewer than 4
+        padded = list(base)
+        padded.append(
+            f"You are a utilitarian moral philosopher from {country_name}. "
+            f"You believe the morally correct choice is always to save the greatest "
+            f"number of lives. Quantity of lives is the sole decisive moral factor."
+        )
+        while len(padded) < 4:
+            padded.append(
+                f"You are a thoughtful citizen of {country_name} who carefully weighs "
+                f"moral dilemmas, trying to minimize harm and protect the most vulnerable."
+            )
+        return padded[:4]
+
+    # 3. Generic fallback
+    print(f"[WARN] No WVS or curated personas for {country_iso}; using generic fallback")
+    return [
+        f"You are a young professional from {country_name}. You value fairness, equality, and rational decision-making. You believe in saving as many lives as possible.",
+        f"You are a middle-aged citizen from {country_name} with traditional values. You believe in protecting the vulnerable — women, children, and the elderly deserve special consideration.",
+        f"You are an elderly person from {country_name}. Family bonds, community solidarity, and protecting the young to ensure the next generation are your highest moral priorities.",
+        f"You are a utilitarian moral philosopher from {country_name}. The morally correct choice always saves the greatest number of lives.",
+    ]
 
 
-# Set of supported country ISOs (personas are built on-demand via build_country_personas)
+# Supported countries: union of all known country names + explicit persona entries
 _SUPPORTED_COUNTRIES = set(_COUNTRY_FULL_NAMES.keys()) | set(_BASE_PERSONAS.keys())
 
 
 
 # ============================================================================
-# CORE SWA-MPPI ENGINE (v3 — All Fixes Integrated)
+# EXP-24 DPBR HELPERS
+# Dual-Pass Bootstrap IS Reliability Filter
+# Reference: experiment_DM/exp24_dpbr_core.py
+# ============================================================================
+
+class BootstrapPriorState:
+    """
+    Hierarchical country-level EMA prior (EXP-09).
+    Blends individual micro-decisions toward the country-level trend as
+    more observations accumulate (annealed blend after N_WARMUP steps).
+    """
+    def __init__(self) -> None:
+        self.delta_country: float = 0.0
+        self.step: int = 0
+        self._history: List[float] = []
+
+    def alpha_h(self) -> float:
+        if self.step < _DPBR_N_WARMUP:
+            return 0.0
+        return 1.0 - float(np.exp(-(self.step - _DPBR_N_WARMUP) / _DPBR_DECAY_TAU))
+
+    def update(self, delta_opt_micro: float) -> None:
+        self.delta_country = ((1.0 - _DPBR_BETA_EMA) * self.delta_country
+                              + _DPBR_BETA_EMA * delta_opt_micro)
+        self._history.append(delta_opt_micro)
+        self.step += 1
+
+    def apply_prior(self, delta_opt_micro: float) -> float:
+        a = self.alpha_h()
+        return a * self.delta_country + (1.0 - a) * delta_opt_micro
+
+    @property
+    def stats(self) -> Dict:
+        return {
+            "step": self.step,
+            "delta_country": self.delta_country,
+            "alpha_h": self.alpha_h(),
+            "history_std": float(np.std(self._history)) if len(self._history) > 1 else 0.0,
+        }
+
+
+# Per-country prior state (reset at start of each country's run)
+_PRIOR_STATE: Dict[str, BootstrapPriorState] = {}
+
+
+def _dpbr_reliability_weight(ds1: float, ds2: float,
+                              var_scale: Optional[float] = None) -> float:
+    """r = exp(-(δ*₁ - δ*₂)² / var_scale)  — penalizes IS-pass disagreement."""
+    s = float(var_scale if var_scale is not None else _VAR_SCALE)
+    bv = (ds1 - ds2) ** 2
+    return float(np.exp(-bv / s))
+
+
+def _use_ess_anchor_reg(cfg: Optional["SWAConfig"] = None) -> bool:
+    """Check whether ESS-adaptive anchor blend is enabled."""
+    if cfg is not None:
+        return cfg.dpbr_ess_anchor_reg
+    v = os.environ.get("EXP24_ESS_ANCHOR_REG", "1").strip().lower()
+    return v not in ("0", "false", "no", "off")
+
+
+def _ess_anchor_blend_alpha(ess_min: float, rho_eff: float) -> float:
+    """α = clip(ess_min, rho_eff, 1)  — EXP-05 anchor regularisation."""
+    return float(min(1.0, max(float(rho_eff), float(ess_min))))
+
+
+# ============================================================================
+# CORE SWA-MPPI ENGINE — EXP-24 DPBR (Qwen-native, inline, no Unsloth)
 # ============================================================================
 class ImplicitSWAController:
     """
@@ -1302,6 +1561,12 @@ class ImplicitSWAController:
         pt_beta: float = 0.88,
         pt_kappa: float = 2.25,
         decision_temperature: float = 1.0,
+        model_family: str = "qwen",     # "qwen" | "llama"
+        dpbr_var_scale: float = _VAR_SCALE,
+        dpbr_k_half: int = _K_HALF,
+        dpbr_ess_anchor_reg: bool = True,
+        rho_eff: float = 1.0 / max(1, _K_HALF),
+        country_iso: str = "UNKNOWN",
     ):
         self.model = model
         self.tokenizer = tokenizer
@@ -1319,6 +1584,14 @@ class ImplicitSWAController:
         self.logit_temperature = logit_temperature
         self.category_logit_temperatures = category_logit_temperatures or {}
         self.decision_temperature = decision_temperature
+        self.model_family = model_family.lower()
+        # DPBR
+        self.dpbr_var_scale = dpbr_var_scale
+        self.dpbr_k_half = dpbr_k_half
+        self.dpbr_ess_anchor_reg = dpbr_ess_anchor_reg
+        self.rho_eff = rho_eff
+        self.country_iso = country_iso
+
         self.device = next(model.parameters()).device
 
         self.left_id = self._resolve_token_id("LEFT")
@@ -1341,64 +1614,84 @@ class ImplicitSWAController:
             )
         return ids[0]
 
-    @torch.no_grad()
+    def _chat_prefix(self, system_text: str) -> str:
+        """Build the system+user prefix in the correct chat format for the model."""
+        if self.model_family == "qwen":
+            return f"<|im_start|>system\n{system_text}<|im_end|>\n<|im_start|>user\n"
+        else:  # llama / mistral
+            return (
+                f"<|start_header_id|>system<|end_header_id|>\n\n"
+                f"{system_text}<|eot_id|>"
+                f"<|start_header_id|>user<|end_header_id|>\n\n"
+            )
+
+    def _chat_suffix(self) -> str:
+        """Close the user turn and open the assistant turn."""
+        if self.model_family == "qwen":
+            return "<|im_end|>\n<|im_start|>assistant\n"
+        else:
+            return "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+
+    @torch.inference_mode()
     def _build_persona_prefixes(self):
-        print(f"[SWA] Building persona prefixes for {self.N} agents + 1 base...")
+        print(f"[SWA] Building persona prefixes ({self.model_family} format): "
+              f"{self.N} agents + 1 base...")
         t0 = time.time()
 
         self.persona_prefix_ids = []
         for persona_text in self.personas:
-            prefix = (
-                f"<|start_header_id|>system<|end_header_id|>\n\n"
-                f"{persona_text}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n\n"
-            )
-            ids = self.tokenizer(prefix, return_tensors="pt").input_ids.to(self.device)
+            prefix = self._chat_prefix(persona_text)
+            ids = self.tokenizer(prefix, return_tensors="pt",
+                                 add_special_tokens=False).input_ids.to(self.device)
             self.persona_prefix_ids.append(ids)
 
-        base_prefix = (
-            "<|start_header_id|>system<|end_header_id|>\n\n"
-            "You are a helpful assistant.<|eot_id|>"
-            "<|start_header_id|>user<|end_header_id|>\n\n"
-        )
+        base_prefix = self._chat_prefix("You are a helpful assistant.")
         self.base_prefix_ids = self.tokenizer(
-            base_prefix, return_tensors="pt"
+            base_prefix, return_tensors="pt", add_special_tokens=False
         ).input_ids.to(self.device)
 
         elapsed = time.time() - t0
         print(f"[SWA] Prefix tokenisation: {elapsed:.2f}s")
 
     # ------------------------------------------------------------------
+    # Helpers: format query IDs
+    # ------------------------------------------------------------------
+    def _format_query_ids(self, prompt_text: str, lang: str) -> torch.Tensor:
+        """
+        Format a scenario prompt into token IDs for the user turn.
+        Returns [1, L] tensor (without the prefix — prefix is added in _evaluate_all_agents).
+        """
+        frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
+        formatted = frame.format(scenario=prompt_text) + self._chat_suffix()
+        ids = self.tokenizer(
+            formatted, return_tensors="pt", add_special_tokens=False
+        ).input_ids.to(self.device)
+        return ids
+
+    # ------------------------------------------------------------------
     # Adaptive tau calibration
     # ------------------------------------------------------------------
-    @torch.no_grad()
+    @torch.inference_mode()
     def calibrate_tau(
         self,
         calibration_df: pd.DataFrame,
         target_trigger_rate: float = 0.35,
-        n_calib: int = 50,
+        n_calib: int = 30,
         lang: str = "en",
     ) -> float:
         """
-        Set tau_conflict so that MPPI fires on ~target_trigger_rate of scenarios.
+        Set tau_conflict so that persona-disagreement fires on ~target_trigger_rate
+        of calibration scenarios.
         Uses the (1 - target_trigger_rate) percentile of the empirical variance dist.
         """
         variances = []
         subset = calibration_df.head(n_calib)
-        frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
 
         for _, row in subset.iterrows():
             prompt = row.get("Prompt", row.get("prompt", ""))
             if not prompt:
                 continue
-            formatted = frame.format(scenario=prompt) + \
-                "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-            query_ids = self.tokenizer(
-                formatted, return_tensors="pt"
-            ).input_ids.to(self.device)
-            if query_ids[0, 0] == self.tokenizer.bos_token_id:
-                query_ids = query_ids[:, 1:]
-
+            query_ids = self._format_query_ids(prompt, lang)
             z_base, z_agents = self._evaluate_all_agents(query_ids)
             _, variance, _ = self._compute_decision_rewards(z_base, z_agents)
             variances.append(variance)
@@ -1410,16 +1703,16 @@ class ImplicitSWAController:
         tau_calibrated = float(np.percentile(variances, percentile))
         self.tau_conflict = tau_calibrated
         print(
-            f"[F6] Calibrated tau = {tau_calibrated:.6f} "
-            f"(target trigger rate: {target_trigger_rate:.0%}, "
-            f"percentile: {percentile:.0f}th of {len(variances)} samples)"
+            f"[TAU] Calibrated tau = {tau_calibrated:.6f} "
+            f"(trigger target: {target_trigger_rate:.0%}, "
+            f"p{percentile:.0f} of {len(variances)} calib scenarios)"
         )
         return tau_calibrated
 
     # ------------------------------------------------------------------
     # Core forward: batched evaluation of base + N persona agents
     # ------------------------------------------------------------------
-    @torch.no_grad()
+    @torch.inference_mode()
     def _evaluate_all_agents(
         self, query_ids: torch.Tensor, logit_temp: Optional[float] = None
     ) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -1461,6 +1754,57 @@ class ImplicitSWAController:
         variance = torch.var(delta_agents).item()
         return r_agents, variance, delta_consensus
 
+    # ------------------------------------------------------------------
+    # DPBR helpers: _extract_logit_gaps + _swap_positional_labels
+    # ------------------------------------------------------------------
+    @torch.inference_mode()
+    def _extract_logit_gaps(
+        self, user_query: str, phenomenon_category: str, lang: str
+    ) -> Tuple[torch.Tensor, torch.Tensor, float]:
+        """
+        Run a single batched forward pass (base + N personas) on user_query.
+        Returns:
+          delta_base   : scalar tensor  (z_RIGHT - z_LEFT for base)
+          delta_agents : [N] tensor     (z_RIGHT - z_LEFT for each persona)
+          logit_temp   : float          (temperature used)
+        """
+        logit_temp = self.category_logit_temperatures.get(
+            phenomenon_category, self.logit_temperature
+        )
+        query_ids = self._format_query_ids(user_query, lang)
+        z_base, z_agents = self._evaluate_all_agents(query_ids, logit_temp=logit_temp)
+        delta_base   = (z_base[:, 1]   - z_base[:, 0]).squeeze()    # scalar
+        delta_agents = (z_agents[:, 1] - z_agents[:, 0])             # [N]
+        return delta_base, delta_agents, logit_temp
+
+    def _swap_positional_labels(
+        self, user_query: str, lang: str
+    ) -> Tuple[str, bool]:
+        """
+        Swap LEFT↔RIGHT (and Group A↔Group B) in user_query for positional debiasing.
+        Returns (swapped_query, swap_changed).
+        """
+        sf = _SCENARIO_FRAME_I18N.get(lang, _SCENARIO_FRAME_I18N["en"])
+        left_label  = sf["left_lane"]
+        right_label = sf["right_lane"]
+        _PH = "\x00__SWAP__\x00"
+
+        swapped = (user_query
+                   .replace(left_label,  _PH)
+                   .replace(right_label, left_label)
+                   .replace(_PH,         right_label))
+
+        ga = sf.get("group_a", "Group A")
+        gb = sf.get("group_b", "Group B")
+        if ga != gb:
+            swapped = (swapped
+                       .replace(ga, _PH)
+                       .replace(gb, ga)
+                       .replace(_PH, gb))
+
+        swap_changed = (swapped != user_query)
+        return swapped, swap_changed
+
     def _prospect_value(self, x: torch.Tensor) -> torch.Tensor:
         """Prospect Theory value function (Kahneman & Tversky, 1979).
 
@@ -1473,7 +1817,48 @@ class ImplicitSWAController:
             -self.pt_kappa * x.abs().pow(self.pt_beta),
         )
 
-    @torch.no_grad()
+    # ------------------------------------------------------------------
+    # DPBR single IS pass
+    # ------------------------------------------------------------------
+    @torch.inference_mode()
+    def _single_is_pass(
+        self,
+        delta_base: torch.Tensor,
+        delta_agents: torch.Tensor,
+        anchor: torch.Tensor,
+        sigma: float,
+        K: int,
+    ) -> Tuple[torch.Tensor, float]:
+        """
+        One importance-sampling pass of size K.
+        Returns (delta_star, ess_ratio).
+        """
+        eps = torch.randn(K, device=self.device) * sigma
+        delta_tilde = anchor + eps
+
+        dist_base_to_i = (delta_base - delta_agents).abs()
+        dist_cand_to_i = (delta_tilde.unsqueeze(1) - delta_agents.unsqueeze(0)).abs()
+        g_per_agent = (dist_base_to_i.unsqueeze(0) - dist_cand_to_i) / (sigma + 1e-12)
+        v_per_agent = self._prospect_value(g_per_agent)
+        mean_v = v_per_agent.mean(dim=1)                        # [K]
+
+        g_cons = ((delta_base - anchor).abs() -
+                  (delta_tilde - anchor).abs()) / (sigma + 1e-12)
+        v_cons = self._prospect_value(g_cons)
+        U = (1.0 - self.lambda_coop) * mean_v + self.lambda_coop * v_cons
+
+        w = F.softmax(U / self.beta, dim=0)
+        k_eff = 1.0 / torch.sum(w * w).clamp_min(1e-12)
+        ess_r = float(k_eff.item()) / K
+
+        delta_star = (
+            torch.sum(w * eps)
+            if ess_r >= self.rho_eff
+            else torch.zeros((), device=self.device)
+        )
+        return delta_star, ess_r
+
+    @torch.inference_mode()
     def _mppi_solve_decision(
         self,
         delta_consensus: torch.Tensor,
@@ -1499,7 +1884,7 @@ class ImplicitSWAController:
         delta_star = torch.sum(weights * epsilon)
         return delta_star
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def _predict_single_pass(
         self,
         user_query: str,
@@ -1511,13 +1896,7 @@ class ImplicitSWAController:
         logit_temp = self.category_logit_temperatures.get(
             phenomenon_category, self.logit_temperature
         )
-
-        frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
-        formatted = frame.format(scenario=user_query) + \
-            "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-        query_ids = self.tokenizer(formatted, return_tensors="pt").input_ids.to(self.device)
-        if query_ids[0, 0] == self.tokenizer.bos_token_id:
-            query_ids = query_ids[:, 1:]
+        query_ids = self._format_query_ids(user_query, lang)
 
         z_base, z_agents = self._evaluate_all_agents(query_ids, logit_temp=logit_temp)
         r_agents, variance, delta_consensus = self._compute_decision_rewards(z_base, z_agents)
@@ -1559,7 +1938,7 @@ class ImplicitSWAController:
             "z_base_right": z_base[0, 1].item(),
         }
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def predict(
         self,
         user_query: str,
@@ -1568,55 +1947,118 @@ class ImplicitSWAController:
         lang: str = "en",
     ) -> Dict:
         """
-        Run SWA-MPPI prediction with positional debiasing.
+        EXP-24 DPBR Dual-Pass Bootstrap IS prediction with positional debiasing.
 
-        Runs TWO passes — original and LEFT/RIGHT-swapped — to cancel out
-        the model's intrinsic token bias toward LEFT or RIGHT.
+        Algorithm:
+          1. Extract logit gaps for original query (pass 1)
+          2. Swap LEFT↔RIGHT labels; extract logit gaps (pass 2, debiasing)
+          3. Average debiased delta_base / delta_agents
+          4. Two independent IS passes (K_HALF each) → dual-pass reliability r
+          5. delta_star = r · (δ*₁ + δ*₂) / 2
+          6. ESS-adaptive anchor blend (EXP-05)
+          7. Apply hierarchical country prior (EXP-09)
+          8. sigmoid(delta_opt / decision_temperature) → p_right
         """
-        # Pass 1: original ordering
-        r1 = self._predict_single_pass(
-            user_query, preferred_on_right, phenomenon_category, lang
+        # ── Step 1 & 2: Extract logit gaps + positional debiasing ──
+        db1, da1, logit_temp = self._extract_logit_gaps(
+            user_query, phenomenon_category, lang
         )
-
-        # Pass 2: swap LEFT↔RIGHT in the scenario text
-        sf = _SCENARIO_FRAME_I18N.get(lang, _SCENARIO_FRAME_I18N["en"])
-        left_label = sf["left_lane"]    # e.g., "Làn TRÁI" / "LEFT lane"
-        right_label = sf["right_lane"]  # e.g., "Làn PHẢI" / "RIGHT lane"
-
-        _PH = "\x00SWAP_PLACEHOLDER\x00"
-        swapped_query = user_query.replace(left_label, _PH)
-        swapped_query = swapped_query.replace(right_label, left_label)
-        swapped_query = swapped_query.replace(_PH, right_label)
-
-        # Also swap group labels (Nhóm A ↔ Nhóm B)
-        ga, gb = sf.get("group_a", "Group A"), sf.get("group_b", "Group B")
-        if ga != gb:
-            swapped_query = swapped_query.replace(ga, _PH)
-            swapped_query = swapped_query.replace(gb, ga)
-            swapped_query = swapped_query.replace(_PH, gb)
-
-        r2 = self._predict_single_pass(
-            swapped_query, not preferred_on_right, phenomenon_category, lang
-        )
-
-        # Average the debiased p_spare_preferred
-        p_pref_avg = (r1["p_spare_preferred"] + r2["p_spare_preferred"]) / 2.0
-
-        # Use pass-1 diagnostics but override the debiased result
-        result = r1.copy()
-        result["p_spare_preferred"] = p_pref_avg
-        result["p_spare_preferred_pass1"] = r1["p_spare_preferred"]
-        result["p_spare_preferred_pass2"] = r2["p_spare_preferred"]
-        result["positional_bias"] = abs(r1["p_spare_preferred"] - r2["p_spare_preferred"])
-        # Recompute p_right/p_left from debiased p_spare_preferred
-        if preferred_on_right:
-            result["p_right"] = p_pref_avg
-            result["p_left"] = 1.0 - p_pref_avg
+        swapped_query, swap_changed = self._swap_positional_labels(user_query, lang)
+        if swap_changed:
+            db2, da2, _ = self._extract_logit_gaps(
+                swapped_query, phenomenon_category, lang
+            )
         else:
-            result["p_right"] = 1.0 - p_pref_avg
-            result["p_left"] = p_pref_avg
+            db2, da2 = db1, da1
 
-        return result
+        # Debiased base and agent gaps
+        delta_base   = (db1 - db2) / 2.0 if swap_changed else db1
+        delta_agents = (da1 - da2) / 2.0 if swap_changed else da1
+        positional_bias = float(((db1 + db2) / 2.0).item()) if swap_changed else 0.0
+
+        # ── Step 3: IS setup ──
+        sigma = max(
+            float(delta_agents.std(unbiased=True).item())
+            if delta_agents.numel() >= 2 else 0.0,
+            self.noise_std,
+        )
+        anchor = delta_agents.mean()
+
+        # ── Step 4: Dual IS passes ──
+        ds1, ess1 = self._single_is_pass(
+            delta_base, delta_agents, anchor, sigma, self.dpbr_k_half
+        )
+        ds2, ess2 = self._single_is_pass(
+            delta_base, delta_agents, anchor, sigma, self.dpbr_k_half
+        )
+
+        # ── Step 5: Bootstrap reliability filter ──
+        r = _dpbr_reliability_weight(float(ds1.item()), float(ds2.item()),
+                                     self.dpbr_var_scale)
+        bootstrap_var = float((ds1 - ds2).pow(2).item())
+        delta_star = r * (ds1 + ds2) / 2.0
+
+        # ── Step 6: ESS-adaptive anchor blend (EXP-05) ──
+        ess_min = min(ess1, ess2)
+        if self.dpbr_ess_anchor_reg:
+            alpha_reg = _ess_anchor_blend_alpha(ess_min, self.rho_eff)
+            delta_opt_micro = float(
+                (alpha_reg * anchor + (1.0 - alpha_reg) * delta_base + delta_star).item()
+            )
+        else:
+            alpha_reg = 1.0
+            delta_opt_micro = float((anchor + delta_star).item())
+
+        # ── Step 7: Hierarchical country prior (EXP-09) ──
+        prior = _PRIOR_STATE.setdefault(self.country_iso, BootstrapPriorState())
+        delta_opt_final = prior.apply_prior(delta_opt_micro)
+        prior.update(delta_opt_micro)
+        ps = prior.stats
+
+        # ── Step 8: Final probability ──
+        p_right = float(
+            torch.sigmoid(torch.tensor(delta_opt_final / self.decision_temperature)).item()
+        )
+        p_pref  = p_right if preferred_on_right else 1.0 - p_right
+        variance = float(delta_agents.var(unbiased=True).item()) if delta_agents.numel() > 1 else 0.0
+
+        # Micro diagnostics (per IS pass, no country prior)
+        def _p_pref_micro(ds: torch.Tensor) -> float:
+            dm = float((anchor + ds).item())
+            pr = float(torch.sigmoid(torch.tensor(dm / self.decision_temperature)).item())
+            return pr if preferred_on_right else 1.0 - pr
+
+        return {
+            "p_right":              p_right,
+            "p_left":               1.0 - p_right,
+            "p_spare_preferred":    p_pref,
+            "variance":             variance,
+            "sigma_used":           sigma,
+            # DPBR diagnostics
+            "mppi_triggered":       True,   # DPBR always runs IS
+            "mppi_flipped":         (float(anchor.item()) > 0) != (delta_opt_final > 0),
+            "delta_z_norm":         abs(delta_opt_final - float(anchor.item())),
+            "delta_consensus":      float(anchor.item()),
+            "delta_opt":            delta_opt_final,
+            "delta_opt_micro":      delta_opt_micro,
+            "delta_star_1":         float(ds1.item()),
+            "delta_star_2":         float(ds2.item()),
+            "bootstrap_var":        bootstrap_var,
+            "reliability_r":        r,
+            "ess_pass1":            ess1,
+            "ess_pass2":            ess2,
+            "ess_anchor_alpha":     alpha_reg,
+            "delta_country":        ps["delta_country"],
+            "alpha_h":              ps["alpha_h"],
+            "prior_step":           ps["step"],
+            "logit_temp_used":      logit_temp,
+            "n_personas":           delta_agents.numel(),
+            "agent_decision_gaps":  delta_agents.tolist(),
+            "agent_rewards":        (delta_agents - delta_base).tolist(),
+            "positional_bias":      positional_bias,
+            "p_spare_preferred_is_pass1_micro": _p_pref_micro(ds1),
+            "p_spare_preferred_is_pass2_micro": _p_pref_micro(ds2),
+        }
 
     @torch.no_grad()
     def debug_predict(
@@ -1646,11 +2088,8 @@ class ImplicitSWAController:
 
         # ── Step 2: Prompt formatting ──
         frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
-        formatted = frame.format(scenario=user_query) + \
-            "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-        query_ids = self.tokenizer(formatted, return_tensors="pt").input_ids.to(self.device)
-        if query_ids[0, 0] == self.tokenizer.bos_token_id:
-            query_ids = query_ids[:, 1:]
+        formatted = frame.format(scenario=user_query) + self._chat_suffix()
+        query_ids = self._format_query_ids(user_query, lang)
 
         print(f"\n[Step 2] Prompt Formatting")
         print(thin)
@@ -2080,38 +2519,104 @@ def load_human_amce(
 def compute_alignment_metrics(
     model_scores: Dict[str, float], human_scores: Dict[str, float]
 ) -> Dict[str, float]:
+    """
+    Full alignment metrics suite (Jin et al. ICLR 2025 + standard).
+    Primary metric: MIS (Misalignment Score) = L2 norm on [0,1] scale.
+    """
     common_keys = sorted(set(model_scores.keys()) & set(human_scores.keys()))
     if len(common_keys) < 2:
-        return {"n_criteria": len(common_keys)}
+        return {"n_criteria": len(common_keys), "mis": float("nan")}
 
-    m_vals = np.array([model_scores[k] for k in common_keys])
-    h_vals = np.array([human_scores[k] for k in common_keys])
+    m_vals = np.array([model_scores[k] for k in common_keys], dtype=np.float64)
+    h_vals = np.array([human_scores[k] for k in common_keys], dtype=np.float64)
 
-    pearson_r, pearson_p = pearsonr(m_vals, h_vals)
+    # ── Primary: MIS (L2 on [0,1] scale) ──
+    mis = float(np.linalg.norm(m_vals / 100.0 - h_vals / 100.0))
+
+    pearson_r,  pearson_p  = pearsonr(m_vals, h_vals)
     spearman_rho, spearman_p = spearmanr(m_vals, h_vals)
-    mae = float(np.mean(np.abs(m_vals - h_vals)))
+    mae  = float(np.mean(np.abs(m_vals - h_vals)))
     rmse = float(np.sqrt(np.mean((m_vals - h_vals) ** 2)))
 
-    dot = np.dot(m_vals, h_vals)
-    norm_m = np.linalg.norm(m_vals)
-    norm_h = np.linalg.norm(h_vals)
-    cosine_sim = float(dot / (norm_m * norm_h + 1e-12))
+    # Centered cosine similarity (avoids trivial ~0.98 on [0,100] vectors)
+    m_c   = m_vals - m_vals.mean()
+    h_c   = h_vals - h_vals.mean()
+    norm_m = np.linalg.norm(m_c) + 1e-12
+    norm_h = np.linalg.norm(h_c) + 1e-12
+    cosine_sim = float(np.dot(m_c, h_c) / (norm_m * norm_h))
 
-    shift = max(0.0, -min(m_vals.min(), h_vals.min())) + 1e-10
+    shift  = max(0.0, -min(m_vals.min(), h_vals.min())) + 1e-10
     m_dist = (m_vals + shift); m_dist = m_dist / m_dist.sum()
     h_dist = (h_vals + shift); h_dist = h_dist / h_dist.sum()
-    jsd = float(jensenshannon(m_dist, h_dist))
+    jsd    = float(jensenshannon(m_dist, h_dist))
 
     return {
-        "n_criteria": len(common_keys),
-        "jsd": jsd,
-        "cosine_sim": cosine_sim,
-        "pearson_r": pearson_r,
-        "pearson_p": pearson_p,
-        "spearman_rho": spearman_rho,
-        "spearman_p": spearman_p,
-        "mae": mae,
-        "rmse": rmse,
+        "n_criteria":   len(common_keys),
+        "mis":          mis,
+        "jsd":          jsd,
+        "cosine_sim":   cosine_sim,
+        "pearson_r":    float(pearson_r),
+        "pearson_p":    float(pearson_p),
+        "spearman_rho": float(spearman_rho),
+        "spearman_p":   float(spearman_p),
+        "mae":          mae,
+        "rmse":         rmse,
+    }
+
+
+def compute_per_dimension_alignment(
+    model_scores: Dict[str, float],
+    human_scores: Dict[str, float],
+) -> Dict[str, Dict[str, float]]:
+    """Per-dimension breakdown: human, model, abs_err, signed_err."""
+    common_keys = sorted(set(model_scores.keys()) & set(human_scores.keys()))
+    return {
+        k: {
+            "human":      human_scores[k],
+            "model":      model_scores[k],
+            "abs_err":    abs(model_scores[k] - human_scores[k]),
+            "signed_err": model_scores[k] - human_scores[k],
+        }
+        for k in common_keys
+    }
+
+
+def compute_utilitarianism_slope(results_df: pd.DataFrame) -> Dict:
+    """
+    OLS regression: p_spare_preferred ~ intercept + slope * n_diff
+    for Utilitarianism scenarios (continuous count predictor).
+    """
+    cat_df = results_df[results_df.get("phenomenon_category", pd.Series(dtype=str)) == "Utilitarianism"] \
+        if "phenomenon_category" in results_df.columns else pd.DataFrame()
+    if len(cat_df) < 5:
+        return {"intercept_hat": float("nan"), "slope_hat": float("nan"),
+                "slope_se": float("nan"), "n_obs": 0}
+
+    pref_on_right = cat_df["preferred_on_right"].values
+    n_r = cat_df["n_right"].values.astype(float)
+    n_l = cat_df["n_left"].values.astype(float)
+    n_pref    = np.where(pref_on_right == 1, n_r, n_l)
+    n_nonpref = np.where(pref_on_right == 1, n_l, n_r)
+    n_diff    = (n_pref - n_nonpref)
+    valid     = n_diff > 0
+
+    if valid.sum() < 5:
+        return {"intercept_hat": float("nan"), "slope_hat": float("nan"),
+                "slope_se": float("nan"), "n_obs": int(valid.sum())}
+
+    y = cat_df["p_spare_preferred"].values[valid]
+    X = n_diff[valid].reshape(-1, 1)
+    reg = LinearRegression(fit_intercept=True).fit(X, y)
+    residuals = y - reg.predict(X)
+    mse = float(np.mean(residuals ** 2))
+    Xc  = X - X.mean()
+    slope_se = float(np.sqrt(mse / (np.sum(Xc ** 2) + 1e-12)))
+
+    return {
+        "intercept_hat": float(reg.intercept_),
+        "slope_hat":     float(reg.coef_[0]),
+        "slope_se":      slope_se,
+        "n_obs":         int(valid.sum()),
     }
 
 
@@ -2127,14 +2632,21 @@ def run_country_experiment(
     scenario_df: pd.DataFrame,
     cfg: SWAConfig,
 ) -> Tuple[pd.DataFrame, Dict]:
+    """
+    Run DPBR (EXP-24) on a single country.
+    Returns (results_df, summary) with full DPBR diagnostics + alignment metrics.
+    """
     lang = _COUNTRY_LANG.get(country_iso, "en")
     print(f"\n{'='*60}")
-    print(f"[EXPERIMENT] Country: {country_iso} | Lang: {lang} | Agents: {len(personas)}")
+    print(f"[DPBR] Country: {country_iso} | Lang: {lang} | Personas: {len(personas)}")
     print(f"{'='*60}")
 
     scenario_df = scenario_df.copy()
     if "lang" not in scenario_df.columns:
         scenario_df["lang"] = lang
+
+    # Reset/initialize DPBR country prior
+    _PRIOR_STATE[country_iso] = BootstrapPriorState()
 
     controller = ImplicitSWAController(
         model=model,
@@ -2152,9 +2664,15 @@ def run_country_experiment(
         pt_beta=cfg.pt_beta,
         pt_kappa=cfg.pt_kappa,
         decision_temperature=cfg.decision_temperature,
+        model_family=cfg.model_family,
+        dpbr_var_scale=cfg.dpbr_var_scale,
+        dpbr_k_half=cfg.dpbr_k_half,
+        dpbr_ess_anchor_reg=cfg.dpbr_ess_anchor_reg,
+        rho_eff=cfg.rho_eff,
+        country_iso=country_iso,
     )
 
-    # Calibrate tau per-country
+    # Calibrate tau per-country (fast: 30 scenarios)
     controller.calibrate_tau(
         calibration_df=scenario_df,
         target_trigger_rate=cfg.tau_target_trigger_rate,
@@ -2162,124 +2680,124 @@ def run_country_experiment(
         lang=lang,
     )
 
-    # Debug: print 3 sample prompts with model prediction (logit extraction)
-    frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
-    sample_rows = scenario_df.head(3)
-    print(f"\n[DEBUG] 3 sample prompts for {country_iso} (lang={lang}):")
-    for si, (_, srow) in enumerate(sample_rows.iterrows()):
-        sp = srow.get("Prompt", srow.get("prompt", ""))
-        cat = srow.get("phenomenon_category", "?")
-        pref_right = bool(srow.get("preferred_on_right", 1))
-        pref_side = "RIGHT" if pref_right else "LEFT"
-        formatted_sample = frame.format(scenario=sp)
-        # Run quick prediction to show what model outputs
-        debug_pred = controller.predict(
-            sp, preferred_on_right=pref_right,
-            phenomenon_category=cat, lang=lang,
-        )
-        model_choice = "RIGHT" if debug_pred["p_right"] > 0.5 else "LEFT"
-        print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
-        print(f"  {formatted_sample[:500]}{'...' if len(formatted_sample) > 500 else ''}")
-        print(f"  >>> Model: p(RIGHT)={debug_pred['p_right']:.3f}  p(LEFT)={debug_pred['p_left']:.3f}"
-              f"  -> {model_choice}  |  p(spare_preferred)={debug_pred['p_spare_preferred']:.3f}"
-              f"  |  MPPI={'ON' if debug_pred['mppi_triggered'] else 'off'}")
-        print()
-
     results = []
-    diagnostics = {
-        "variances": [], "trigger_count": 0, "flip_count": 0, "total_count": 0,
-        "delta_z_norms": [], "agent_reward_matrix": [],
-        "latencies": [], "decision_gaps": [],
-        "logit_temps_used": [],
-    }
+    flip_count = 0
+    latencies: List[float] = []
 
     for idx, row in tqdm(scenario_df.iterrows(), total=len(scenario_df),
-                          desc=f"SWA-v3 [{country_iso}]"):
+                         desc=f"DPBR [{country_iso}]"):
         prompt = row.get("Prompt", row.get("prompt", ""))
         if not prompt:
             continue
 
-        phenomenon_cat = row.get("phenomenon_category", "default")
-        # Raw scenario text; predict() applies native-language framing internally
+        phenomenon_cat    = row.get("phenomenon_category", "default")
         preferred_on_right = bool(row.get("preferred_on_right", 1))
 
         t0 = time.time()
         pred = controller.predict(
-            prompt,                        # raw scenario text (already native-language for synth)
+            prompt,
             preferred_on_right=preferred_on_right,
             phenomenon_category=phenomenon_cat,
             lang=lang,
         )
         latency = time.time() - t0
-
-        diagnostics["variances"].append(pred["variance"])
-        diagnostics["trigger_count"] += int(pred["mppi_triggered"])
-        diagnostics["flip_count"] += int(pred["mppi_flipped"])
-        diagnostics["total_count"] += 1
-        diagnostics["delta_z_norms"].append(pred["delta_z_norm"])
-        diagnostics["agent_reward_matrix"].append(pred["agent_rewards"])
-        diagnostics["latencies"].append(latency)
-        diagnostics["decision_gaps"].append(pred["delta_consensus"])
-        diagnostics["logit_temps_used"].append(pred["logit_temp_used"])
+        latencies.append(latency)
+        flip_count += int(pred.get("mppi_flipped", False))
 
         results.append({
-            "country": country_iso,
-            "scenario_idx": idx,
-            "Prompt": prompt,
-            "phenomenon_category": phenomenon_cat,
-            "this_group_name": row.get("this_group_name", "Unknown"),
-            "preferred_on_right": int(preferred_on_right),
-            "n_left": int(row.get("n_left", 1)),
-            "n_right": int(row.get("n_right", 1)),
-            "lp_p_right": float(pred["p_right"]),
-            "p_spare_preferred": float(pred["p_spare_preferred"]),
-            "mppi_variance": float(pred["variance"]),
-            "mppi_triggered": bool(pred["mppi_triggered"]),
-            "mppi_flipped": bool(pred["mppi_flipped"]),
-            "delta_z_norm": float(pred["delta_z_norm"]),
-            "delta_consensus": float(pred["delta_consensus"]),
-            "logit_temp_used": float(pred["logit_temp_used"]),
-            "latency_ms": latency * 1000,
+            "country":              country_iso,
+            "scenario_idx":         idx,
+            "Prompt":               prompt,
+            "phenomenon_category":  phenomenon_cat,
+            "this_group_name":      row.get("this_group_name", "Unknown"),
+            "preferred_on_right":   int(preferred_on_right),
+            "n_left":               int(row.get("n_left", 1)),
+            "n_right":              int(row.get("n_right", 1)),
+            "lp_p_right":           float(pred["p_right"]),
+            "p_spare_preferred":    float(pred["p_spare_preferred"]),
+            # DPBR-specific columns
+            "reliability_r":        float(pred.get("reliability_r", float("nan"))),
+            "bootstrap_var":        float(pred.get("bootstrap_var", float("nan"))),
+            "ess_pass1":            float(pred.get("ess_pass1", float("nan"))),
+            "ess_pass2":            float(pred.get("ess_pass2", float("nan"))),
+            "ess_anchor_alpha":     float(pred.get("ess_anchor_alpha", float("nan"))),
+            "delta_star_1":         float(pred.get("delta_star_1", float("nan"))),
+            "delta_star_2":         float(pred.get("delta_star_2", float("nan"))),
+            "delta_opt":            float(pred.get("delta_opt", float("nan"))),
+            "delta_opt_micro":      float(pred.get("delta_opt_micro", float("nan"))),
+            "delta_consensus":      float(pred.get("delta_consensus", float("nan"))),
+            "positional_bias":      float(pred.get("positional_bias", float("nan"))),
+            "alpha_h":              float(pred.get("alpha_h", float("nan"))),
+            "delta_country":        float(pred.get("delta_country", float("nan"))),
+            "variance":             float(pred.get("variance", float("nan"))),
+            "logit_temp_used":      float(pred.get("logit_temp_used", float("nan"))),
+            "latency_ms":           latency * 1000,
         })
 
     results_df = pd.DataFrame(results)
+    n_total    = len(results_df)
 
-    # Corrected AMCE
+    # ── Alignment metrics ──
     model_amce = compute_amce_from_preferences(results_df)
-
     human_amce = load_human_amce(cfg.human_amce_path, country_iso)
-    alignment = compute_alignment_metrics(model_amce, human_amce)
+    alignment  = compute_alignment_metrics(model_amce, human_amce)
 
+    # ── Per-dimension breakdown ──
+    per_dim = compute_per_dimension_alignment(model_amce, human_amce)
+
+    # ── Utilitarianism slope ──
+    util_slope = compute_utilitarianism_slope(results_df)
+
+    # ── DPBR aggregate stats ──
+    def _mea(col: str) -> float:
+        return float(results_df[col].mean()) if col in results_df.columns else float("nan")
+
+    ps = _PRIOR_STATE.get(country_iso, BootstrapPriorState()).stats
     summary = {
-        "country": country_iso,
-        "n_scenarios": diagnostics["total_count"],
-        "trigger_rate": diagnostics["trigger_count"] / max(1, diagnostics["total_count"]),
-        "flip_rate": diagnostics["flip_count"] / max(1, diagnostics["trigger_count"]),
-        "flip_count": diagnostics["flip_count"],
-        "mean_variance": np.mean(diagnostics["variances"]),
-        "mean_delta_z_norm": np.mean(diagnostics["delta_z_norms"]),
-        "mean_latency_ms": np.mean(diagnostics["latencies"]) * 1000,
-        "median_latency_ms": np.median(diagnostics["latencies"]) * 1000,
-        "mean_decision_gap": np.mean(diagnostics["decision_gaps"]),
-        "model_amce": model_amce,
-        "human_amce": human_amce,
-        "alignment": alignment,
-        "diagnostics": diagnostics,
-        "tau_used": controller.tau_conflict,
+        "country":              country_iso,
+        "n_scenarios":          n_total,
+        "flip_rate":            flip_count / max(1, n_total),
+        "flip_count":           flip_count,
+        "trigger_rate":         1.0,    # DPBR always runs IS
+        "mean_latency_ms":      float(np.mean(latencies)) * 1000 if latencies else float("nan"),
+        "median_latency_ms":    float(np.median(latencies)) * 1000 if latencies else float("nan"),
+        # AMCE
+        "model_amce":           model_amce,
+        "human_amce":           human_amce,
+        # Alignment
+        "alignment":            alignment,
+        "per_dimension_alignment": per_dim,
+        "utilitarianism_slope": util_slope,
+        # DPBR diagnostics
+        "mean_reliability_r":   _mea("reliability_r"),
+        "mean_bootstrap_var":   _mea("bootstrap_var"),
+        "mean_ess_pass1":       _mea("ess_pass1"),
+        "mean_ess_pass2":       _mea("ess_pass2"),
+        "mean_ess_anchor_alpha":_mea("ess_anchor_alpha"),
+        "mean_positional_bias": _mea("positional_bias"),
+        "final_delta_country":  ps["delta_country"],
+        "final_alpha_h":        ps["alpha_h"],
+        "tau_used":             controller.tau_conflict,
     }
 
+    mis   = alignment.get("mis", float("nan"))
+    jsd   = alignment.get("jsd", float("nan"))
+    r     = alignment.get("pearson_r", float("nan"))
+    mae   = alignment.get("mae", float("nan"))
+    rel_r = summary["mean_reliability_r"]
+
     print(f"\n[RESULT] {country_iso}:")
-    print(f"  Calibrated tau:    {controller.tau_conflict:.6f}")
-    print(f"  Trigger rate:      {summary['trigger_rate']:.1%}")
-    print(f"  Flip rate:         {summary['flip_count']}/{diagnostics['trigger_count']} triggered ({summary['flip_rate']:.1%} of triggered)")
-    print(f"  Mean variance:     {summary['mean_variance']:.6f}")
-    print(f"  Mean decision gap: {summary['mean_decision_gap']:.4f}")
-    print(f"  Mean latency:      {summary['mean_latency_ms']:.1f} ms")
-    if "jsd" in alignment:
-        print(f"  JSD vs Human:      {alignment['jsd']:.4f}")
-        print(f"  Pearson r:         {alignment['pearson_r']:.4f} (p={alignment['pearson_p']:.4f})")
-        print(f"  Cosine sim:        {alignment['cosine_sim']:.4f}")
-        print(f"  MAE:               {alignment['mae']:.2f}")
+    print(f"  MIS={mis:.4f}  JSD={jsd:.4f}  r={r:+.3f}  MAE={mae:.2f}")
+    print(f"  rel_r={rel_r:.3f}  bootstrap_var={summary['mean_bootstrap_var']:.4f}")
+    print(f"  ESS: pass1={summary['mean_ess_pass1']:.3f}  pass2={summary['mean_ess_pass2']:.3f}")
+    print(f"  Flip={flip_count}/{n_total} ({summary['flip_rate']:.1%})")
+    if per_dim:
+        print(f"  ┌── Per-Dimension ──")
+        for dk, dd in sorted(per_dim.items()):
+            hv = dd.get("human", float("nan"))
+            mv = dd.get("model", float("nan"))
+            print(f"  │  {dk:<25s} human={hv:6.1f}  model={mv:6.1f}  err={mv-hv:+6.1f}pp")
+        print(f"  └──")
     print(f"  Model AMCE: { {k: f'{v:.1f}' for k, v in model_amce.items()} }")
     print(f"  Human AMCE: { {k: f'{v:.1f}' for k, v in human_amce.items()} }")
 
@@ -2297,13 +2815,12 @@ def run_country_experiment(
 def _logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
                             temperature=1.0, return_raw=False):
     """Extract P(spare_preferred) from LEFT/RIGHT logits with temperature sharpening."""
-    with torch.no_grad():
-        out = model(input_ids=full_ids, use_cache=False)
+    with torch.inference_mode():
+        out    = model(input_ids=full_ids, use_cache=False)
         logits = out.logits[0, -1, :]
-        pair = torch.stack([logits[left_id], logits[right_id]])
-        probs = F.softmax(pair / temperature, dim=-1)
-        p_l = probs[0].item()
-        p_r = probs[1].item()
+        pair   = torch.stack([logits[left_id], logits[right_id]])
+        probs  = F.softmax(pair / max(temperature, 1e-8), dim=-1)
+        p_l, p_r = probs[0].item(), probs[1].item()
     p_spare = p_r if pref_right else p_l
     if return_raw:
         return p_spare, p_l, p_r
@@ -2311,50 +2828,70 @@ def _logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
 
 
 def run_baseline_vanilla(model, tokenizer, scenario_df, country, cfg):
+    """
+    Token-logit vanilla baseline with positional debiasing (LEFT↔RIGHT swap).
+    Uses Qwen/Llama chat template auto-detected from cfg.model_family.
+    """
     device = next(model.parameters()).device
     lang = _COUNTRY_LANG.get(country, "en")
-    base_prefix = (
-        "<|start_header_id|>system<|end_header_id|>\n\n"
-        "You are a helpful assistant.<|eot_id|>"
-        "<|start_header_id|>user<|end_header_id|>\n\n"
-    )
-    base_ids = tokenizer(base_prefix, return_tensors="pt").input_ids.to(device)
-    left_id = tokenizer.encode("LEFT", add_special_tokens=False)[0]
+
+    # Chat template helpers (inline, no controller needed)
+    model_family = getattr(cfg, "model_family", "qwen").lower()
+    if model_family == "qwen":
+        base_prefix = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n<|im_start|>user\n"
+        query_suffix = "<|im_end|>\n<|im_start|>assistant\n"
+    else:
+        base_prefix = ("<|start_header_id|>system<|end_header_id|>\n\n"
+                       "You are a helpful assistant.<|eot_id|>"
+                       "<|start_header_id|>user<|end_header_id|>\n\n")
+        query_suffix = "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+
+    base_ids = tokenizer(base_prefix, return_tensors="pt",
+                         add_special_tokens=False).input_ids.to(device)
+    left_id  = tokenizer.encode("LEFT",  add_special_tokens=False)[0]
     right_id = tokenizer.encode("RIGHT", add_special_tokens=False)[0]
     frame = _PROMPT_FRAME_I18N.get(lang, _PROMPT_FRAME_I18N["en"])
+    sf    = _SCENARIO_FRAME_I18N.get(lang, _SCENARIO_FRAME_I18N["en"])
 
-    rows_data = []
-    for _, row in scenario_df.iterrows():
+    def _build_full_ids(prompt_text: str) -> torch.Tensor:
+        formatted  = frame.format(scenario=prompt_text) + query_suffix
+        query_ids  = tokenizer(formatted, return_tensors="pt",
+                               add_special_tokens=False).input_ids.to(device)
+        return torch.cat([base_ids, query_ids], dim=1)
+
+    def _swap_prompt(prompt_text: str) -> str:
+        _PH = "\x00__SWAP__\x00"
+        ll, rl = sf["left_lane"], sf["right_lane"]
+        s = (prompt_text.replace(ll, _PH).replace(rl, ll).replace(_PH, rl))
+        ga, gb = sf.get("group_a", "Group A"), sf.get("group_b", "Group B")
+        if ga != gb:
+            s = s.replace(ga, _PH).replace(gb, ga).replace(_PH, gb)
+        return s
+
+    results = []
+    for _, row in tqdm(scenario_df.iterrows(), total=len(scenario_df),
+                       desc=f"Vanilla [{country}]"):
         prompt = row.get("Prompt", row.get("prompt", ""))
         if not prompt:
             continue
-        formatted = frame.format(scenario=prompt) + \
-            "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
-        query_ids = tokenizer(formatted, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
-        full_ids = torch.cat([base_ids, query_ids], dim=1)
-        rows_data.append((row, full_ids, bool(row.get("preferred_on_right", 1))))
+        pref_right = bool(row.get("preferred_on_right", 1))
 
-    # Debug: print 3 sample prompts with vanilla prediction
-    print(f"\n[DEBUG] 3 sample prompts for Vanilla {country} (lang={lang}):")
-    for si in range(min(3, len(rows_data))):
-        row, full_ids, pref_right = rows_data[si]
-        cat = row.get("phenomenon_category", "?")
-        pref_side = "RIGHT" if pref_right else "LEFT"
-        p_spare, p_l, p_r = _logit_fallback_p_spare(
-            model, full_ids, left_id, right_id, pref_right,
+        # Pass 1: original
+        full_ids1 = _build_full_ids(prompt)
+        p1, pl1, pr1 = _logit_fallback_p_spare(
+            model, full_ids1, left_id, right_id, pref_right,
             temperature=cfg.decision_temperature, return_raw=True)
-        full_text = tokenizer.decode(full_ids[0], skip_special_tokens=False)
-        print(f"  ── Sample {si+1} [{cat}] (preferred={pref_side}) ──")
-        print(f"  [FULL LLM INPUT]\n{full_text}")
-        print(f"  [END LLM INPUT]")
-        print(f"  >>> p(LEFT)={p_l:.3f}  p(RIGHT)={p_r:.3f}  |  p(spare_preferred)={p_spare:.3f}  [token-logit]")
-        print()
 
-    results = []
-    for i in tqdm(range(len(rows_data)), desc=f"Vanilla [{country}]"):
-        row, full_ids, pref_right = rows_data[i]
-        p_spare = _logit_fallback_p_spare(model, full_ids, left_id, right_id, pref_right,
-                                          temperature=cfg.decision_temperature)
+        # Pass 2: swapped (positional debiasing)
+        swapped = _swap_prompt(prompt)
+        if swapped != prompt:
+            full_ids2 = _build_full_ids(swapped)
+            p2, _, _ = _logit_fallback_p_spare(
+                model, full_ids2, left_id, right_id, not pref_right,
+                temperature=cfg.decision_temperature, return_raw=True)
+            p_spare = (p1 + p2) / 2.0
+        else:
+            p_spare = p1
 
         results.append({
             "phenomenon_category": row.get("phenomenon_category", "Unknown"),
@@ -3223,39 +3760,45 @@ def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
 
 def print_final_statistics(all_summaries, vanilla_metrics, config):
     n_countries = len(all_summaries)
-    all_jsd = [s["alignment"].get("jsd", np.nan) for s in all_summaries]
-    all_cosine = [s["alignment"].get("cosine_sim", np.nan) for s in all_summaries]
-    all_pearson = [s["alignment"].get("pearson_r", np.nan) for s in all_summaries]
-    all_spearman = [s["alignment"].get("spearman_rho", np.nan) for s in all_summaries]
-    all_mae = [s["alignment"].get("mae", np.nan) for s in all_summaries]
-    all_trigger = [s["trigger_rate"] for s in all_summaries]
-    all_flip = [s["flip_rate"] for s in all_summaries]
-    all_latency = [s["mean_latency_ms"] for s in all_summaries]
+    all_mis     = [s["alignment"].get("mis",        np.nan) for s in all_summaries]
+    all_jsd     = [s["alignment"].get("jsd",        np.nan) for s in all_summaries]
+    all_cosine  = [s["alignment"].get("cosine_sim", np.nan) for s in all_summaries]
+    all_pearson = [s["alignment"].get("pearson_r",  np.nan) for s in all_summaries]
+    all_spearman= [s["alignment"].get("spearman_rho", np.nan) for s in all_summaries]
+    all_mae     = [s["alignment"].get("mae",        np.nan) for s in all_summaries]
+    all_flip    = [s.get("flip_rate", np.nan)              for s in all_summaries]
+    all_latency = [s.get("mean_latency_ms", np.nan)        for s in all_summaries]
+    all_rel_r   = [s.get("mean_reliability_r", np.nan)     for s in all_summaries]
 
     print(f"\n{'='*70}")
-    print(f"  SWA-MPPI v3 AGGREGATE RESULTS (N={n_countries} countries)")
+    print(f"  DPBR (EXP-24) AGGREGATE RESULTS (N={n_countries} countries)")
     print(f"{'='*70}")
-    print(f"  Jensen-Shannon Distance:  {np.nanmean(all_jsd):.4f} ± {np.nanstd(all_jsd):.4f}")
-    print(f"  Cosine Similarity:        {np.nanmean(all_cosine):.4f} ± {np.nanstd(all_cosine):.4f}")
-    print(f"  Pearson Correlation:      {np.nanmean(all_pearson):.4f} ± {np.nanstd(all_pearson):.4f}")
-    print(f"  Spearman Correlation:     {np.nanmean(all_spearman):.4f} ± {np.nanstd(all_spearman):.4f}")
-    print(f"  Mean Absolute Error:      {np.nanmean(all_mae):.2f} ± {np.nanstd(all_mae):.2f} pp")
-    print(f"  MPPI Trigger Rate:        {np.mean(all_trigger):.1%} ± {np.std(all_trigger):.1%}")
-    print(f"  MPPI Flip Rate:           {np.mean(all_flip):.1%} ± {np.std(all_flip):.1%} (of triggered)")
-    print(f"  Mean Latency:             {np.mean(all_latency):.1f} ± {np.std(all_latency):.1f} ms")
-
+    print(f"  MIS (primary ↓):          {np.nanmean(all_mis):.4f} ± {np.nanstd(all_mis):.4f}")
+    print(f"  Jensen-Shannon Dist ↓:    {np.nanmean(all_jsd):.4f} ± {np.nanstd(all_jsd):.4f}")
+    print(f"  Centered Cosine Sim ↑:    {np.nanmean(all_cosine):.4f} ± {np.nanstd(all_cosine):.4f}")
+    print(f"  Pearson r ↑:              {np.nanmean(all_pearson):.4f} ± {np.nanstd(all_pearson):.4f}")
+    print(f"  Spearman ρ ↑:             {np.nanmean(all_spearman):.4f} ± {np.nanstd(all_spearman):.4f}")
+    print(f"  MAE ↓ (pp):               {np.nanmean(all_mae):.2f} ± {np.nanstd(all_mae):.2f}")
+    print(f"  Flip Rate:                {np.nanmean(all_flip):.1%}")
+    print(f"  Mean Reliability r:       {np.nanmean(all_rel_r):.3f}")
+    print(f"  Mean Latency (ms):        {np.nanmean(all_latency):.1f} ± {np.nanstd(all_latency):.1f}")
+    print(f"  (EXP-09 SOTA MIS=0.3975  |  EXP-24 multi-model ref=0.3969)")
 
     if vanilla_metrics:
-        v_jsd = [vanilla_metrics[c].get("jsd", np.nan) for c in vanilla_metrics]
-        v_p = [vanilla_metrics[c].get("pearson_r", np.nan) for c in vanilla_metrics]
+        v_mis = [vanilla_metrics.get(s["country"], {}).get("mis", np.nan) for s in all_summaries]
+        v_jsd = [vanilla_metrics.get(s["country"], {}).get("jsd", np.nan) for s in all_summaries]
+        v_r   = [vanilla_metrics.get(s["country"], {}).get("pearson_r", np.nan) for s in all_summaries]
         print(f"\n{'='*70}")
-        print(f"  BASELINE COMPARISON")
+        print(f"  BASELINE COMPARISON (Vanilla vs DPBR)")
         print(f"{'='*70}")
-        print(f"  {'Method':<25s} {'JSD':>10s} {'Pearson r':>12s}")
-        print(f"  {'-'*50}")
-        print(f"  {'Vanilla LLM':<25s} {np.nanmean(v_jsd):>10.4f} {np.nanmean(v_p):>12.4f}")
-        print(f"  {'SWA-MPPI v3 (Ours)':<25s} {np.nanmean(all_jsd):>10.4f} {np.nanmean(all_pearson):>12.4f}")
-        print(f"\n  Improvement vs Vanilla: JSD {(np.nanmean(v_jsd)-np.nanmean(all_jsd))/np.nanmean(v_jsd)*100:+.1f}%")
+        print(f"  {'Method':<25s} {'MIS':>8s} {'JSD':>8s} {'Pearson r':>10s}")
+        print(f"  {'-'*55}")
+        print(f"  {'Vanilla LLM':<25s} {np.nanmean(v_mis):>8.4f} {np.nanmean(v_jsd):>8.4f} {np.nanmean(v_r):>10.4f}")
+        print(f"  {'DPBR EXP-24 (Ours)':<25s} {np.nanmean(all_mis):>8.4f} {np.nanmean(all_jsd):>8.4f} {np.nanmean(all_pearson):>10.4f}")
+        mis_imp = (np.nanmean(v_mis) - np.nanmean(all_mis)) / (np.nanmean(v_mis) + 1e-12) * 100
+        jsd_imp = (np.nanmean(v_jsd) - np.nanmean(all_jsd)) / (np.nanmean(v_jsd) + 1e-12) * 100
+        print(f"\n  MIS improvement vs Vanilla: {mis_imp:+.1f}%")
+        print(f"  JSD improvement vs Vanilla: {jsd_imp:+.1f}%")
 
     print(f"\n{'='*70}")
     print(f"  PER-COUNTRY RANKING (by JSD ↓)")
@@ -3297,81 +3840,112 @@ def print_final_statistics(all_summaries, vanilla_metrics, config):
 # ============================================================================
 # MAIN ENTRY POINT
 # ============================================================================
-def main():
-    import transformers
-    transformers.logging.set_verbosity_error()
-    from unsloth import FastLanguageModel
+def _load_model_hf(config: SWAConfig):
+    """
+    Load Qwen2.5-7B-Instruct (or any HF model) in bf16 with Flash-Attention 2.
+    Falls back gracefully if flash-attn is not installed.
+    """
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
-    # Seed all RNGs for reproducibility
-    _rng.seed(42)
-    np.random.seed(42)
-    torch.manual_seed(42)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(42)
+    print(f"[MODEL] Loading {config.model_name} ...")
+    print(f"        precision={'4-bit' if config.load_in_4bit else 'bf16'}  "
+          f"flash_attn={config.use_flash_attention}")
 
-    config = SWAConfig()
-    os.makedirs(config.output_dir, exist_ok=True)
-    os.makedirs(os.path.dirname(config.dataset_path) or "data", exist_ok=True)
-
-    print(f"[CONFIG] SWA-MPPI v3")
-    print(f"  noise_std:              {config.noise_std}")
-    print(f"  tau_target_trigger_rate:{config.tau_target_trigger_rate} (adaptive)")
-    print(f"  decision_temperature:   {config.decision_temperature}")
-    print(f"  category_temperatures:  {config.category_logit_temperatures}")
-    print(f"[GPU] TF32 = {torch.backends.cuda.matmul.allow_tf32}")
-
-    # ── 1. Load human AMCE data from MultiTP ──
-    amce_path = Path(config.human_amce_path)
-    if not amce_path.exists():
-        raise FileNotFoundError(
-            f"Human AMCE file not found: {amce_path}\n"
-            f"Expected MultiTP long-format CSV at: {config.human_amce_path}"
-        )
-    amce_df = pd.read_csv(amce_path)
-    country_col = "Country" if "Country" in amce_df.columns else "ISO3"
-    available_countries = amce_df[country_col].unique()
-    _missing = [c for c in config.target_countries if c not in available_countries]
-    if _missing:
-        print(f"[WARN] Countries not in AMCE: {_missing}")
-    print(f"[DATA] Loaded human AMCE from {amce_path} "
-          f"({len(available_countries)} countries, {len(amce_df)} rows)")
-
-    # ── 2. Verify scenario data source exists ──
-    # Actual per-language scenario loading happens inside the per-country loop,
-    # so each country gets prompts fully in its native language.
-    if config.use_real_data:
-        print(f"\n[DATA] Will load REAL MultiTP dataset per-country (native language prompts)")
-        # Quick sanity check: verify data path exists
-        if not os.path.isdir(config.multitp_data_path):
-            raise FileNotFoundError(f"MultiTP data path not found: {config.multitp_data_path}")
-    else:
-        print(f"\n[DATA] Will generate synthetic scenarios per-country (native language)")
-
-    # ── 3. Load model ──
-    print("[MODEL] Loading Meta-Llama-3.1-70B-Instruct (4-bit) via Unsloth...")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=config.model_name,
-        max_seq_length=config.max_seq_length,
-        dtype=torch.bfloat16,
-        load_in_4bit=config.load_in_4bit,
+    tokenizer = AutoTokenizer.from_pretrained(
+        config.model_name,
+        trust_remote_code=True,
+        padding_side="left",
     )
-    FastLanguageModel.for_inference(model)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.padding_side = "left"
-    print(f"[MODEL] Loaded. VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB")
+
+    load_kwargs = dict(
+        trust_remote_code=True,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+    if config.load_in_4bit:
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+    if config.use_flash_attention:
+        try:
+            import flash_attn  # noqa: F401
+            load_kwargs["attn_implementation"] = "flash_attention_2"
+            print("[MODEL] Flash-Attention 2 enabled.")
+        except ImportError:
+            print("[MODEL] flash-attn not found — using eager attention.")
+
+    model = AutoModelForCausalLM.from_pretrained(config.model_name, **load_kwargs)
+    model.eval()
+
+    vram_gb = torch.cuda.memory_allocated() / 1e9 if torch.cuda.is_available() else 0
+    print(f"[MODEL] Loaded. VRAM used: {vram_gb:.1f} GB")
+    return model, tokenizer
+
+
+def main():
+    import transformers
+    transformers.logging.set_verbosity_error()
+
+    # ── Seed all RNGs ──
+    seed = int(os.environ.get("EXP24_SEED", "42"))
+    _rng.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    config = SWAConfig()
+    os.makedirs(config.output_dir, exist_ok=True)
+
+    print(f"\n{'='*70}")
+    print(f"  SWA-MPPI DPBR (EXP-24) — {config.model_name}")
+    print(f"{'='*70}")
+    print(f"  Countries      : {len(config.target_countries)} ({', '.join(config.target_countries)})")
+    print(f"  K_half×2       : {config.dpbr_k_half}×2 = {config.dpbr_k_half*2} IS samples")
+    print(f"  VAR_SCALE      : {config.dpbr_var_scale}")
+    print(f"  ESS anchor reg : {config.dpbr_ess_anchor_reg}")
+    print(f"  lambda_coop    : {config.lambda_coop}")
+    print(f"  decision_temp  : {config.decision_temperature}")
+    print(f"  tau calib n    : {config.tau_calibration_n}")
+    print(f"  output_dir     : {config.output_dir}")
+    print(f"[GPU] TF32={torch.backends.cuda.matmul.allow_tf32}")
+
+    # ── 1. Load human AMCE ──
+    amce_path = Path(config.human_amce_path)
+    if not amce_path.exists():
+        raise FileNotFoundError(f"Human AMCE not found: {amce_path}")
+    amce_df = pd.read_csv(amce_path)
+    country_col = "Country" if "Country" in amce_df.columns else "ISO3"
+    available_countries = set(amce_df[country_col].unique())
+    _missing = [c for c in config.target_countries if c not in available_countries]
+    if _missing:
+        print(f"[WARN] Countries not in AMCE CSV: {_missing}")
+    print(f"[DATA] Human AMCE: {len(available_countries)} countries, {len(amce_df)} rows")
+
+    # ── 2. Verify MultiTP data path ──
+    if config.use_real_data:
+        if not os.path.isdir(config.multitp_data_path):
+            raise FileNotFoundError(f"MultiTP data path not found: {config.multitp_data_path}")
+        print(f"[DATA] MultiTP real data: {config.multitp_data_path}")
+    else:
+        print("[DATA] Synthetic scenario generation mode")
+
+    # ── 3. Load model (HF native, bf16) ──
+    model, tokenizer = _load_model_hf(config)
 
     # ══════════════════════════════════════════════════════════════════════
-    # PER-COUNTRY LOOP: Vanilla Baseline → SWA-MPPI (interleaved)
+    # PER-COUNTRY LOOP: Vanilla Baseline → DPBR (EXP-24)
     # ══════════════════════════════════════════════════════════════════════
     print("\n" + "=" * 70)
-    print("RUNNING: Vanilla Baseline + SWA-MPPI per country (interleaved)")
+    print("RUNNING: Vanilla Baseline + DPBR (EXP-24) per country")
     print("=" * 70)
 
     all_results, all_summaries = [], []
     all_vanilla_results = []
-    country_scenario_dfs = {}
     vanilla_metrics = {}
 
     for ci, country in enumerate(config.target_countries):
@@ -3383,9 +3957,7 @@ def main():
         print(f"  [{ci+1}/{len(config.target_countries)}] {country} (lang={lang})")
         print(f"{'='*70}")
 
-        # Build per-country scenario dataset with NATIVE LANGUAGE prompts
-        # Each country gets its own load so scenario text, frame labels,
-        # and character descriptions are all in the country's language.
+        # Per-country scenario dataset (native language prompts)
         if config.use_real_data:
             country_base_df = load_multitp_dataset(
                 data_base_path=config.multitp_data_path,
@@ -3395,104 +3967,144 @@ def main():
                 n_scenarios=config.n_scenarios,
             )
         else:
-            country_base_df = generate_multitp_scenarios(
-                config.n_scenarios, lang=lang,
-            )
+            country_base_df = generate_multitp_scenarios(config.n_scenarios, lang=lang)
+
         country_df = balance_scenario_dataset(
-            country_base_df, min_per_category=50, seed=42, lang=lang
+            country_base_df, min_per_category=50, seed=seed, lang=lang
         )
         country_df["lang"] = lang
-        country_scenario_dfs[country] = country_df
 
         personas = build_country_personas(country, wvs_path=config.wvs_data_path)
-
-        # Print personas for this country
-        print(f"\n  [PERSONAS] {country} ({len(personas)} personas):")
+        print(f"\n  [PERSONAS] {country} ({len(personas)}):")
         for pi, ptxt in enumerate(personas):
-            print(f"    P{pi+1}: {ptxt[:150]}{'...' if len(ptxt) > 150 else ''}")
+            print(f"    P{pi+1}: {ptxt[:140]}{'...' if len(ptxt) > 140 else ''}")
 
         # ── Step 1: Vanilla baseline ──
-        print(f"\n  [1/2] Vanilla LLM baseline for {country}...")
+        print(f"\n  [1/2] Vanilla LLM baseline …")
         bl = run_baseline_vanilla(model, tokenizer, country_df, country, config)
         vanilla_metrics[country] = bl["alignment"]
-        # Save vanilla per-country CSV
-        bl["results_df"].to_csv(
-            os.path.join(config.output_dir, f"vanilla_results_{country}.csv"), index=False
-        )
+        bl_csv = os.path.join(config.output_dir, f"vanilla_results_{country}.csv")
+        bl["results_df"].to_csv(bl_csv, index=False)
         all_vanilla_results.append(bl["results_df"])
         torch.cuda.empty_cache(); gc.collect()
+
+        bl_mis = bl["alignment"].get("mis", float("nan"))
+        bl_jsd = bl["alignment"].get("jsd", float("nan"))
+        print(f"    Vanilla  MIS={bl_mis:.4f}  JSD={bl_jsd:.4f}")
 
         plot_radar_single(
             bl["model_amce"], bl["human_amce"],
             country, bl["alignment"],
-            save_path=os.path.join(config.output_dir, f"radar_baseline_{country}.png"),
+            save_path=os.path.join(config.output_dir, f"radar_vanilla_{country}.png"),
             model_label="Vanilla LLM", model_color="#9E9E9E",
         )
-        bl_jsd = bl["alignment"].get("jsd", float("nan"))
-        print(f"    Vanilla JSD={bl_jsd:.4f}")
-        print(f"    Vanilla AMCE: { {k: f'{v:.1f}' for k, v in bl['model_amce'].items()} }")
-        print(f"    Human AMCE:   { {k: f'{v:.1f}' for k, v in bl['human_amce'].items()} }")
 
-        # ── Step 2: SWA-MPPI ──
-        print(f"\n  [2/2] SWA-MPPI v3 for {country}...")
+        # ── Step 2: DPBR (EXP-24) ──
+        print(f"\n  [2/2] DPBR (EXP-24) …")
         results_df, summary = run_country_experiment(
             model, tokenizer, country, personas, country_df, config,
         )
-        summary["baseline_amce"] = bl["model_amce"]
+        summary["baseline_amce"]      = bl["model_amce"]
         summary["baseline_alignment"] = bl["alignment"]
         all_results.append(results_df)
         all_summaries.append(summary)
 
-        results_df.to_csv(
-            os.path.join(config.output_dir, f"swa_results_{country}.csv"), index=False
-        )
+        swa_csv = os.path.join(config.output_dir, f"swa_results_{country}.csv")
+        results_df.to_csv(swa_csv, index=False)
         plot_radar_single(
             summary["model_amce"], summary["human_amce"],
             country, summary["alignment"],
-            save_path=os.path.join(config.output_dir, f"radar_swa_{country}.png"),
+            save_path=os.path.join(config.output_dir, f"radar_dpbr_{country}.png"),
         )
 
+        swa_mis = summary["alignment"].get("mis", float("nan"))
         swa_jsd = summary["alignment"].get("jsd", float("nan"))
-        print(f"    SWA JSD={swa_jsd:.4f}  Baseline JSD={bl_jsd:.4f}  Delta={swa_jsd - bl_jsd:+.4f}")
+        delta_mis = swa_mis - bl_mis
+        print(f"    DPBR     MIS={swa_mis:.4f}  JSD={swa_jsd:.4f}  "
+              f"ΔMIS={delta_mis:+.4f} ({'worse' if delta_mis > 0 else 'better'})")
 
         torch.cuda.empty_cache(); gc.collect()
-        print(f"\n  [{country} DONE] Vanilla={bl_jsd:.4f}  SWA={swa_jsd:.4f}")
+        print(f"\n  [{country} DONE]  Vanilla MIS={bl_mis:.4f}  DPBR MIS={swa_mis:.4f}")
 
-    # Save combined results
-    full_results = pd.concat(all_results, ignore_index=True)
-    full_results.to_csv(os.path.join(config.output_dir, "swa_all_results.csv"), index=False)
+    # ── Save combined results ──
+    if all_results:
+        full_results = pd.concat(all_results, ignore_index=True)
+        full_results.to_csv(os.path.join(config.output_dir, "swa_all_results.csv"), index=False)
+        print(f"[SAVE] DPBR all results  -> swa_all_results.csv ({len(full_results)} rows)")
 
-    full_vanilla = pd.concat(all_vanilla_results, ignore_index=True)
-    full_vanilla.to_csv(os.path.join(config.output_dir, "vanilla_all_results.csv"), index=False)
-    print(f"[SAVE] Vanilla all results -> vanilla_all_results.csv ({len(full_vanilla)} rows)")
+    if all_vanilla_results:
+        full_vanilla = pd.concat(all_vanilla_results, ignore_index=True)
+        full_vanilla.to_csv(os.path.join(config.output_dir, "vanilla_all_results.csv"), index=False)
+        print(f"[SAVE] Vanilla all results -> vanilla_all_results.csv ({len(full_vanilla)} rows)")
 
-    # AMCE summary: one row per country, columns = method + criterion
+    # ── AMCE comparison CSV ──
     amce_rows = []
     for s in all_summaries:
-        c = s["country"]
-        row = {"country": c}
+        c   = s["country"]
+        row = {"country": c, "method": "dpbr_exp24"}
         for k, v in s["model_amce"].items():
             row[f"swa_{k}"] = v
         for k, v in s.get("baseline_amce", {}).items():
             row[f"vanilla_{k}"] = v
         for k, v in s["human_amce"].items():
             row[f"human_{k}"] = v
-        # Alignment metrics
+        # Full alignment suite (DPBR)
         for k, v in s["alignment"].items():
-            row[f"swa_align_{k}"] = v
+            row[f"dpbr_align_{k}"] = v
+        # Vanilla alignment
         for k, v in s.get("baseline_alignment", {}).items():
             row[f"vanilla_align_{k}"] = v
+        # DPBR diagnostics
+        row["mean_reliability_r"]    = s.get("mean_reliability_r", float("nan"))
+        row["mean_bootstrap_var"]    = s.get("mean_bootstrap_var", float("nan"))
+        row["mean_ess_pass1"]        = s.get("mean_ess_pass1", float("nan"))
+        row["mean_ess_pass2"]        = s.get("mean_ess_pass2", float("nan"))
+        row["mean_ess_anchor_alpha"] = s.get("mean_ess_anchor_alpha", float("nan"))
+        row["mean_positional_bias"]  = s.get("mean_positional_bias", float("nan"))
+        row["final_delta_country"]   = s.get("final_delta_country", float("nan"))
+        row["final_alpha_h"]         = s.get("final_alpha_h", float("nan"))
+        row["flip_rate"]             = s.get("flip_rate", float("nan"))
+        row["n_scenarios"]           = s.get("n_scenarios", 0)
+        # Util slope
+        us = s.get("utilitarianism_slope") or {}
+        row["util_slope_hat"]        = float(us.get("slope_hat", float("nan")))
+        row["util_intercept_hat"]    = float(us.get("intercept_hat", float("nan")))
+        row["util_slope_n"]          = int(us.get("n_obs", 0))
         amce_rows.append(row)
-    amce_df = pd.DataFrame(amce_rows)
-    amce_df.to_csv(os.path.join(config.output_dir, "amce_comparison.csv"), index=False)
-    print(f"[SAVE] AMCE comparison -> amce_comparison.csv ({len(amce_df)} countries)")
 
+    amce_df_out = pd.DataFrame(amce_rows)
+    amce_df_out.to_csv(os.path.join(config.output_dir, "comparison.csv"), index=False)
+    print(f"[SAVE] Comparison -> comparison.csv ({len(amce_df_out)} countries)")
+
+    # ── Per-dim breakdown CSV ──
+    pdb_rows = []
+    for s in all_summaries:
+        pda = s.get("per_dimension_alignment", {})
+        for dim, dd in pda.items():
+            pdb_rows.append({
+                "country":  s["country"],
+                "method":   "dpbr_exp24",
+                "dim":      dim,
+                "human":    dd.get("human",      float("nan")),
+                "model":    dd.get("model",      float("nan")),
+                "abs_err":  dd.get("abs_err",    float("nan")),
+                "signed_err": dd.get("signed_err", float("nan")),
+            })
+    if pdb_rows:
+        pd.DataFrame(pdb_rows).to_csv(
+            os.path.join(config.output_dir, "per_dim_breakdown.csv"), index=False
+        )
+        print(f"[SAVE] Per-dim breakdown -> per_dim_breakdown.csv")
+
+    # ── Summary CSV ──
     summary_rows = []
     for s in all_summaries:
         row = {k: v for k, v in s.items()
                if k not in ("model_amce", "human_amce", "diagnostics",
-                            "baseline_amce", "baseline_alignment")}
-        row.update({f"alignment_{k}": v for k, v in s.get("alignment", {}).items()})
+                            "baseline_amce", "baseline_alignment",
+                            "per_dimension_alignment", "utilitarianism_slope",
+                            "alignment")}
+        row.update({f"align_{k}": v for k, v in s.get("alignment", {}).items()})
         summary_rows.append(row)
     pd.DataFrame(summary_rows).to_csv(
         os.path.join(config.output_dir, "swa_summary.csv"), index=False
@@ -3504,6 +4116,39 @@ def main():
         pickle.dump({"vanilla": vanilla_metrics}, f)
 
     print(f"\n[ALL COUNTRIES COMPLETE] {len(all_summaries)} countries evaluated.")
+
+    # ── Final aggregate report ──
+    if all_summaries:
+        dpbr_mis    = [s["alignment"].get("mis",       float("nan")) for s in all_summaries]
+        dpbr_jsd    = [s["alignment"].get("jsd",       float("nan")) for s in all_summaries]
+        dpbr_r      = [s["alignment"].get("pearson_r", float("nan")) for s in all_summaries]
+        dpbr_mae    = [s["alignment"].get("mae",       float("nan")) for s in all_summaries]
+        van_mis     = [vanilla_metrics.get(s["country"], {}).get("mis",       float("nan")) for s in all_summaries]
+        van_jsd     = [vanilla_metrics.get(s["country"], {}).get("jsd",       float("nan")) for s in all_summaries]
+        rel_r_mean  = float(np.nanmean([s.get("mean_reliability_r", float("nan")) for s in all_summaries]))
+
+        print(f"\n{'='*70}")
+        print(f"  FINAL AGGREGATE REPORT — EXP-24 DPBR [{config.model_name}]")
+        print(f"{'='*70}")
+        print(f"  {'Metric':<20s} {'Vanilla':>10s} {'DPBR':>10s} {'Δ':>10s}")
+        print(f"  {'-'*52}")
+        for label, v_vals, d_vals in [
+            ("MIS ↓",  van_mis,  dpbr_mis),
+            ("JSD ↓",  van_jsd,  dpbr_jsd),
+        ]:
+            vm = float(np.nanmean(v_vals)); dm = float(np.nanmean(d_vals))
+            print(f"  {label:<20s} {vm:>10.4f} {dm:>10.4f} {dm-vm:>+10.4f}")
+        print(f"  {'Pearson r ↑':<20s} {'':>10s} {float(np.nanmean(dpbr_r)):>10.4f}")
+        print(f"  {'MAE ↓ (pp)':<20s} {'':>10s} {float(np.nanmean(dpbr_mae)):>10.2f}")
+        print(f"  {'Mean reliability r':<20s} {'':>10s} {rel_r_mean:>10.3f}")
+        print(f"  (EXP-09 SOTA MIS=0.3975  |  EXP-24 multi-model ref=0.3969)")
+
+        print(f"\n  Per-country MIS ranking (DPBR, ↑ = worse):")
+        ranked = sorted(zip([s["country"] for s in all_summaries], dpbr_mis), key=lambda x: x[1])
+        for i, (c, m) in enumerate(ranked):
+            marker = "★" if i < 3 else " "
+            print(f"  {marker} {i+1:2d}. {c:5s}  MIS={m:.4f}")
+        print(f"{'='*70}")
 
     # Generate aggregate figures
     print("\n[PLOT] Fig 1a: Radar grid — Vanilla LLM vs Human...")
