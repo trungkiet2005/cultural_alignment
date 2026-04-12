@@ -3461,34 +3461,34 @@ def plot_decision_gap_analysis(all_summaries, config, output_dir):
 
 
 def plot_results_table(all_summaries, output_dir):
-    columns = ["Country", "JSD", "Cosine", "Pearson r", "Spearman ρ",
-                "MAE", "RMSE", "Trigger %", "τ_used", "Latency (ms)"]
+    columns = ["Country", "MIS ↓", "JSD ↓", "Cosine ↑", "Pearson r ↑", "Spearman ρ ↑",
+                "MAE ↓", "RMSE ↓", "Mean r", "Latency (ms)"]
     rows = []
     for s in all_summaries:
         a = s["alignment"]
         rows.append([
             s["country"],
+            f"{a.get('mis', np.nan):.4f}",
             f"{a.get('jsd', np.nan):.4f}",
             f"{a.get('cosine_sim', np.nan):.4f}",
             f"{a.get('pearson_r', np.nan):.4f}",
             f"{a.get('spearman_rho', np.nan):.4f}",
             f"{a.get('mae', np.nan):.2f}",
             f"{a.get('rmse', np.nan):.2f}",
-            f"{s['trigger_rate']:.1%}",
-            f"{s.get('tau_used', 0):.5f}",
+            f"{s.get('mean_reliability_r', 1.0):.3f}",
             f"{s['mean_latency_ms']:.1f}",
         ])
 
-    # Mean row
-    numeric_cols = [1, 2, 3, 4, 5, 6, 9]
+    # Mean row (all numeric columns)
+    numeric_cols = list(range(1, len(columns)))
     mean_row = ["Mean"] + ["—"] * (len(columns) - 1)
     for ci in numeric_cols:
         vals = []
         for r in rows:
-            try: vals.append(float(r[ci].rstrip('%')))
+            try: vals.append(float(r[ci]))
             except: pass
         if vals:
-            fmt = ".4f" if float(rows[0][ci]) < 10 else ".2f"
+            fmt = ".4f" if abs(np.mean(vals)) < 10 else ".2f"
             mean_row[ci] = f"{np.mean(vals):{fmt}}"
     rows.append(mean_row)
 
@@ -3838,15 +3838,15 @@ def print_final_statistics(all_summaries, vanilla_metrics, config):
             print(f"  {cat:25s}: {mean_d:+6.2f} pp  {direction}")
 
     total_scenarios = sum(s["n_scenarios"] for s in all_summaries)
-    total_mppi = sum(s["trigger_rate"] * s["n_scenarios"] for s in all_summaries)
-    total_flips = sum(s["flip_count"] for s in all_summaries)
+    total_flips = sum(s.get("flip_count", 0) for s in all_summaries)
+    mean_r_global = np.nanmean([s.get("mean_reliability_r", 1.0) for s in all_summaries])
     print(f"\n{'='*70}")
-    print(f"  COMPUTATIONAL EFFICIENCY")
+    print(f"  COMPUTATIONAL EFFICIENCY (DPBR)")
     print(f"{'='*70}")
     print(f"  Total scenarios:  {total_scenarios:,}")
-    print(f"  MPPI triggered:   {int(total_mppi):,} ({total_mppi/total_scenarios:.1%})")
-    print(f"  MPPI flipped:     {total_flips:,} ({total_flips/max(1,int(total_mppi)):.1%} of triggered)")
-    print(f"  Compute savings:  {(1 - total_mppi/total_scenarios):.1%} (from adaptive τ)")
+    print(f"  IS passes (DPBR): always 2 per scenario (100%)")
+    print(f"  Mean reliability r: {mean_r_global:.4f}  (1.0 = max reliability)")
+    print(f"  MPPI flipped:     {total_flips:,} ({total_flips/max(1,total_scenarios):.1%} of scenarios)")
     print(f"\n{'='*70}")
     print(f"  Experiment complete. All results in: {config.output_dir}/")
     print(f"{'='*70}")

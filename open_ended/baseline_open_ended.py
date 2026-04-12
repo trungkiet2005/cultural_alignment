@@ -70,9 +70,20 @@ if _ON_KAGGLE:
     print("[SETUP] (3/7) datasets ...")
     _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'", verbose=True)
     print("[SETUP] (4/7) huggingface_hub + transformers + accelerate ...")
-    # Must upgrade all three together — huggingface_hub 0.21+ removed is_offline_mode
-    # so the pre-installed transformers breaks if only huggingface_hub is upgraded.
-    _run("pip install -q 'huggingface_hub>=0.26.0' 'transformers>=4.47.0' accelerate", verbose=True)
+    # --upgrade --force-reinstall overwrites the system-installed packages in
+    # /usr/local/lib/python3.12/dist-packages/ so Python picks up the new version.
+    # Needed because huggingface_hub 0.21+ removed is_offline_mode which the
+    # pre-installed transformers still imports.
+    _run("pip install -q --upgrade --force-reinstall "
+         "'huggingface_hub>=0.26.0' 'transformers>=4.47.0' accelerate", verbose=True)
+    # Purge any cached module state from this Jupyter session so the
+    # freshly installed versions are picked up on next import.
+    import importlib, sys
+    for _mod in list(sys.modules.keys()):
+        if _mod == "transformers" or _mod.startswith("transformers.") \
+                or _mod == "huggingface_hub" or _mod.startswith("huggingface_hub."):
+            sys.modules.pop(_mod, None)
+    importlib.invalidate_caches()
     print("[SETUP] (5/7) spacy ...")
     _run("pip install -q spacy", verbose=True)
     print("[SETUP] (6/7) spacy en_core_web_sm model ...")
