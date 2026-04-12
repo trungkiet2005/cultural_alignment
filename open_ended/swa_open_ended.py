@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SWA-MPPI v3 + EXP-24 DPBR — Qwen2.5-7B-Instruct — 20-Country Paper Run
+SWA-DPBR + EXP-24 DPBR — Qwen2.5-7B-Instruct — 20-Country Paper Run
 ========================================================================
 Algorithm : EXP-24 Dual-Pass Bootstrap IS Reliability Filter (DPBR)
 Model     : Qwen/Qwen2.5-7B-Instruct  (HF native, bf16, Flash-Attn 2)
@@ -2947,6 +2947,15 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
             })
         return out
 
+    _dpbr_kwargs = dict(
+        model_family=cfg.model_family,
+        dpbr_var_scale=cfg.dpbr_var_scale,
+        dpbr_k_half=cfg.dpbr_k_half,
+        dpbr_ess_anchor_reg=cfg.dpbr_ess_anchor_reg,
+        rho_eff=cfg.rho_eff,
+        country_iso=country,
+    )
+
     # --- λ sweep ---
     print("[ABLATION] Sweeping λ...")
     for lam in tqdm(cfg.lambda_range, desc="λ sweep"):
@@ -2957,6 +2966,7 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
             tau_conflict=cfg.tau_conflict, logit_temperature=cfg.logit_temperature,
             category_logit_temperatures=cfg.category_logit_temperatures,
             pt_alpha=cfg.pt_alpha, pt_beta=cfg.pt_beta, pt_kappa=cfg.pt_kappa,
+            **_dpbr_kwargs,
         )
 
         rows_out = _run_sweep_controller(ctrl, ablation_df)
@@ -2982,6 +2992,7 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
             tau_conflict=cfg.tau_conflict, logit_temperature=cfg.logit_temperature,
             category_logit_temperatures=cfg.category_logit_temperatures,
             pt_alpha=cfg.pt_alpha, pt_beta=cfg.pt_beta, pt_kappa=cfg.pt_kappa,
+            **_dpbr_kwargs,
         )
 
         latencies = []
@@ -3014,7 +3025,7 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
         })
         del ctrl; torch.cuda.empty_cache()
 
-    # --- τ sweep ---
+    # --- τ sweep --- (τ_conflict is a legacy threshold; DPBR always runs IS)
     print("[ABLATION] Sweeping τ...")
     for tau in tqdm(cfg.tau_range, desc="τ sweep"):
         ctrl = ImplicitSWAController(
@@ -3024,9 +3035,10 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
             tau_conflict=tau, logit_temperature=cfg.logit_temperature,
             category_logit_temperatures=cfg.category_logit_temperatures,
             pt_alpha=cfg.pt_alpha, pt_beta=cfg.pt_beta, pt_kappa=cfg.pt_kappa,
+            **_dpbr_kwargs,
         )
 
-        trigger_count, total, latencies = 0, 0, []
+        total, latencies, mean_r_list = 0, [], []
         for _, row in ablation_df.iterrows():
             prompt = row.get("Prompt", row.get("prompt", ""))
             if not prompt: continue
@@ -3036,10 +3048,12 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
                                 phenomenon_category=row.get("phenomenon_category", "default"),
                                 lang=lang)
             latencies.append(time.time() - t0)
-            trigger_count += int(pred["mppi_triggered"]); total += 1
+            mean_r_list.append(pred.get("reliability_r", 1.0))
+            total += 1
         results["tau"].append({
             "value": tau,
-            "trigger_rate": trigger_count / max(1, total),
+            "trigger_rate": 1.0,          # DPBR always runs IS
+            "mean_reliability_r": float(np.mean(mean_r_list)) if mean_r_list else 1.0,
             "mean_latency_ms": np.mean(latencies) * 1000,
         })
         del ctrl; torch.cuda.empty_cache()
@@ -3056,6 +3070,7 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
             tau_conflict=cfg.tau_conflict, logit_temperature=lt,
             category_logit_temperatures=cat_temps,
             pt_alpha=cfg.pt_alpha, pt_beta=cfg.pt_beta, pt_kappa=cfg.pt_kappa,
+            **_dpbr_kwargs,
         )
 
         rows_out = _run_sweep_controller(ctrl, ablation_df)
@@ -3079,7 +3094,7 @@ def run_ablation_study(model, tokenizer, country, personas, scenario_df, cfg):
 # VISUALIZATION
 # ============================================================================
 def plot_radar_single(model_amce, human_amce, country, alignment, ax=None, save_path=None,
-                      model_label="SWA-MPPI v3", model_color="#2196F3"):
+                      model_label="SWA-DPBR", model_color="#2196F3"):
     CRITERIA_LABELS = {
         "Species_Humans":       "Sparing\nHumans",
         "Age_Young":            "Sparing\nYoung",
@@ -3136,7 +3151,7 @@ def plot_radar_single(model_amce, human_amce, country, alignment, ax=None, save_
 def plot_radar_grid(all_summaries, output_dir,
                     amce_key="model_amce", alignment_key="alignment",
                     title_suffix="", file_suffix="",
-                    model_label="SWA-MPPI v3", model_color="#2196F3",
+                    model_label="SWA-DPBR", model_color="#2196F3",
                     fig_title=None):
     n = len(all_summaries)
     cols = min(4, n); rows = (n + cols - 1) // cols
@@ -3152,7 +3167,7 @@ def plot_radar_grid(all_summaries, output_dir,
                           model_label=model_label, model_color=model_color)
     for j in range(n, len(axes)):
         axes[j].set_visible(False)
-    default_title = f"SWA-MPPI v3 Cultural Alignment: Model vs Human Preferences{title_suffix}"
+    default_title = f"SWA-DPBR Cultural Alignment: Model vs Human Preferences{title_suffix}"
     fig.suptitle(fig_title or default_title,
                  fontsize=16, fontweight='bold', y=1.02)
     plt.tight_layout()
@@ -3240,15 +3255,16 @@ def plot_trigger_analysis(all_summaries, config, output_dir):
     ax1.tick_params(axis='x', rotation=45); ax1.legend(fontsize=9); ax1.set_yscale('log')
 
     ax2 = fig.add_subplot(gs[0, 1])
-    trigger_rates = [s["trigger_rate"] for s in all_summaries]
+    # DPBR always runs IS; show mean reliability_r vs JSD instead of trigger rate
+    rel_rs = [s.get("mean_reliability_r", 1.0) for s in all_summaries]
     jsds = [s["alignment"].get("jsd", np.nan) for s in all_summaries]
-    ax2.scatter(trigger_rates, jsds, s=120, c='#2196F3', edgecolors='white', linewidth=1.5, zorder=3)
+    ax2.scatter(rel_rs, jsds, s=120, c='#2196F3', edgecolors='white', linewidth=1.5, zorder=3)
     for i, label in enumerate(countries):
-        ax2.annotate(label, (trigger_rates[i], jsds[i]), xytext=(5, 5),
+        ax2.annotate(label, (rel_rs[i], jsds[i]), xytext=(5, 5),
                      textcoords='offset points', fontsize=9)
-    ax2.set_xlabel("MPPI Trigger Rate", fontsize=11)
+    ax2.set_xlabel("Mean DPBR Reliability r", fontsize=11)
     ax2.set_ylabel("Jensen-Shannon Distance", fontsize=11)
-    ax2.set_title("(b) Trigger Rate vs Alignment Quality", fontsize=12, fontweight='bold')
+    ax2.set_title("(b) Reliability r vs Alignment Quality", fontsize=12, fontweight='bold')
 
     ax3 = fig.add_subplot(gs[1, 0])
     example_summary = all_summaries[0]
@@ -3312,19 +3328,19 @@ def plot_ablation(ablation_results, country, config, output_dir):
     ax2.set_title(f"(b) Effect of K [{country}]", fontsize=13, fontweight='bold')
     ax2.set_xscale('log', base=2)
 
-    # (c) τ
+    # (c) τ — DPBR always runs IS; show mean reliability_r vs latency
     ax3 = axes[1, 0]
     tau_vals = [d["value"] for d in ablation_results["tau"]]
-    tau_trigger = [d["trigger_rate"] for d in ablation_results["tau"]]
+    tau_rel_r = [d.get("mean_reliability_r", 1.0) for d in ablation_results["tau"]]
     tau_lat = [d["mean_latency_ms"] for d in ablation_results["tau"]]
-    ln5 = ax3.plot(tau_vals, tau_trigger, 'o-', color='#4CAF50', linewidth=2.2, markersize=8, label='Trigger Rate')
+    ln5 = ax3.plot(tau_vals, tau_rel_r, 'o-', color='#4CAF50', linewidth=2.2, markersize=8, label='Mean Reliability r')
     ax3b = ax3.twinx()
     ln6 = ax3b.plot(tau_vals, tau_lat, 's--', color='#FF9800', linewidth=2.0, markersize=8, label='Latency (ms)')
-    ax3.set_xlabel("τ (Conflict Threshold)", fontsize=12)
-    ax3.set_ylabel("MPPI Trigger Rate", fontsize=12, color='#4CAF50'); ax3.tick_params(axis='y', labelcolor='#4CAF50')
+    ax3.set_xlabel("τ_conflict (Legacy IS gate)", fontsize=12)
+    ax3.set_ylabel("Mean DPBR Reliability r", fontsize=12, color='#4CAF50'); ax3.tick_params(axis='y', labelcolor='#4CAF50')
     ax3b.set_ylabel("Latency (ms)", fontsize=12, color='#FF9800'); ax3b.tick_params(axis='y', labelcolor='#FF9800')
     lns3 = ln5 + ln6; ax3.legend(lns3, [l.get_label() for l in lns3], loc='center right', fontsize=10)
-    ax3.set_title(f"(c) Effect of τ [{country}]", fontsize=13, fontweight='bold')
+    ax3.set_title(f"(c) Effect of τ [{country}] (DPBR: always-on IS)", fontsize=13, fontweight='bold')
     ax3.set_xscale('log')
 
     # (d) T_logit
@@ -3372,7 +3388,7 @@ def plot_amce_comparison_bar(all_summaries, output_dir):
         human_vals = [s["human_amce"].get(cat, np.nan) for s in all_summaries]
         countries = [s["country"] for s in all_summaries]
         x = np.arange(n_countries)
-        ax.bar(x - 0.2, model_vals, 0.4, label='SWA-MPPI v3', color='#2196F3', alpha=0.85, edgecolor='white')
+        ax.bar(x - 0.2, model_vals, 0.4, label='SWA-DPBR', color='#2196F3', alpha=0.85, edgecolor='white')
         ax.bar(x + 0.2, human_vals, 0.4, label='Human', color='#E53935', alpha=0.85, edgecolor='white')
         ax.set_xticks(x); ax.set_xticklabels(countries, rotation=45, ha='right', fontsize=8)
         ax.set_ylim(0, 105); ax.set_ylabel("AMCE (%)", fontsize=10)
@@ -3386,7 +3402,7 @@ def plot_amce_comparison_bar(all_summaries, output_dir):
         if errors:
             ax.set_xlabel(f"Mean Error: {np.mean(errors):.1f} pp", fontsize=9)
 
-    plt.suptitle("Per-Criterion AMCE: SWA-MPPI v3 vs Human Moral Machine",
+    plt.suptitle("Per-Criterion AMCE: SWA-DPBR vs Human Moral Machine",
                  fontsize=14, fontweight='bold', y=1.01)
     plt.tight_layout()
     path = os.path.join(output_dir, "fig9_amce_per_criterion.pdf")
@@ -3493,7 +3509,7 @@ def plot_results_table(all_summaries, output_dir):
                 cell.set_facecolor('#F5F5F5')
             else:
                 cell.set_facecolor('white')
-    ax.set_title("Table 1: SWA-MPPI v3 Cross-Cultural Alignment Results",
+    ax.set_title("Table 1: SWA-DPBR Cross-Cultural Alignment Results",
                  fontsize=14, fontweight='bold', pad=20)
     path = os.path.join(output_dir, "fig6_results_table.pdf")
     plt.savefig(path, bbox_inches='tight'); plt.savefig(path.replace('.pdf', '.png'))
@@ -3504,7 +3520,7 @@ def plot_results_table(all_summaries, output_dir):
     latex_path = os.path.join(output_dir, "table1_results.tex")
     with open(latex_path, 'w') as f:
         f.write("\\begin{table}[t]\n\\centering\n")
-        f.write("\\caption{SWA-MPPI v3 Cross-Cultural Alignment Results}\n")
+        f.write("\\caption{SWA-DPBR Cross-Cultural Alignment Results}\n")
         f.write("\\label{tab:results}\n\\small\n")
         f.write("\\begin{tabular}{l" + "c" * (len(columns) - 1) + "}\n")
         f.write("\\toprule\n")
@@ -3518,7 +3534,7 @@ def plot_results_table(all_summaries, output_dir):
 
 
 def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
-    """Publication-quality comparison table: Vanilla LLM vs SWA-MPPI v3."""
+    """Publication-quality comparison table: Vanilla LLM vs SWA-DPBR."""
 
     metrics = [
         ("JSD ↓",      "jsd",          ".4f", True),   # lower is better
@@ -3651,7 +3667,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
                 except (ValueError, IndexError):
                     pass
 
-    ax.set_title("Table: Vanilla LLM vs SWA-MPPI v3 — Cross-Cultural Alignment Comparison",
+    ax.set_title("Table: Vanilla LLM vs SWA-DPBR — Cross-Cultural Alignment Comparison",
                  fontsize=14, fontweight='bold', pad=20)
     path = os.path.join(output_dir, "fig_comparison_table.pdf")
     plt.savefig(path, bbox_inches='tight')
@@ -3663,7 +3679,7 @@ def plot_comparison_table(all_summaries, vanilla_metrics, output_dir):
     latex_path = os.path.join(output_dir, "table_comparison.tex")
     with open(latex_path, 'w') as f:
         f.write("\\begin{table*}[t]\n\\centering\n")
-        f.write("\\caption{Vanilla LLM vs SWA-MPPI v3: Cross-Cultural Alignment Comparison}\n")
+        f.write("\\caption{Vanilla LLM vs SWA-DPBR: Cross-Cultural Alignment Comparison}\n")
         f.write("\\label{tab:comparison}\n\\scriptsize\n")
         # Column spec
         col_spec = "l" + "rrr" * len(metrics) + "r"
@@ -3746,7 +3762,7 @@ def plot_baseline_comparison(swa_summaries, vanilla_metrics, output_dir):
         swa_vals = [s["alignment"].get(metric, np.nan) for s in swa_summaries]
         vanilla_vals = [vanilla_metrics.get(c, {}).get(metric, np.nan) for c in countries]
         ax.bar(x - width / 2, vanilla_vals, width, label='Vanilla LLM', color='#BDBDBD', edgecolor='white')
-        ax.bar(x + width / 2, swa_vals, width, label='SWA-MPPI v3', color='#2196F3', edgecolor='white')
+        ax.bar(x + width / 2, swa_vals, width, label='SWA-DPBR', color='#2196F3', edgecolor='white')
         ax.set_xlabel("Country", fontsize=11); ax.set_ylabel(label, fontsize=11)
         ax.set_title(label, fontsize=13, fontweight='bold')
         ax.set_xticks(x); ax.set_xticklabels(countries, rotation=45, ha='right')
@@ -4161,7 +4177,7 @@ def main():
     plot_radar_grid(all_summaries, config.output_dir,
                     amce_key="model_amce", alignment_key="alignment",
                     title_suffix="", file_suffix="_swa",
-                    fig_title="SWA-MPPI v3 vs Human Preferences (15 Countries)")
+                    fig_title="SWA-DPBR vs Human Preferences (15 Countries)")
     print("\n[PLOT] Fig 2: Alignment heatmap...")
     plot_alignment_heatmap(all_summaries, config.output_dir)
     print("\n[PLOT] Fig 3: Trigger analysis + token bias...")
@@ -4237,7 +4253,6 @@ def debug_main():
 
     import transformers, random as _rng2
     transformers.logging.set_verbosity_error()
-    from unsloth import FastLanguageModel
 
     _rng2.seed(SEED); np.random.seed(SEED); torch.manual_seed(SEED)
     if torch.cuda.is_available():
@@ -4249,19 +4264,9 @@ def debug_main():
         if hasattr(cfg, k) and v is not None:
             setattr(cfg, k, v)
 
-    # ── Load model ──
+    # ── Load model (HF native, bf16) ──
     print(f"[MODEL] Loading {cfg.model_name} ...")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=cfg.model_name,
-        max_seq_length=cfg.max_seq_length,
-        dtype=torch.bfloat16,
-        load_in_4bit=cfg.load_in_4bit,
-    )
-    FastLanguageModel.for_inference(model)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-        tokenizer.pad_token_id = tokenizer.eos_token_id
-    tokenizer.padding_side = "left"
+    model, tokenizer = _load_model_hf(cfg)
     print(f"[MODEL] Loaded. VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB\n")
 
     # ── Build controller ──
@@ -4282,6 +4287,12 @@ def debug_main():
         category_logit_temperatures=cfg.category_logit_temperatures,
         pt_alpha=cfg.pt_alpha, pt_beta=cfg.pt_beta, pt_kappa=cfg.pt_kappa,
         decision_temperature=cfg.decision_temperature,
+        model_family=cfg.model_family,
+        dpbr_var_scale=cfg.dpbr_var_scale,
+        dpbr_k_half=cfg.dpbr_k_half,
+        dpbr_ess_anchor_reg=cfg.dpbr_ess_anchor_reg,
+        rho_eff=cfg.rho_eff,
+        country_iso=COUNTRY,
     )
 
     # ── Optional tau calibration ──
@@ -4338,7 +4349,7 @@ def debug_main():
     print(f"  DEBUG SUMMARY — {COUNTRY} ({len(results)} scenarios)")
     print(f"{'=' * 72}")
     print(f"  {'#':<4} {'Category':<16} {'p_pref1':>8} {'p_pref2':>8} "
-          f"{'DEBIASED':>9} {'pos_bias':>9} {'var':>10} {'MPPI?':>6}")
+          f"{'DEBIASED':>9} {'pos_bias':>9} {'var':>10} {'IS-r':>6}")
     print(f"  {'-'*4} {'-'*16} {'-'*8} {'-'*8} {'-'*9} {'-'*9} {'-'*10} {'-'*6}")
     for i, (row, r) in enumerate(zip(picked, results)):
         print(f"  {i+1:<4} {row['phenomenon_category']:<16} "
@@ -4347,7 +4358,7 @@ def debug_main():
               f"{r['p_spare_preferred']:>9.4f} "
               f"{r.get('positional_bias', 0):>9.4f} "
               f"{r['variance']:>10.6f} "
-              f"{'Yes' if r['mppi_triggered'] else 'No':>6}")
+              f"{r.get('reliability_r', 1.0):>6.3f}")
 
     # ── Interactive REPL ──
     if INTERACTIVE:
