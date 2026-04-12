@@ -40,10 +40,14 @@ Bootstrap reliability: disagreement between the two passes:
 Soft reliability weight:
     r = exp(-bootstrap_var / VAR_SCALE)     ∈ (0, 1]
 
-Final IS output (soft-blended):
-    delta_star_final = r · (delta_star_1 + delta_star_2) / 2
-                     + (1 - r) · 0.0   (= fallback when disagree)
-    delta_opt_micro  = anchor + delta_star_final
+Final merged IS offset (same symbols as paper ``δ*_IS``):
+    delta_star_IS = r · (delta_star_1 + delta_star_2) / 2
+
+Micro correction (default in ``exp24_dpbr_core.py``): ESS-adaptive anchor blend
+``α_reg = clip(min(ESS₁,ESS₂), ρ_eff, 1)``, then
+    δ_micro = α_reg·anchor + (1-α_reg)·δ_base + δ_star_IS
+with ``anchor = mean(δ_i)`` and ``δ_base`` the debiased base gap. Legacy path:
+``EXP24_ESS_ANCHOR_REG=0`` → ``δ_micro = anchor + δ_star_IS`` only.
 
 **Properties**:
 - When both passes agree (bootstrap_var → 0):  r → 1.0 → use mean (maximally trusted)

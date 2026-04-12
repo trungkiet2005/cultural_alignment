@@ -56,8 +56,8 @@ def _install_deps() -> None:
 _ensure_repo()
 from src.hf_env import apply_hf_credentials  # noqa: E402
 
-_install_deps()
 apply_hf_credentials()
+_install_deps()
 
 MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 MODEL_SHORT = "hf_qwen25_7b_bf16"

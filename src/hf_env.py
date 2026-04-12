@@ -85,9 +85,11 @@ def apply_hf_credentials() -> None:
     apply_kaggle_hf_secret_if_missing()
     mirror_hf_token_aliases()
     _huggingface_hub_login_from_env()
-    try:
-        from src.vllm_env import apply_vllm_runtime_defaults
+    # vLLM / FlashInfer linker hints only when that backend is selected (avoid noise on HF-native runs).
+    if os.environ.get("MORAL_MODEL_BACKEND", "unsloth").strip().lower() == "vllm":
+        try:
+            from src.vllm_env import apply_vllm_runtime_defaults
 
-        apply_vllm_runtime_defaults()
-    except Exception:
-        pass
+            apply_vllm_runtime_defaults()
+        except Exception:
+            pass

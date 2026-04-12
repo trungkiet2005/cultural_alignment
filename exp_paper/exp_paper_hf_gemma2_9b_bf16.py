@@ -62,8 +62,9 @@ def _install_deps() -> None:
 _ensure_repo()
 from src.hf_env import apply_hf_credentials  # noqa: E402
 
-_install_deps()
+# Load .env / Kaggle HF_TOKEN secret before pip so any hub-aware steps see credentials.
 apply_hf_credentials()
+_install_deps()
 
 MODEL_NAME = "google/gemma-2-9b-it"
 MODEL_SHORT = "hf_gemma2_9b_bf16"
@@ -72,6 +73,13 @@ from exp_paper.paper_countries import PAPER_20_COUNTRIES, RESULTS_BASE_EXP24_20C
 from exp_model._base_dpbr import run_for_model  # noqa: E402
 
 if __name__ == "__main__":
+    _tok = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()
+    if _on_kaggle() and not _tok:
+        raise SystemExit(
+            "[HF] google/gemma-2-9b-it is gated. Add Kaggle → Add-ons → Secrets → HF_TOKEN "
+            "(read token from https://huggingface.co/settings/tokens ) using the account that "
+            "accepted the license at https://huggingface.co/google/gemma-2-9b-it"
+        )
     run_for_model(
         MODEL_NAME,
         MODEL_SHORT,

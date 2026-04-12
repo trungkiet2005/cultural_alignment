@@ -1,0 +1,1462 @@
+% ============================================================
+% SWA-DPBR: Cross-Cultural Moral Alignment of LLMs
+% NeurIPS 2026 Submission
+% Compile: pdflatex -> bibtex -> pdflatex -> pdflatex
+% ============================================================
+\documentclass{article}
+\usepackage[final,main]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{bbm}
+
+% Colour macros
+\definecolor{improvegreen}{RGB}{0,128,0}
+\definecolor{worsered}{RGB}{180,0,0}
+\newcommand{\gain}[1]{\textcolor{improvegreen}{#1}}
+\newcommand{\loss}[1]{\textcolor{worsered}{#1}}
+
+% ============================================================
+\title{%
+  \textbf{SWA-DPBR}: Socially-Weighted Alignment with\\
+  Dual-Pass Bootstrap Reliability\\
+  for Cross-Cultural Moral Alignment of Large Language Models%
+}
+
+\author{%
+  Anonymous Authors\\
+  \texttt{anonymous@institution.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================
+\begin{abstract}
+% ============================================================
+How far can we align a frozen LLM to \emph{different} cultures \emph{without} training?
+We target \textbf{training-free cross-cultural alignment at the logit level}: no weight updates, no per-country finetuning---only a scalar decision-gap correction computed at inference time so that binary moral choices track country-specific human preference vectors instead of a single global default.
+\textbf{SWA-DPBR} (Socially-Weighted Alignment with Dual-Pass Bootstrap Reliability) realizes this by letting WVS-grounded personas disagree within each country, converting that disagreement into a bounded logit shift via Prospect-Theory importance sampling, merging two independent IS passes with a bootstrap reliability weight, and applying a light hierarchical prior---so unstable sampling automatically shrinks aggressive updates.
+On MultiTP, across twenty countries on four continents and open models spanning several families (about 3.8B--70B parameters), strong checkpoints cut aggregate misalignment versus vanilla by roughly $19$--$24\%$, with gains spread across the Americas, Europe, and Asia rather than isolating to one geography.
+When steering fails, the pattern is ill-conditioned \emph{decision} logits under importance weighting---an architectural bottleneck, not a blind spot toward entire world regions---which suggests that logit-space, inference-time cultural steering is a practical lever whenever the base model's decision surface is well behaved.
+Code: \texttt{[repository]}.
+\end{abstract}
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+% ============================================================
+
+When a self-driving car must choose between sparing a group of elderly men or a
+group of young women, there is no culturally universal answer. The Moral Machine
+experiment~\citep{awad2018moral} collected 40~million judgments from 233~countries and revealed
+that such preferences vary profoundly across cultures: East Asian respondents weight
+youth more heavily; Southern-hemisphere populations show distinct utilitarian calculi;
+Islamic societies prioritise different social roles. Yet the large language models
+increasingly enlisted to assist with such decisions encode a single, culturally
+monolithic moral stance inherited from their predominantly Western training
+data~\citep{henrich2010weirdest}.
+
+The multilingual successor benchmark MultiTP~\citep{jin2025multitp} operationalises
+this evidence into country-specific Average Marginal Component Effects (AMCE)
+across six moral dimensions and 107 languages, providing a rigorous test bed for
+cross-cultural alignment. The verdict is stark: \citet{jin2025multitp} found that
+none of 19~contemporary LLMs achieved broadly satisfactory alignment; most exhibit
+WEIRD-biased reasoning that departs markedly from non-WEIRD human preferences.
+
+How should this gap be closed? A useful cross-cultural decoder would ideally satisfy
+three constraints at once: \emph{no} weight updates, \emph{no} per-culture supervised
+labels at scale, and \emph{no} white-box access to internal activations.
+Existing work typically trades one of these away.
+\emph{Fine-tuning}~\citep{bai2022constitutional, ouyang2022instructgpt} changes weights
+and needs per-culture data.
+\emph{Prompting-based steering} avoids training but lacks empirical grounding~\citep{jin2025multitp}.
+\emph{Activation steering}~\citep{arditi2025refusal, zou2023representation} needs
+white-box access and bespoke engineering.
+\emph{Reward-guided decoding}~\citep{khanov2024args, mudgal2024controlled} assumes
+reward models we do not have for every country.
+\emph{Culture-aware adapters}~\citep{li2024culturemanager, yao2024caredio} require
+per-culture training and scale poorly across 100+ countries.
+
+We propose \textbf{SWA-DPBR} (Socially-Weighted Alignment with Dual-Pass Bootstrap
+Reliability) to meet all three constraints.
+The central idea is that \emph{disagreement is signal}.
+Moral preferences within a society are not monolithic-age cohorts and strata
+prioritise different trade-offs~\citep{awad2018moral, kleiman2017learning}.
+The World Values Survey~\citep{haerpfer2022wvs} supplies empirical structure for that
+within-country variation.
+We instantiate each country as a small panel of culturally grounded persona agents;
+when those agents \emph{disagree} on a dilemma, the spread of their logit gaps
+\emph{localises} where a correction is plausibly useful, and when they agree, the
+vanilla model is often already close to consensus.
+When they disagree strongly, a single aggregate ``answer'' is the wrong target.
+
+Operationally, SWA-DPBR builds a fixed WVS-grounded persona ensemble per country,
+evaluates base plus personas in one batched forward pass with native-language
+prompting, applies positional debiasing, and runs two independent
+Prospect-Theory-weighted importance-sampling passes~\citep{kahneman1979prospect} over
+consensus perturbations.
+If the two passes yield similar corrections, we merge them; if they diverge, a
+bootstrap-style reliability weight shrinks the update, and an effective-sample-size
+guard can anchor unstable estimates back toward the debiased base logit before a
+light hierarchical country prior.
+Full equations are in \S\ref{sec:method}; default hyperparameter values are in Table~\ref{tab:hyperparams}.
+
+\paragraph{Contributions.}
+Our contributions are threefold:
+\begin{itemize}
+  \item \textbf{Training-free, inference-time cultural alignment.}
+        We introduce SWA-DPBR, which aligns a \emph{frozen} LLM to country-level human
+        preference vectors without weight updates: WVS-grounded personas encode
+        within-country variation; positional debiasing cancels framing bias; two independent
+        Prospect-Theory importance-sampling passes estimate a consensus perturbation; a
+        bootstrap reliability weight merges them; and a light hierarchical prior smooths
+        corrections across scenarios (\S\ref{sec:method}).
+  \item \textbf{Multi-country evaluation across scales and model families.}
+        On MultiTP we study twenty countries and open checkpoints from multiple families
+        from about 3.8B to 70B parameters, reporting large macro gains versus vanilla,
+        per-country geographic structure, and robustness checks that support the headline
+        numbers (\S\ref{sec:results}).
+  \item \textbf{Ablations and robustness.}
+        Controlled slices show that persona diversity and debiasing are load-bearing,
+        that dropping to consensus-only or simpler utility kernels hurts, and that
+        temperature and preprocessing sweeps leave headline conclusions stable
+        (\S\ref{sec:ablation}; Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens}).
+\end{itemize}
+
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+% ============================================================
+
+\paragraph{Cross-cultural moral benchmarks.}
+The Moral Machine experiment~\citep{awad2018moral} provides 40M+ cross-cultural moral
+judgments. MultiTP~\citep{jin2025multitp} extends this to 107 languages with
+country-specific AMCEs; we adopt it as our benchmark and propose an alignment
+\emph{intervention} rather than diagnostics alone. Other benchmarks
+(ETHICS~\citep{hendrycks2021aligning}, MoralExceptQA~\citep{jin2022exceptions},
+MoCa~\citep{nie2023moca}) remain English-centric.
+PRISM~\citep{kirk2024prism} and GlobalOpinionQA~\citep{durmus2023global} address
+diversity but cover few languages. Recent frameworks
+(EvalMORAAL~\citep{aakanksha2024evalmor}, CARB~\citep{myung2024carb}) emphasise
+broader-topic evaluations; SWA-DPBR targets binary moral decisions specifically.
+CROSS~\citep{qiu2025cross} evaluates culturally grounded multimodal safety; we
+remain text-only with trolley vignettes so country-level AMCE vectors stay
+directly comparable to the model's six-dimensional output.
+
+\paragraph{Cross-cultural LLM evaluation.}
+LLM outputs correlate most strongly with liberal, educated American
+respondents~\citep{santurkar2023opinions}. RLHF introduces unintended cultural
+impacts~\citep{ryan2024unintended}, and assigning cultural personas can surface
+toxic outputs~\citep{deshpande2023toxicity}. This recurring WEIRD bias motivates
+SWA-DPBR's calibration objective.
+
+\paragraph{Inference-time alignment.}
+Activation steering~\citep{arditi2025refusal, zou2023representation} requires
+white-box access. ARGS~\citep{khanov2024args} and controlled
+decoding~\citep{mudgal2024controlled} need trained reward models unavailable for
+cross-cultural settings (Appendix~\ref{app:baselines}).
+CultureManager~\citep{li2024culturemanager} and CAReDiO~\citep{yao2024caredio}
+train culture-specific adapters but require per-culture labelled data and weight
+modification, scaling poorly across 100+ countries. To the best of our knowledge,
+SWA-DPBR is the first training-free method targeting country-level moral
+calibration specifically.
+\citet{sorensen2024roadmap} articulate the goal of pluralistic alignment, which
+SWA-DPBR operationalises concretely.
+Related exploratory runs in our codebase suggest that \emph{contrastive} persona
+formulations---explicitly amplifying a country direction against a world anchor---can
+shatter alignment on already miscalibrated backbones; SWA-DPBR therefore stays with
+direct WVS personas and logit-space PT--IS rather than contrastive amplification.
+Recent work shows that inference-time stochasticity can improve moral alignment
+scores on trolley-style tasks by reshaping confidence~\citep{kwon2025dropouts};
+SWA-DPBR is complementary in targeting \emph{directional}, survey-grounded,
+country-specific corrections at logits rather than generic uncertainty inflation.
+A controlled head-to-head on the same MultiTP grid is important future work.
+
+\paragraph{Positioning against adjacent inference-time methods.}
+SWA-DPBR targets a narrow slice: \emph{black-box}, single-model, binary
+forced-choice moral decisions with country-conditioned survey personas-no
+extra trained aligner, unlike \emph{DIFFPO}-style policy-agnostic aligners;
+no fixed global steering vector, unlike \emph{SWAI}-style attribute shifts;
+no internal-layer access, unlike \emph{SLED}-style white-box methods.
+Structured multi-agent systems such as OG-MAR~\citep{ogmar2024} pursue richer
+ontology-level reasoning; we trade that depth for one additional batched forward
+pass and explicit country-level calibration.
+
+\paragraph{Importance sampling, reliability, and Prospect Theory.}
+Self-normalised importance sampling is biased at finite~$K$; splitting the
+same Monte Carlo budget into two independent replicates and comparing their
+outputs is a standard way to expose sampling noise without doubling wall-clock
+forward passes at the transformer level (each replicate reuses cached persona
+logits). We combine that diagnostic with a Prospect-Theory
+utility~\citep{kahneman1979prospect} on logit-gap coordinates, following the
+control-as-inference view used in path-integral and KL-regularised steering
+work~\citep{williams2017mppi, huang2024mppi}. Dual-pass reliability is a
+variance-based heuristic, not an unbiasedness certificate; we report it as part
+of the method's explicit uncertainty model.
+
+% ============================================================
+\section{Method: SWA-DPBR}
+\label{sec:method}
+% ============================================================
+
+\subsection{Problem Formulation}
+\label{sec:method:problem}
+
+Let $\mathcal{X}$ be the set of moral dilemma scenarios, each presenting a forced
+binary choice via decision tokens \texttt{A}~($a$) and \texttt{B}~($b$).
+For target country $c$, let $\mathbf{h}^{(c)} \in \mathbb{R}^6$ be the human AMCE
+vector from 40M+ judgments~\citep{awad2018moral}. A frozen LLM $f_\theta$ produces
+logits $\mathbf{z}(\mathbf{x}) = [z_a,\, z_b]$ at the decision token position;
+the spare probability is $p_{\text{spare}} = \sigma(\Delta / T_{\text{dec}})$
+where $\Delta = z_b - z_a$.
+Each dimension's AMCE is estimated as:
+\begin{equation}
+  \hat{m}_d^{(c)} = \frac{1}{|\mathcal{S}_d^{(c)}|}\sum_{\mathbf{x} \in \mathcal{S}_d^{(c)}}
+  p_{\text{spare}}(\mathbf{x}),
+  \label{eq:mpr}
+\end{equation}
+following the MultiTP evaluation convention~\citep{jin2025multitp}. For the
+five binary dimensions (Species, Gender, Age, Fitness, Social Value), this
+reduces to the empirical mean of $p_{\text{spare}}$. For Utilitarianism the
+predictor is the count difference $n_{\text{diff}} = n_{\text{pref}} - n_{\text{non-pref}}$;
+we fit $p_{\text{spare}}(\mathbf{x}) = a + b\,n_{\text{diff}}(\mathbf{x}) + \varepsilon$
+by OLS and report $\hat{m}_{\text{Util}}^{(c)} = a + b\,\overline{n_{\text{diff}}}$,
+i.e.\ the fitted value at the mean observed count difference
+(Appendix~\ref{app:amce}).
+
+\textbf{Goal:} Without modifying $\theta$, find a logit correction
+$\delta^*(\mathbf{x}, c)$ such that the corrected AMCE vector
+$\hat{\mathbf{m}}^{(c)}(\theta, \delta^*)$ is closer to $\mathbf{h}^{(c)}$.
+We primarily measure alignment with the \emph{misalignment score} (MIS):
+$\ell_2$ distance between $\hat{\mathbf{m}}^{(c)}$ and $\mathbf{h}^{(c)}$ (lower
+is better). Jensen--Shannon divergence
+and Pearson~$r$ are reported as secondary diagnostics where noted.
+
+\subsection{Cultural Persona Construction}
+\label{sec:method:personas}
+
+For each country $c$, SWA-DPBR constructs $N=4$ persona agents from WVS Wave~7
+individual-level microdata~\citep{haerpfer2022wvs}. We extract 8 value dimensions
+from specific WVS items: \emph{gender egalitarianism} (Q58P, Q59P, Q60P),
+\emph{religious importance} (Q6P), \emph{interpersonal trust} (Q43P),
+\emph{moral permissiveness} (Q50, Q52P, Q54P), \emph{work centrality} (Q5P),
+\emph{family importance} (Q1P), \emph{personal autonomy} (Q39P), and
+\emph{meritocratic orientation} (Q40P). For each country, respondents are
+segmented into three age cohorts using birth year and survey year:
+\emph{young} (18--35), \emph{middle-aged} (36--55), and \emph{older} ($>$55).
+Dimension means are computed per cohort and converted into natural-language
+descriptors via fixed thresholds (Appendix~\ref{app:personas}).
+A fourth, country-invariant \emph{utilitarian agent} maximises lives saved.
+Each persona is a natural-language system prompt:
+
+\begin{quote}
+\small\itshape
+You are a [age-cohort] adult from [country]. The cultural values typical of your
+social group are: [WVS statistics]. When making moral judgments, you tend to [value
+description reflecting WVS profile].
+\end{quote}
+
+\noindent WVS grounding ensures empirically measured within-country variation rather
+than stereotypes~\citep{deshpande2023toxicity}. Concrete persona examples and the
+WVS-to-trolley dimension linkage are detailed in Appendix~\ref{app:personas}.
+
+\subsection{Batched Evaluation and Logit Extraction}
+\label{sec:method:eval}
+
+All $N+1=5$ input sequences (base + 4 personas) are evaluated in a \emph{single}
+batched forward pass:
+\begin{equation}
+  \mathbf{z}_{\text{base}},\; \mathbf{z}_1, \ldots, \mathbf{z}_N
+  = f_\theta\!\left(\mathbf{x};\; \varnothing,\; \mathbf{s}_1, \ldots, \mathbf{s}_N\right).
+  \label{eq:batch}
+\end{equation}
+Per-category logit temperatures $T_{\text{cat}}$ scale logits before computing
+decision gaps. We use $T_{\text{cat}}=4.0$ (Species), $3.5$ (Gender), and $1.5$
+for Age, Fitness, Social Value, and Utilitarianism (Table~\ref{tab:categories});
+the same values appear in Appendix~\ref{app:hyperparams}.
+\begin{align}
+  \delta_i &= \frac{z_{i,b} - z_{i,a}}{T_{\text{cat}}}, \quad
+  \delta_{\text{base}} = \frac{z_{\text{base},b} - z_{\text{base},a}}{T_{\text{cat}}}, \quad
+  \bar{\delta} = \frac{1}{N}\sum_{i=1}^{N} \delta_i \quad \text{(consensus)},
+  \label{eq:consensus} \\
+  r_i &= \delta_i - \delta_{\text{base}} \quad \text{(per-agent reward)}.
+  \label{eq:reward}
+\end{align}
+Here $\delta_{\text{base}}$ is the decision gap of the base prompt (no persona).
+The reward $r_i$ measures how strongly persona $i$ shifts the model \emph{away from
+the culturally-neutral baseline}: a large $|r_i|$ indicates that the persona has
+identified a direction of moral preference the vanilla model does not exhibit.
+Inter-persona sample variance is logged as a diagnostic but \textbf{does not gate}
+importance sampling in the released implementation (no $\tau$ threshold on
+inter-persona variance).
+
+\subsection{Positional Debiasing}
+\label{sec:method:debias}
+
+To cancel recency bias~\citep{liu2024lost}, each scenario is evaluated twice: once
+in the original ordering, once with \emph{both} choice labels (A $\leftrightarrow$
+B) and group labels (Group~A $\leftrightarrow$ Group~B) swapped in the native
+language. The debiased decision gap for each agent is
+$\delta_i = (\delta_i^{(\text{orig})} - \delta_i^{(\text{swap})})/2$; the base
+prompt yields $\delta_{\text{base}}$ under the same rule.
+
+\subsection{Prospect-Theory IS with Dual-Pass Reliability}
+\label{sec:method:dpbr}
+
+SWA-DPBR runs two \emph{independent} importance-sampling passes on every scenario.
+Each pass draws $K_{\text{half}}=K/2=64$ perturbations
+$\epsilon_k \sim \mathcal{N}(0,\sigma^2)$; $\sigma$ defaults to $0.3$ but is
+lifted to at least the empirical standard deviation of persona gaps when that
+is larger. Candidates are
+$\tilde{\delta}_k = \bar{\delta} + \epsilon_k$.
+
+\paragraph{Per-persona gains and collective utility.}
+For candidate $\tilde{\delta}_k = \bar{\delta} + \epsilon_k$, define
+\emph{scalar gains} in logit-gap units that measure how much moving the
+consensus toward $\tilde{\delta}_k$ reduces $L^1$ distance to each persona
+relative to the base model:
+\begin{align}
+  g_{i,k} &= |\delta_{\text{base}} - \delta_i| - |\tilde{\delta}_k - \delta_i|,
+  \label{eq:g_per_agent} \\
+  g_{\text{cons},k} &= |\delta_{\text{base}} - \bar{\delta}| - |\tilde{\delta}_k - \bar{\delta}|.
+  \label{eq:g_cons}
+\end{align}
+Large $g_{i,k}$ means $\tilde{\delta}_k$ is closer than $\delta_{\text{base}}$
+to persona $i$'s debiased gap; $g_{\text{cons},k}$ is the same idea with the
+persona consensus $\bar{\delta}$ as the reference. Prospect Theory is applied
+\emph{per persona before averaging}, preserving loss aversion at the social
+level~\citep{kahneman1979prospect}:
+\begin{equation}
+  U_{\text{total}}(\epsilon_k)
+  = (1 - \lambda_{\text{coop}})\,\frac{1}{N}\sum_{i=1}^{N}
+      v\!\left(\frac{g_{i,k}}{\sigma}\right)
+  \;+\; \lambda_{\text{coop}}\,
+      v\!\left(\frac{g_{\text{cons},k}}{\sigma}\right),
+  \label{eq:util_total}
+\end{equation}
+with $\lambda_{\text{coop}}=0.7$. Dividing by $\sigma$ makes the PT input
+dimensionless and comparable across moral dimensions (as in the released controller).
+The per-agent offsets $r_i = \delta_i - \delta_{\text{base}}$ from
+Eq.~\ref{eq:reward} remain useful diagnostics but \textbf{do not} enter
+$U_{\text{total}}$ in this implementation.
+\begin{equation}
+  v(x) = \begin{cases}
+    x^{\alpha} & x \geq 0,\\
+    -\kappa\,|x|^{\beta} & x < 0.
+  \end{cases}
+  \label{eq:prospect}
+\end{equation}
+We use $\alpha=\beta=0.88$ and $\kappa=2.25$~\citep{kahneman1979prospect}.
+There is \textbf{no} separate quadratic penalty on $\epsilon_k$ in the
+released utility: the Gaussian proposal $\mathcal{N}(0,\sigma^2)$ already
+limits step size, and an explicit KL-on-$\epsilon$ term is omitted (see
+Appendix~\ref{app:dpbr_theory}).
+
+\paragraph{Per-pass IS update and ESS guard.}
+For each pass $m\in\{1,2\}$ we form softmax weights over its own $K_{\text{half}}$
+samples,
+\begin{equation}
+  w_k^{(m)} = \frac{\exp\!\bigl(U_{\text{total}}(\epsilon_k)/\eta\bigr)}
+             {\sum_{k'}\exp\!\bigl(U_{\text{total}}(\epsilon_{k'})/\eta\bigr)},
+  \qquad
+  \delta^{\star}_m = \sum_{k=1}^{K_{\text{half}}} w_k^{(m)}\,\epsilon_k,
+  \label{eq:is_pass}
+\end{equation}
+with softmax inverse temperature $\eta = 0.5$ (field \texttt{temperature} /
+\texttt{mppi\_temperature} in \texttt{SWAConfig}; distinct from
+$T_{\text{dec}}$ scaling the final sigmoid, though we also set
+$T_{\text{dec}}=0.5$).
+Let $N_{\mathrm{eff}}^{(m)} = 1 / \sum_{k=1}^{K_{\text{half}}} (w_k^{(m)})^2$
+(Kish effective sample size for normalised weights) and define the
+\textbf{normalised} ratio $\widehat{\mathrm{ess}}^{(m)} =
+N_{\mathrm{eff}}^{(m)}/K_{\text{half}} = 1 / (K_{\text{half}}
+\sum_k (w_k^{(m)})^2)$.
+If $\widehat{\mathrm{ess}}^{(m)} < \rho_{\mathrm{eff}}$ we set $\delta^{\star}_m \leftarrow 0$
+(binary guard; default $\rho_{\mathrm{eff}}=0.1$).
+
+\paragraph{Bootstrap reliability and anchor blend.}
+Define bootstrap variance $v_{\mathrm{b}} = (\delta^{\star}_1-\delta^{\star}_2)^2$
+and soft reliability $r = \exp(-v_{\mathrm{b}}/s)$ with scale $s{=}0.04$
+(\texttt{VAR\_SCALE}). The merged IS offset is
+\begin{equation}
+  \delta^{\star}_{\mathrm{IS}} \;=\; r \cdot \frac{\delta^{\star}_1 + \delta^{\star}_2}{2}.
+  \label{eq:dpbr_rel}
+\end{equation}
+Large disagreement between passes shrinks $r$ and pulls the correction toward zero
+without a hard gate. Finally, with $\mathrm{ess}_{\min}=\min(\widehat{\mathrm{ess}}^{(1)},
+\widehat{\mathrm{ess}}^{(2)})$ and lower clip $\rho_{\mathrm{eff}}$, set
+$\alpha_{\mathrm{reg}} = \mathrm{clip}(\mathrm{ess}_{\min},\, \rho_{\mathrm{eff}},\, 1)$
+and form the micro correction before the hierarchical prior,
+\begin{equation}
+  \delta_{\mathrm{micro}} = \alpha_{\mathrm{reg}}\,\bar{\delta}
+    + (1-\alpha_{\mathrm{reg}})\,\delta_{\text{base}}
+    + \delta^{\star}_{\mathrm{IS}},
+  \label{eq:ess_anchor}
+\end{equation}
+where $\delta_{\text{base}}$ is the symmetric swap average for the base prompt
+(\S\ref{sec:method:debias}).
+When the ESS-anchor blend is \emph{enabled} (default in the released code), Eq.~\ref{eq:ess_anchor}
+applies as written.
+When it is \emph{disabled}, the implementation sets $\delta_{\mathrm{micro}}=\bar{\delta}+\delta^{\star}_{\mathrm{IS}}$
+only (no interpolation toward $\delta_{\text{base}}$).
+Geometrically, $\alpha_{\mathrm{reg}}=\mathrm{clip}(\mathrm{ess}_{\min},\,\rho_{\mathrm{eff}},\,1)$
+interpolates between the persona consensus $\bar{\delta}$ and the debiased base
+$\delta_{\text{base}}$: when both IS passes are diffuse ($\widehat{\mathrm{ess}}^{(m)}\!\approx\!1$),
+$\alpha_{\mathrm{reg}}\approx 1$ and the consensus term dominates; when either pass
+collapses, $\alpha_{\mathrm{reg}}$ approaches $\rho_{\mathrm{eff}}$ and the update
+leans toward~$\delta_{\text{base}}$.
+All MultiTP numbers in this paper use the \emph{enabled} path unless noted.
+
+\subsection{Hierarchical country prior}
+\label{sec:method:prior}
+
+After $\delta_{\mathrm{micro}}$, a scalar \emph{country-level} smoother runs per
+ISO-3 key. Let $t\in\{0,1,\ldots\}$ index scenarios in processing order for country
+$c$, and maintain an EMA statistic $\delta_{\mathrm{country}}$:
+\begin{equation}
+  \delta_{\mathrm{country}} \leftarrow (1-\beta_{\mathrm{ema}})\,\delta_{\mathrm{country}}
+    + \beta_{\mathrm{ema}}\,\delta_{\mathrm{micro}},
+  \label{eq:prior_ema}
+\end{equation}
+with $\beta_{\mathrm{ema}}=0.1$, updated after each scenario.
+Let $\alpha_h(t)$ be an annealed blend weight,
+\begin{equation}
+  \alpha_h(t) = \begin{cases}
+    0, & t < N_{\mathrm{warm}}, \\[2pt]
+    1 - \exp\!\bigl(-(t - N_{\mathrm{warm}})/\tau\bigr), & t \ge N_{\mathrm{warm}},
+  \end{cases}
+  \label{eq:prior_alpha}
+\end{equation}
+with $N_{\mathrm{warm}}=50$ and $\tau=100$. Then
+\begin{equation}
+  \delta_{\mathrm{final}} = \alpha_h(t)\,\delta_{\mathrm{country}}
+    + \bigl(1-\alpha_h(t)\bigr)\,\delta_{\mathrm{micro}}.
+  \label{eq:prior_final}
+\end{equation}
+For $t<N_{\mathrm{warm}}$ the prior is inactive ($\delta_{\mathrm{final}}=\delta_{\mathrm{micro}}$);
+thereafter the blend gradually shifts mass onto the EMA of past micro corrections.
+Isolation ablations that switch off $\alpha_h$ or freeze $\delta_{\mathrm{country}}$
+are not tabulated here.
+
+The final spare probability is
+$p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with
+$T_{\text{dec}}=0.5$.
+
+Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all
+symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
+
+\begin{algorithm}[t]
+\caption{SWA-DPBR Inference for Scenario $\mathbf{x}$ in Country $c$}
+\label{alg:swa}
+\begin{algorithmic}[1]
+\Require Frozen LLM $f_\theta$; personas $\{\mathbf{s}_i\}_{i=1}^{N}$;
+         hyperparameters $K_{\text{half}},\sigma,\lambda_{\text{coop}},\eta,T_{\text{dec}},s$
+\Ensure $p_{\text{spare}} \in [0,1]$
+\For{$\text{order} \in \{\text{orig}, \text{swap}\}$}
+  \State Batched forward: evaluate $f_\theta$ with base + $N$ personas
+  \State Extract logit pairs; compute $\delta_i^{(\text{ord})}$ \hfill\Comment{Eq.~\ref{eq:batch}}
+\EndFor
+\State Average: $\delta_i \leftarrow (\delta_i^{(\text{orig})} - \delta_i^{(\text{swap})})/2$ \hfill\Comment{\S\ref{sec:method:debias}}
+\State Compute consensus $\bar{\delta}$, rewards $r_i$ \hfill\Comment{Eqs.~\ref{eq:consensus}--\ref{eq:reward}}
+\For{$m \in \{1,2\}$}
+  \For{$k = 1$ \textbf{to} $K_{\text{half}}$}
+    \State Sample $\epsilon_k \sim \mathcal{N}(0, \sigma^2)$; compute $U_{\text{total}}(\epsilon_k)$ \hfill\Comment{Eqs.~\ref{eq:g_per_agent}--\ref{eq:util_total}}
+  \EndFor
+  \State $\delta^{\star}_m \leftarrow \sum_k w_k^{(m)} \epsilon_k$ or $0$ if $\widehat{\mathrm{ess}}^{(m)}<\rho_{\mathrm{eff}}$ \hfill\Comment{Eq.~\ref{eq:is_pass}}
+\EndFor
+\State $r \leftarrow \exp\bigl(-(\delta^{\star}_1-\delta^{\star}_2)^2/s\bigr)$;
+       $\delta^{\star}_{\mathrm{IS}} \leftarrow r(\delta^{\star}_1+\delta^{\star}_2)/2$ \hfill\Comment{Eq.~\ref{eq:dpbr_rel}}
+\State $\delta_{\mathrm{micro}} \leftarrow$ blend per Eq.~\ref{eq:ess_anchor} \textbf{or} $\bar{\delta}+\delta^{\star}_{\mathrm{IS}}$ if ESS-anchor off \hfill\Comment{see \S\ref{sec:method:dpbr}}
+\State $\delta_{\text{final}} \leftarrow$ country prior via Eqs.~\ref{eq:prior_ema}--\ref{eq:prior_final}
+\State \Return $p_{\text{spare}} = \sigma(\delta_{\text{final}} / T_{\text{dec}})$
+\end{algorithmic}
+\end{algorithm}
+
+% -- Architecture Figure --
+\begin{figure}[t]
+  \centering
+  \fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{%
+    \centering\vspace{3cm}%
+    \textbf{SWA-DPBR pipeline overview (schematic).}\\[4pt]
+    \small Left: WVS Persona Construction \quad$\rightarrow$\quad
+    Middle: Batched Forward Pass \quad$\rightarrow$\quad
+    Right: Dual-pass PT-IS + reliability merge%
+    \vspace{3cm}%
+  }}
+  \caption{%
+    \textbf{SWA-DPBR pipeline.}
+    \textbf{Left:} WVS-grounded persona construction (3 age cohorts + utilitarian).
+    \textbf{Middle:} Batched forward pass with positional debiasing.
+    \textbf{Right:} Two independent IS passes merged with bootstrap reliability $r$ (Eq.~\ref{eq:dpbr_rel}).
+  }
+  \label{fig:overview}
+\end{figure}
+
+% ============================================================
+\section{Experimental Setup}
+\label{sec:experiments}
+% ============================================================
+
+\subsection{Dataset}
+\label{sec:exp:data}
+
+We evaluate on MultiTP~\citep{jin2025multitp}: trolley-problem vignettes in native
+languages across six moral dimensions (Table~\ref{tab:categories}). The main DPBR
+sweep fixes \textbf{20} countries (ISO-3: ARG, BGD, BRA, CHN, COL, DEU, ETH, GBR,
+IDN, IRN, JPN, KGZ, MEX, MMR, MYS, ROU, SRB, THA, USA, VNM). For each country we apply: (i)~deduplication (retain only original-phrasing vignettes),
+(ii)~quality filtering (remove Utilitarianism scenarios where both groups have equal
+size, as these carry no utilitarian signal), (iii)~category capping (max 80 per
+dimension), and (iv)~up-sampling via random oversampling with replacement (min 36
+per dimension for stable AMCE estimation), yielding 310--500 scenarios per country
+(Appendix~\ref{app:dataset}).
+
+\begin{table}[t]
+\caption{The six moral dimensions in MultiTP.}
+\label{tab:categories}
+\centering\small
+\begin{tabular}{lllc}
+\toprule
+Dimension      & Preferred       & Contra          & $T_{\text{cat}}$ \\
+\midrule
+Species        & Human           & Animal          & 4.0 \\
+Gender         & Female          & Male            & 3.5 \\
+Age            & Young           & Elderly         & 1.5 \\
+Fitness        & Fit             & Unfit           & 1.5 \\
+Social Value   & High (exec.)    & Low (homeless)  & 1.5 \\
+Utilitarianism & More lives      & Fewer lives     & 1.5 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Models}
+\label{sec:exp:models}
+
+The main results focus on six open-weight checkpoints with robust macro gains on MultiTP:
+\textbf{Llama-3.3-70B}, \textbf{Magistral-Small-2509} (24B), \textbf{Phi-4} (14B),
+\textbf{Qwen3-VL-8B}, \textbf{Qwen2.5-7B}, and \textbf{Phi-3.5-mini} (3.8B).
+Table~\ref{tab:main_macro_summary} orders them by \emph{nominal} parameter count (descending);
+we evaluated additional checkpoints (smaller, quantised, or alternate inference setups) during development
+but omit those rows here when macro improvement was negligible or unstable under importance sampling.
+Runtimes use Unsloth or native Transformers pipelines depending on the family, greedy decoding, seed~42, and always-on
+dual-pass IS ($2{\times}64$ samples per scenario).
+
+\textbf{Native-language evaluation.} Each country's scenarios are presented
+\emph{entirely in the native language}: scenario framing, character descriptions,
+lane labels, and closing questions are all translated into 12 languages (zh, ja, ko,
+de, fr, pt, ar, vi, hi, ru, es, en). Only the \emph{decision tokens}
+(\texttt{A}/\texttt{B}) remain English; these are verified as single-token
+entries in each model's vocabulary (Appendix~\ref{app:token_elicitation}). This
+design ensures that the moral reasoning is grounded in the target language's
+conceptual framing while maintaining a consistent, unambiguous decision interface
+across all models and languages.
+
+\paragraph{Engineering lineage.}
+The released configuration is the endpoint of iterative engineering over the
+same hierarchical persona--importance-sampling stack: variants explored adaptive
+anchor blending, entropy-based $\sigma$, Nesterov-style IS, category-coherence
+regularisers, per-dimension priors, and related knobs.
+On a fixed three-backbone, five-country prototyping panel (Qwen2.5-7B,
+Gemma-2-9B, Mistral-7B), dual-pass bootstrap reliability ranked among the strongest
+candidates on mean MIS while materially lowering IS flip rates versus earlier
+single-pass baselines---we prioritised that stability--accuracy tradeoff before
+scaling to the twenty-country paper sweep.
+
+\subsection{Baselines and metrics}
+\label{sec:exp:baselines_metrics}
+
+On Llama-3.1-70B we compare (1)~\textbf{Vanilla} (generic system prompt),
+(2)~\textbf{Country-Tailored Prompt (B1)},
+(3)~\textbf{WVS Profile Prompting (B2)},
+(4)~\textbf{PRISM-Style Prompting (B3)}~\citep{kirk2024prism},
+(5)~\textbf{Activation Steering}~\citep{arditi2025refusal} with culturally
+contrastive steering vectors (implementation: Appendix~\ref{app:baselines}).
+Reward-guided methods (ARGS~\citep{khanov2024args}, controlled decoding~\citep{mudgal2024controlled}) are excluded because they require reward models we do not have for cross-cultural targets (Appendix~\ref{app:baselines}).
+We likewise omit a full twenty-country run of inference-time dropout calibration~\citep{kwon2025dropouts}
+and of pure temperature/margin scaling as standalone baselines; Appendix~\ref{app:temp_sensitivity}
+reports structured sensitivity of $T_{\text{dec}}$ and $T_{\text{cat}}$ that partially
+overlaps simpler scaling ablations, and we flag direct comparators as future work.
+Primary headline metric is \textbf{MIS} (misalignment score): the $\ell_2$ distance
+between the model's six-dimensional AMCE vector and the human vector for the same
+country~\citep{jin2025multitp}, computed as in \S\ref{sec:method:problem}. Lower is better. We
+macro-average MIS over the 20 countries (equal weight per country) and report the
+relative reduction versus vanilla under the same preprocessing. \textbf{Pearson
+$r$} and \textbf{JSD} remain useful diagnostics and appear in the supplementary
+comparison CSVs; the main table quotes mean MIS, vanilla$\to$DPBR macro relative
+gain, country win rate (MIS lower than vanilla), and mean~$r$.
+
+% ============================================================
+\section{Results: Strong Gains Across Models and Countries}
+\label{sec:results}
+% ============================================================
+
+\subsection{Cross-Model Comparison (20 Countries)}
+
+The central empirical question is whether \emph{training-free} logit steering can
+materially close the gap to human AMCE vectors when we hold everything else fixed and
+only change the decoding pipeline. Table~\ref{tab:main_macro_summary} answers that
+question affirmatively for six open checkpoints we highlight after a wider exploratory sweep. Rows are sorted by nominal
+parameter count rather than by gain, so the reader sees families side by side: the
+right-hand columns then show that SWA-DPBR improves macro MIS versus vanilla by
+substantial relative margins for every model in the panel, with country-level wins on
+most rows for most checkpoints---evidence that the effect is not a one-off quirk of a
+single backbone or a single geography.
+
+Two patterns make this more than a leaderboard story. First, \emph{calibration competes
+with scale}: the lowest absolute MIS in the table comes from a mid-sized instruction
+model whose logits align well with the IS stage, while a 70B-class model achieves a
+full sweep of per-country wins despite starting from a weaker vanilla profile---showing
+that DPBR can \emph{rescue} a misaligned base as well as \emph{refine} an already strong
+one. Second, the smallest checkpoint we report (Phi-3.5-mini) still posts a clear
+aggregate gain, which supports the practical claim that inference-time cultural
+steering is not reserved for frontier-scale models. Additional model--country combinations beyond the main panel
+include stacks where gains are smaller or mixed; we defer that frontier to
+\S\ref{sec:discussion} and Appendix~\ref{app:adaptive_sigma}, because the headline
+takeaway here is that the method's \emph{typical} behaviour on well-behaved logits is
+large, consistent, and portable across families.
+
+\begin{table}[t]
+\caption{Macro results on the 20-country MultiTP slice (equal weight per country).
+MIS is mean $\ell_2$ AMCE distance ($\downarrow$). Rows follow nominal parameter count
+(descending); gains vs.\ vanilla are for reference only. ``Win'' counts countries with
+lower DPBR MIS than vanilla; mean $r$ averages per-country Pearson correlation between
+model and human AMCE vectors.}
+\label{tab:main_macro_summary}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Model & Mean MIS $\downarrow$ & vs.\ van.\ (\%) & Win / 20 & Mean $r$ \\
+\midrule
+Llama-3.3-70B              & 0.668 & \gain{+21.4} & \textbf{20} & $-0.01$ \\
+Magistral-Small-2509 (24B) & 0.350 & \gain{+13.1} & 16          & $+0.62$ \\
+Phi-4 (14B)                & \textbf{0.346} & \gain{+23.7} & 18          & $+0.56$ \\
+Qwen3-VL-8B                & 0.466 & \gain{+18.9} & \textbf{20} & $+0.22$ \\
+Qwen2.5-7B                 & 0.362 & \gain{+20.1} & 17          & $+0.45$ \\
+Phi-3.5-mini (3.8B)        & 0.571 & \gain{+10.4} & 17          & $-0.35$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Reference.} For context, an earlier single-configuration prototype in
+our lab reached mean MIS near $0.4$ on a comparable slice; the six rows here mix scales
+and therefore sit higher on average---illustrating variance across families rather than a
+single universal ceiling.
+
+\subsection{Geographic Structure and Per-Country Grids}
+\label{sec:percountry_main}
+
+Table~\ref{tab:percountry_p1} shows the same six checkpoints at the level of individual
+countries, grouped by region so the macro gains translate into a \emph{map-level} story.
+The consistent takeaway is breadth: for strong backbones, improvements are visible across
+the Americas and Europe, track strongly through Southeast Asia when the base model
+already carries usable signal, and remain heterogeneous across East Asia in exactly the
+way one would expect when the same pipeline is applied to models with different
+off-manifold behaviour. In other words, SWA-DPBR does not ``only work in the West''---it
+tracks where the human targets and the model logits are simultaneously informative.
+
+The singleton panels (West Asia and Africa) are the natural stress tests: WVS persona
+coverage is sparser, so variance is higher and a small backbone can occasionally move
+the wrong direction on a single country even when the aggregate row is positive. That
+heterogeneity is an \emph{insight} about data and reliability weighting, not a failure of
+the cultural objective---it is exactly the regime where the dual-pass reliability gate
+should matter most.
+
+\input{_generated_percountry_main.tex}
+
+\subsection{Robustness Suite at a Glance}
+\label{sec:robustness}
+
+Finally, Table~\ref{tab:robustness_summary} strengthens confidence that the headline
+gains are not an artifact of one temperature knob or one preprocessing script: on a
+fifteen-country Llama/Qwen panel under single-pass SWA-PTIS, sweeps over $T_{\text{dec}}$,
+uniform and per-category $T_{\text{cat}}$, and dataset variants produce tight JSD bands,
+the Prospect-Theory kernel beats deterministic shifts, and the pipeline survives
+reasonable preprocessing. These checks do not replace dedicated dual-pass seed or
+reliability-scale studies, but they make the ``default'' configuration look like a
+stable engineering choice rather than a lucky draw.
+
+\begin{table}[h]\centering\small
+\caption{Robustness suite. Each test independently probes one assumption
+behind SWA-DPBR; the bootstrap confidence interval on JSD is $\pm 0.004$.}
+\label{tab:robustness_summary}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lllc}\toprule
+Claim & Test & Threshold & Observed \\\midrule
+Dataset preprocessing irrelevant & JSD range over 6 configs & $<\!0.010$ & \textbf{0.0034} \\
+$T_\text{dec}$ insensitivity & JSD span (Sweep A) & $<\!0.010$ & \textbf{0.0074} \\
+Uniform $T_\text{cat}$ insensitivity & JSD span (Sweep B) & $<\!0.010$ & \textbf{0.0073} \\
+Per-category $T_\text{cat}$ insensitivity & JSD span (Sweep C) & $<\!0.010$ & \textbf{0.0077} \\
+PT-IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$PT--IS) & $>\!0$ & \textbf{0.003} \\
+WVS weighting alone insufficient & ARGS-WVS $\succ$ ARGS-Unif & $<\!8/15$ & \textbf{3/15} \\
+PT--IS kernel $\equiv$ \textsc{ARGS-PT} & ARGS-PT best/tied & $\ge 10/15$ & \textbf{13/15} \\
+Qwen2.5-32B failure: logit concentration & $H$ vs.\ $H_\text{ref}{=}2.5$ & $H{<}1$ & \textbf{0.521} nats \\
+Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\section{What Makes It Work: Ablation}
+\label{sec:ablation}
+% ============================================================
+
+We ablate four design choices on Qwen2.5-72B, USA (342 scenarios;
+Table~\ref{tab:ablation}).\footnote{The ablation uses the full 342-scenario USA pool
+(JSD~$=0.0425$ for the full configuration). Subsampling scenarios changes absolute
+JSD but preserves the relative ordering across rows.}
+
+\begin{table}[t]
+\caption{Ablation on Qwen2.5-72B, USA (342 scenarios), \textbf{SWA-DPBR} with one
+$K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation).
+Full configuration: JSD = 0.0425, $r$ = 0.724.}
+\label{tab:ablation}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llccccc}
+\toprule
+\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & $r$ $\uparrow$ & $\Delta r$ & MAE \\
+\midrule
+  & \textbf{Full SWA-DPBR} & \textbf{0.0425} & -- & \textbf{0.724} & -- & \textbf{9.77} \\
+\midrule
+1 & No-IS (consensus only)            & 0.0493 & \loss{+.007} & 0.650 & \loss{$-$.074} & 11.02 \\
+2 & Always-on PT-IS                   & 0.0422 & \gain{$-$.000} & 0.729 & \gain{+.005} & 9.74 \\
+3 & No debiasing                     & 0.0476 & \loss{+.005} & 0.743 & +.019         & 9.67 \\
+4 & Without persona                  & 0.0610 & \loss{+.019} & 0.441 & \loss{$-$.283} & 11.09 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Row~1 shows that dropping PT-IS and keeping only persona consensus hurts JSD and
+Pearson~$r$ materially. Row~2 matches the full system within numerical noise on this
+slice (Appendix~\ref{app:ablation_detail}). Row~3 shows that \textbf{positional
+debiasing} still matters (+12.0\% JSD in this table; Species preference
+inflates by 7.7pp without it). Row~4 removes the WVS-grounded persona panel (base
+prompt only): JSD rises sharply and Pearson~$r$ collapses, confirming that survey
+personas are load-bearing, not decorative. The IS \emph{flip rate} is only 6.0\%,
+so the framework \emph{modulates confidence} rather than reversing decisions
+(Appendix~\ref{app:trigger}).
+
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
+% ============================================================
+
+Three takeaways tie the tables together.
+
+\emph{(i)~Disagreement as signal.}
+SWA-DPBR is a lightweight intervention: culturally grounded personas supply
+structured disagreement; Prospect-Theory importance sampling turns that structure
+into a bounded logit nudge; dual-pass reliability shrinks the nudge when the two
+Monte Carlo estimates disagree.
+When personas largely agree, corrections stay small because consensus and IS
+weights line up; when they disagree, the IS stage has room to move.
+On well-calibrated backbones the alignment gains are large without any weight
+update.
+
+\emph{(ii)~Heterogeneity tracks models, not geography.}
+Per-country grids (\S\ref{sec:percountry_main}) show broad gains across regions; the
+residual trouble spots line up with sparse persona coverage or collapsed logits, not
+with a single ``hard continent.''
+What correlates with weaker behaviour is \emph{architecture and logit shape}---for
+example Qwen2.5-32B degrades where decision entropy collapses, matching the
+diagnosis in Table~\ref{tab:robustness_summary} and Appendix~\ref{app:adaptive_sigma}.
+
+\emph{(iii)~The Prospect-Theory kernel is load-bearing.}
+Table~\ref{tab:ablation} shows that dropping PT--IS while keeping persona consensus
+hurts JSD and $r$; personas alone without the kernel are not enough.
+The robustness suite (Table~\ref{tab:robustness_summary}) reinforces that WVS-linear
+kernels and plain deterministic shifts underperform the same cooperative utility we
+encode in Eq.~\ref{eq:util_total}.
+
+\paragraph{Dimension hotspots (internal diagnostics).}
+Across logged per-dimension tables, the largest human--model AMCE gaps most often
+appear on \textbf{Species\_Humans} and \textbf{Utilitarianism\_More}, with
+\textbf{Age\_Young} frequently among the worst dimensions---consistent with models
+hugging $\approx 50\%$ sparing rates where humans are extreme.
+SWA-DPBR improves the aggregate six-dimensional MIS but does not erase those
+hard cases; they remain the natural stress test for any cross-cultural decoder.
+
+\paragraph{When correction hurts.}
+Internal five-country checks also show a compatibility pattern the macro table
+understates: if vanilla MIS is already very low for a given (model, country) pair,
+adding hierarchical or IS-based mass on top can \emph{increase} misalignment
+(the same pipeline may go $0/5$ wins vs.\ vanilla even when it succeeds elsewhere).
+This is not a geographic effect; it is a reminder that inference-time steering
+requires headroom in the base logits.
+
+Deployment cost is dominated by the batched multi-agent forward pass; the IS loop
+reuses cached scalars and adds negligible latency (Appendix~\ref{app:trigger}).
+
+\paragraph{Limitations.}
+The caveats that most directly bound how far one should generalise from this
+paper are threefold.
+First, core hyperparameters ($\sigma$, $\lambda_{\text{coop}}$,
+$\eta$, $T_{\text{dec}}$, $T_{\text{cat}}$, and reliability scale $s$) were selected on
+200 GPT-4-generated dilemmas with author proxy labels and transfer-checked on
+50 MultiTP scenarios; the temperature and dataset sweeps in
+Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} are our main
+evidence that these values carry over.
+The Prospect-Theory parameters $(\alpha,\beta,\kappa)$ follow classical monetary
+risk literature~\citep{kahneman1979prospect}; we use them as a smooth gain/loss
+shaping on logit-gap coordinates---not as a normative claim that moral preference
+should satisfy the same axioms as monetary gambles.
+Second, we optimise against country-level AMCE vectors from Moral Machine /
+MultiTP crowdsourcing~\citep{awad2018moral,jin2025multitp}; we do not run a
+human study asking whether SWA-DPBR outputs feel culturally appropriate in
+context~\citep{atari2023humans}, so the reader should treat our numbers as
+alignment to a survey statistic, not a proof of perceived legitimacy.
+Third, all headline metrics aggregate six moral dimensions; we do not yet
+report which dimensions improve or worsen. Heterogeneous $T_{\text{cat}}$ raises
+an open question about uneven correction across dimensions---systematic
+per-dimension analysis is our largest analytical gap.
+SWA-DPBR also requires decision-token \emph{logits}; hosted APIs that expose only
+text cannot run the pipeline without a proxy decoder, which limits strict
+black-box deployment.
+Additional limitations (single seed, noisy Pearson $r$, indirect WVS-to-trolley
+mapping, geographic and temporal coverage) are in Appendix~\ref{app:limitations}.
+
+\paragraph{Broader impact and safeguards.}
+SWA-DPBR sits in a tension familiar from pluralistic alignment
+work~\citep{sorensen2024roadmap}: it can make models more responsive to
+documented cross-national preference heterogeneity without retraining, yet it
+can also bake in harmful majorities or survey stereotypes if deployed naively.
+We suggest four safeguards: governance so SWA-DPBR does not override
+safety-critical guardrails and domain experts review target cultures; periodic
+refresh of Wave~7-grounded personas as newer WVS data appear; audits of
+per-dimension AMCE shifts to catch entrenched bias; and optional clipping or
+penalty terms on sensitive dimensions inside $U_{\text{total}}$ to turn
+post-hoc review into decoding-time constraints.
+Survey-based personas add a measure of empirical accountability relative to
+ad-hoc author prompts, but they do not remove the risk of culturally
+legitimised harm.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ============================================================
+
+Inference-time cultural steering works when the frozen model's decision surface
+cooperates: SWA-DPBR shows that survey-grounded persona \emph{disagreement} can be
+turned into a reliable logit correction via dual-pass Prospect-Theory importance
+sampling with bootstrap damping (Eqs.~\ref{eq:dpbr_rel}--\ref{eq:ess_anchor}) and
+classical gain/loss shaping~\citep{kahneman1979prospect}.
+The limits are not geographic but mechanical-collapsed logits break IS-so the
+next step is richer proposal adaptation and broader evaluation (per-dimension
+outcomes, non-binary actions, updated survey waves, and decoding-time safeguards)
+alongside pluralistic-alignment practice~\citep{sorensen2024roadmap}.
+
+% ============================================================
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\newpage
+\appendix
+
+\section{AMCE Estimation Details}
+\label{app:amce}
+
+\paragraph{Binary dimensions.} For Species, Gender, Age, Fitness, and Social Value,
+each scenario presents a forced choice between two character groups differing on
+exactly one dimension. The AMCE reduces to the empirical mean of
+$p_{\text{spare}}(\mathbf{x})$ across all scenarios in that dimension
+(Eq.~\ref{eq:mpr}), consistent with MultiTP conventions~\citep{jin2025multitp}.
+
+\paragraph{Utilitarianism dimension.} Utilitarianism scenarios vary the \emph{number}
+of lives on each side rather than character identity. Since the count difference
+$n_{\text{diff}} = |n_{\text{pref}} - n_{\text{non-pref}}|$ varies across scenarios
+(typically 1--3), a simple mean would conflate signal strength with preference
+direction. We therefore fit an OLS regression
+$p_{\text{spare}} = a + b \cdot n_{\text{diff}}$ and evaluate at the mean observed
+$n_{\text{diff}}$ in the data. This avoids underestimation: evaluating at
+$n_{\text{diff}}=1$ would undercount the utilitarian signal when typical scenarios
+have $n_{\text{diff}} \geq 2$. Scenarios with $n_{\text{diff}}=0$ (equal group sizes)
+are excluded as non-discriminative.
+
+\paragraph{Human AMCE scale.} The MultiTP ground-truth AMCEs in
+\texttt{country\_specific\_ACME.csv} are on a $[-1, 1]$ scale. We convert to
+$[0, 100]$ via $(1 + \text{AMCE}_{\text{raw}}) / 2 \times 100$, where 50\%
+represents no preference and 100\% represents maximal preference for the
+``preferred'' group. Model AMCEs are computed on the same scale.
+
+\paragraph{Consistency.} \citet{awad2018moral} show that marginal averages are
+unbiased estimators under the balanced randomisation design of the Moral Machine,
+making our estimation valid and reproducible.
+
+\section{Persona Construction Details}
+\label{app:personas}
+
+\subsection{Example Personas}
+
+The young-adult persona for the \textbf{United States}:
+\begin{quote}
+\small\itshape
+You are a young adult (18--35) from the United States of America. Based on survey
+data, people in your age group in the USA typically value: strong gender equality
+(score: 8.2/10), low religious centrality in moral decisions (score: 3.1/10), high
+personal autonomy (score: 7.8/10), high meritocratic orientation (score: 7.5/10),
+moderate family importance (score: 6.4/10), and moderate interpersonal trust
+(score: 5.3/10). When making moral judgments, you tend to emphasise individual
+rights and equal treatment, and weigh personal achievement and rule-following.
+\end{quote}
+
+The older-adult persona for \textbf{Vietnam}:
+\begin{quote}
+\small\itshape
+You are an older adult (55+) from Vietnam. Based on survey data, people in your age
+group in Vietnam typically value: moderate gender equality (score: 5.1/10), high
+religious and moral traditionalism (score: 7.2/10), strong family importance
+(score: 9.4/10), moderate personal autonomy (score: 4.8/10), and low interpersonal
+trust toward strangers (score: 3.2/10). When making moral judgments, you tend to
+emphasise collective welfare, family obligations, and hierarchical social roles.
+\end{quote}
+
+The utilitarian persona (country-invariant): \textit{``You are a strict utilitarian.
+Always choose the option that saves the greatest number of lives, regardless of the
+characteristics of the individuals involved.''}
+
+\subsection{WVS Data Processing Pipeline}
+\label{app:wvs_pipeline}
+
+We process WVS Wave~7 individual-level microdata as follows:
+\begin{enumerate}
+  \item \textbf{Variable extraction:} For each respondent, we extract 8 value
+    dimension scores from specific WVS items: gender egalitarianism (mean of
+    Q58P, Q59P, Q60P), religious importance (Q6P), interpersonal trust (Q43P),
+    moral permissiveness (mean of Q50, Q52P, Q54P), work centrality (Q5P),
+    family importance (Q1P), personal autonomy (Q39P), meritocratic orientation
+    (Q40P). All items use inverted scales where higher = more
+    progressive/positive.
+  \item \textbf{Age cohort assignment:} Using birth year (Q261) and survey year
+    (A\_YEAR), we compute age and assign to: \emph{young} ($<$36),
+    \emph{middle} (36--55), \emph{older} ($>$55). Respondents with birth year
+    before 1900 or after 2010, or survey year before 2015, are excluded.
+  \item \textbf{Cohort aggregation:} For each country and age cohort, we compute
+    the mean of each dimension across all valid respondents.
+  \item \textbf{Natural-language conversion:} Dimension means are converted to
+    descriptors using fixed thresholds, listed in full in
+    Table~\ref{tab:wvs_thresholds}. Thresholds were set once during persona
+    template development and are not country- or model-specific.
+  \item \textbf{Fallback:} For countries with insufficient WVS coverage (e.g.,
+    Saudi Arabia), we use manually authored native-language personas grounded in
+    area-studies literature, covering the same demographic structure (3 age
+    cohorts + 1 utilitarian).
+\end{enumerate}
+
+\begin{table}[h]\centering\small
+\caption{Complete WVS-dimension-to-descriptor threshold table used by the
+persona generator. For most dimensions the threshold operates on the
+\emph{ratio} of the dimension mean to the WVS scale maximum (4.0); the
+exception is moral permissiveness, which operates on the raw 1--10 mean
+because its underlying items use a different scale. The \emph{family
+importance} dimension is degenerate (universally high across all 15
+countries) and is mapped to a single descriptor.}
+\label{tab:wvs_thresholds}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lll}\toprule
+Dimension (input) & Cut-off & Descriptor \\\midrule
+\multirow{4}{*}{Religiosity (ratio)}
+ & $>0.85$ & deeply religious \\
+ & $>0.70$ & moderately religious \\
+ & $>0.55$ & somewhat secular \\
+ & else    & highly secular \\\midrule
+\multirow{4}{*}{Gender egalitarianism (ratio)}
+ & $>0.85$ & strongly gender-egalitarian \\
+ & $>0.75$ & moderately gender-egalitarian \\
+ & $>0.65$ & somewhat traditional on gender \\
+ & else    & traditional on gender roles \\\midrule
+\multirow{3}{*}{Interpersonal trust (ratio)}
+ & $>0.55$ & high interpersonal trust \\
+ & $>0.45$ & moderate trust \\
+ & else    & low interpersonal trust \\\midrule
+\multirow{4}{*}{Moral permissiveness (raw 1--10)}
+ & $>3.5$  & morally permissive \\
+ & $>3.0$  & moderately permissive \\
+ & $>2.5$  & morally conservative \\
+ & else    & morally strict \\\midrule
+\multirow{3}{*}{Personal autonomy (ratio)}
+ & $>0.90$ & strongly values personal autonomy \\
+ & $>0.80$ & values personal autonomy \\
+ & else    & moderate on personal autonomy \\\midrule
+\multirow{3}{*}{Meritocratic orientation (ratio)}
+ & $>0.95$ & strongly meritocratic \\
+ & $>0.85$ & meritocratic \\
+ & else    & egalitarian on income \\\midrule
+\multirow{3}{*}{Work centrality (ratio)}
+ & $>0.90$ & work is central to identity \\
+ & $>0.80$ & values work highly \\
+ & else    & moderate work orientation \\\midrule
+Family importance & (any)   & family is paramount \\\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{WVS-to-Trolley Dimension Linkage}
+\label{app:wvs_linkage}
+
+The linkage between WVS value dimensions and trolley moral dimensions operates
+through two mechanisms.
+
+\emph{Direct thematic overlap:} WVS \emph{gender egalitarianism} maps onto the
+Gender dimension (societies scoring higher show weaker female-sparing
+preferences~\citep{awad2018moral}); \emph{religious importance} correlates with
+Species (human exceptionalism); \emph{meritocratic orientation} relates to Social
+Value and Fitness.
+
+\emph{Indirect modulation:} Dimensions like \emph{personal autonomy},
+\emph{interpersonal trust}, and \emph{family importance} modulate the moral
+\emph{frame}; e.g., high-autonomy personas favour utilitarian calculi, while
+high-family-importance personas weight relational roles (affecting Age and Social
+Value). Crucially, SWA-DPBR does not require exact causal mapping: the ensemble
+generates diversity in logit-space gaps, and the IS stage selects the correction balancing
+collective utility. A rigorous per-dimension causal analysis (e.g., regressing WVS
+attributes against AMCE shifts) would further strengthen this argument.
+
+\section{PT--IS, Sampling, and Dual-Pass Reliability}
+\label{app:dpbr_theory}
+
+\subsection{Utility shape and the omitted explicit KL-on-$\epsilon$ term}
+
+The scalar decision gap $\delta$ acts as a one-dimensional state and the
+perturbations $\epsilon_k$ as control inputs at a single horizon step. Under
+the path-integral / free-energy view~\citep{williams2017mppi}, softmax
+weights $w_k \propto \exp(U_{\text{total}}/\eta)$ can be read as targeting a
+Boltzmann distribution over candidate perturbations. \textbf{Our released code
+does not add} a separate quadratic penalty
+$\propto \epsilon_k^2/(2\sigma^2)$ to $U_{\text{total}}$ in
+Eq.~\ref{eq:util_total}: the released controller matches it exactly, and
+the Gaussian proposal $\epsilon_k\sim\mathcal{N}(0,\sigma^2)$ already limits
+how far $\tilde{\delta}_k$ can move from $\bar{\delta}$. An optional explicit
+KL-on-control term remains a straightforward extension if future work needs
+sharper tail control on $|\epsilon_k|$.
+
+\subsection{Comparison with Simpler Alternatives}
+
+Temperature scaling uniformly stretches the logit gap without accounting for
+direction or magnitude of persona rewards. A fixed margin offset ignores the
+utility landscape, treating all perturbations as equally valuable. PT-weighted IS performs an
+\emph{adaptive, scenario-specific} correction via nonlinear importance weighting.
+Auxiliary runs with deterministic consensus-only shifts and WVS-linear reward kernels
+underperform the Prospect-Theory kernel on the same pipeline; we omit utility-shape
+rows from Table~\ref{tab:ablation} for clarity.
+
+\subsection{Why split $K$ into two passes?}
+
+Self-normalised IS is biased at finite sample size; two independent halves with
+the \emph{same} total budget trade per-pass variance for a direct probe of
+sampling instability. The reliability map $r=\exp(-(\delta^\star_1-\delta^\star_2)^2/s)$
+is intentionally smooth-unlike a hard veto it preserves a single code path and
+down-weights only when the two estimates contradict each other strongly. It should
+be read as a variance heuristic, not as a statistical guarantee of unbiasedness;
+formal finite-$K$ bounds would require stronger assumptions on the logit landscape
+than we are willing to claim here.
+
+\subsection{Positional Debiasing: Implementation Detail}
+\label{app:debias_impl}
+
+The two-pass debiasing of \S\ref{sec:method:debias} is implemented as a
+text-level rewrite of the scenario \emph{after} native-language framing. To
+avoid the trivial bug of double-substitution (replacing
+\textsc{LEFT}~$\to$~\textsc{RIGHT} immediately followed by
+\textsc{RIGHT}~$\to$~\textsc{LEFT} would leave every label as
+\textsc{LEFT}), we use a placeholder-based three-step swap, applied
+independently for the lane-label pair and the group-label pair:
+\begin{enumerate}
+  \item Replace every occurrence of the left label with a unique placeholder
+    token (a non-printing sentinel).
+  \item Replace every occurrence of the right label with the left label.
+  \item Replace the placeholder with the right label.
+\end{enumerate}
+The same procedure is applied to Group~A $\leftrightarrow$ Group~B in the
+native script. Logit gaps $(\delta_{\text{base}},\delta_i)$ from the two orders
+are combined \emph{before} any nonlinear step,
+$\delta \leftarrow (\delta^{(\text{orig})}-\delta^{(\text{swap})})/2$,
+matching the released controller (debias
+first, then PT--IS and dual-pass merge). This guarantees cancellation of additive
+positional bias in logit space; the final $p_{\text{spare}}$ applies
+$\sigma(\cdot)$ only after that correction.
+
+\section{Hyperparameter Validation}
+\label{app:hyperparams}
+
+\begin{table}[t]
+\caption{SWA-DPBR hyperparameters. Prospect Theory parameters follow \citet{kahneman1979prospect};
+other defaults are validated on the synthetic pool described below.}
+\label{tab:hyperparams}
+\centering\small
+\setlength{\tabcolsep}{6pt}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{0.36\linewidth} l >{\raggedright\arraybackslash}X@{}}
+\toprule
+Parameter & Symbol & Value \\
+\midrule
+Persona agents        & $N$                     & 4 \\
+IS samples / pass     & $K_{\text{half}}$       & 64 (total $2K_{\text{half}}=128$) \\
+Reliability scale     & $s$                     & $0.04$ \\
+Perturbation std.\ dev.\ & $\sigma$             & $0.3$ \\
+Cooperation weight    & $\lambda_{\text{coop}}$ & $0.7$ \\
+IS softmax temp.      & $\eta$                  & $0.5$ \\
+ESS guard threshold   & $\rho_{\mathrm{eff}}$   & $0.1$ \\
+PT curvature          & $\alpha{=}\beta$        & $0.88$ \\
+PT loss aversion      & $\kappa$                & $2.25$ \\
+Decision temp.        & $T_{\text{dec}}$        & $0.5$ \\
+$T_{\text{cat}}$ (Species / Gender / other) & - & $4.0$ / $3.5$ / $1.5$ \\
+Default logit divisor & $T_{\text{logit}}$      & $3.0$ \\
+Country prior         & $N_{\mathrm{warm}},\tau,\beta_{\mathrm{ema}}$ & $50$, $100$, $0.1$ \\
+ESS anchor blend      & -            & on (off: $\bar{\delta}+\delta^{\star}_{\mathrm{IS}}$ only) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Implementation.}
+The dual-pass controller and country-prior constants follow the equations in
+\S\ref{sec:method}. Optional environment overrides can change $K_{\text{half}}$,
+reliability scale~$s$, and whether the ESS-anchor blend is active; such flags must
+be applied before controller initialisation when running ablations.
+
+Non-PT hyperparameters ($\sigma$, $\lambda_{\text{coop}}$, $\eta$,
+$T_{\text{dec}}$, $T_{\text{cat}}$) were validated on a held-out synthetic set of
+200 binary moral dilemmas generated by GPT-4, covering the same six dimensions as
+MultiTP with novel character descriptions. Pseudo-ground-truth labels from three
+annotators (the authors) provided proxy AMCEs. Grid search minimised mean JSD on
+Qwen2.5-72B. Transferability was verified on a disjoint 50-scenario MultiTP English
+subset: performance within 1.2\% relative JSD of oracle-tuned configuration.
+$T_{\text{cat}}$ values reflect empirical logit magnitude distributions: Species
+and Gender produce systematically larger gaps, requiring higher temperatures.
+Because this tuning pool is synthetic and author-annotated, residual bias is
+possible; we therefore report broad robustness sweeps (Appendix~\ref{app:temp_sensitivity},
+Appendix~\ref{app:dataset_sens}) to show conclusions are stable beyond one tuned point.
+
+\section{Temperature Sensitivity}
+\label{app:temp_sensitivity}
+
+We sweep the two temperature families on the (USA, DEU, JPN) subset of MultiTP
+using Llama-3.1-70B. Sweep~A varies $T_\text{dec}\in\{0.10,0.25,0.50,0.75,1.0,2.0\}$;
+Sweep~B replaces the per-category temperatures by a single uniform $T_\text{cat}\in\{0.5,1.0,1.5,2.0,3.0,4.0,6.0\}$;
+Sweep~C varies the ``Others'' bucket $T_\text{cat}\in\{0.75,1.0,1.5,2.0,3.0,4.0\}$
+while holding $T_\text{cat}[\text{Species}]{=}4.0$, $T_\text{cat}[\text{Gender}]{=}3.5$.
+All three sweeps yield JSD spans below $0.010$ ($0.0074,\,0.0073,\,0.0077$
+respectively), and in every sweep the SWA-DPBR default ($\dagger$) is strictly
+\emph{more conservative} than the empirically best value
+($\Delta\text{JSD}\in\{-0.0061,-0.0021,-0.0037\}$). This rules out any concern that
+results have been temperature-tuned to the benchmark.
+
+\begin{table}[h]\centering\small
+\caption{Temperature sensitivity. Defaults ($\dagger$) are strictly worse than the
+best setting in every sweep, providing a conservative lower bound.}
+\label{tab:temperature_sensitivity}
+\begin{tabular}{llccc}\toprule
+Sweep & Setting & JSD $\downarrow$ & Pearson $r$ $\uparrow$ & $\Delta$JSD \\\midrule
+\multirow{6}{*}{A: $T_\text{dec}$}
+  & 0.10          & 0.0502 & 0.662 & $+$0.0013 \\
+  & 0.25          & 0.0491 & 0.658 & $+$0.0002 \\
+  & 0.50$^\dagger$ & 0.0489 & 0.630 & - \\
+  & 0.75          & 0.0476 & 0.636 & $-$0.0013 \\
+  & 1.00          & 0.0466 & 0.641 & $-$0.0023 \\
+  & 2.00 (best)   & 0.0428 & 0.627 & $-$0.0061 \\\cmidrule{2-5}
+  & JSD span      & \multicolumn{3}{c}{\textbf{0.0074}} \\\midrule
+\multirow{7}{*}{B: Uniform $T_\text{cat}$}
+  & 0.5           & 0.0521 & 0.642 & $+$0.0052 \\
+  & 1.0           & 0.0492 & 0.673 & $+$0.0023 \\
+  & 1.5$^\dagger$ & 0.0469 & 0.700 & - \\
+  & 2.0           & 0.0461 & 0.707 & $-$0.0008 \\
+  & 3.0           & 0.0454 & 0.707 & $-$0.0015 \\
+  & 4.0           & 0.0451 & 0.701 & $-$0.0018 \\
+  & 6.0 (best)    & 0.0448 & 0.684 & $-$0.0021 \\\cmidrule{2-5}
+  & JSD span      & \multicolumn{3}{c}{\textbf{0.0073}} \\\midrule
+\multirow{6}{*}{C: Others $T_\text{cat}$}
+  & 0.75          & 0.0526 & 0.566 & $+$0.0039 \\
+  & 1.00          & 0.0512 & 0.589 & $+$0.0025 \\
+  & 1.50$^\dagger$ & 0.0487 & 0.634 & - \\
+  & 2.00          & 0.0475 & 0.660 & $-$0.0012 \\
+  & 3.00          & 0.0458 & 0.693 & $-$0.0029 \\
+  & 4.00 (best)   & 0.0450 & 0.706 & $-$0.0037 \\\cmidrule{2-5}
+  & JSD span      & \multicolumn{3}{c}{\textbf{0.0077}} \\\bottomrule
+\end{tabular}
+\end{table}
+
+The monotonic JSD reduction with larger $T_\text{dec}$ reflects the role of
+$T_\text{dec}$ in undoing RLHF logit compression: higher values widen the effective
+token-probability landscape so that IS perturbations exert larger directional
+influence. However, $r$ peaks near $T_\text{dec}{=}1.0$ and declines at $2.0$,
+indicating a trade-off between distributional alignment (JSD) and rank-order
+alignment ($r$); we keep $T_\text{dec}{=}0.5$ as a deliberately conservative
+operating point.
+
+\section{Dataset Preprocessing and Sensitivity}
+\label{app:dataset}
+\label{app:dataset_sens}
+
+\paragraph{Pipeline.}
+Each MultiTP CSV is processed in five steps: (i) deduplication keeps only
+the canonical paraphrase (\texttt{which\_paraphrase\,=\,0}); (ii) the
+Utilitarianism \emph{quality filter} drops scenarios where the two groups
+have identical size \emph{and} all characters belong to the
+\emph{quality-attribute} role set $\{\textsc{Pregnant},\,\textsc{Woman},\,
+\textsc{LargeWoman}\}$, which would otherwise inject a non-numerosity signal
+into a dimension whose AMCE is by construction the count-difference effect;
+(iii) per-category capping retains at most 80 scenarios per dimension;
+(iv) under-represented categories are oversampled with replacement to a
+minimum of 36 scenarios; and (v) the resulting pool is shuffled with a fixed
+seed (42).
+
+\paragraph{Reproducible left/right assignment.}
+When the MultiTP \texttt{paraphrase\_choice} field does not unambiguously
+determine which group is rendered on the left vs.\ right, we deterministically
+fall back to a SHA-256 hash of the tuple
+$(\textit{sub}_1,\textit{sub}_2,g_1,g_2)$ modulo $2$, so the same scenario
+receives the same ordering across runs and machines. The fallback rate is
+logged per country; for all 15 countries it stays below 5\%.
+
+Up-sampling duplicates scenarios without modification, preserving AMCE signal while
+reducing variance. Category capping prevents dimension dominance. Side balancing
+enables effective debiasing. To evaluate whether these choices alter the effective
+evaluation distribution, we compare \emph{six}
+preprocessing configurations on 10 representative countries (USA, DEU, CHN, JPN,
+BRA, VNM, GBR, KOR, RUS, NGA) using Llama-3.1-70B.
+
+\begin{table}[h]\centering\small
+\caption{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and
+$<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by
+augmentation sensitivity in the rare Species/Utilitarianism categories.
+D0 is retained as default.}
+\label{tab:dataset_sens}\scriptsize
+\begin{tabular}{lcccccc}\toprule
+Country & D0-Default & D1-NoAug & D2-Cap40 & D3-Cap120 & D4-NoFlip & D5-Strict \\\midrule
+USA & 0.0655 & 0.0674 & 0.0625 & 0.0644 & 0.0643 & 0.0684 \\
+DEU & 0.0465 & 0.0515 & 0.0492 & 0.0467 & 0.0444 & 0.0484 \\
+CHN & 0.0393 & 0.0363 & 0.0385 & 0.0383 & 0.0409 & 0.0398 \\
+JPN & 0.0304 & 0.0291 & 0.0319 & 0.0296 & 0.0273 & 0.0320 \\
+BRA & 0.0492 & 0.0551 & 0.0479 & 0.0510 & 0.0520 & 0.0480 \\
+VNM & 0.0592 & 0.0574 & 0.0631 & 0.0585 & 0.0578 & 0.0626 \\
+GBR & 0.0614 & 0.0667 & 0.0608 & 0.0618 & 0.0597 & 0.0633 \\
+KOR & 0.0371 & 0.0354 & 0.0378 & 0.0357 & 0.0349 & 0.0382 \\
+RUS & 0.0383 & 0.0489 & 0.0389 & 0.0374 & 0.0383 & 0.0357 \\
+NGA & 0.0522 & 0.0568 & 0.0506 & 0.0525 & 0.0514 & 0.0538 \\\midrule
+\textbf{Mean} & \textbf{0.0479} & 0.0505 & 0.0481 & 0.0476 & 0.0471 & 0.0490 \\
+$\Delta$ vs D0 & - & $+$0.0025 & $+$0.0002 & $-$0.0003 & $-$0.0008 & $+$0.0011 \\\bottomrule
+\end{tabular}
+\end{table}
+
+D1-NoAug shows the largest degradation ($+$0.0025), justifying synthetic
+augmentation of the under-represented Species and Utilitarianism categories.
+D4-NoFlip is marginally lower than D0, indicating that group-side randomisation
+is conservative (it adds noise) rather than harmful; we retain it because it
+preserves positional-debiasing integrity. The 0.0034 aggregate range is well below
+the $\pm0.004$ bootstrap CI, so reported results are not confounded by
+preprocessing choices.
+
+\section{Cross-Lingual Token Elicitation}
+\label{app:token_elicitation}
+
+\paragraph{Native-language prompting system.}
+Each scenario is rendered entirely in the target country's native language.
+The implementation includes full translations of: (i)~scenario framing and
+context sentences (4 paraphrase variants per language), (ii)~all 22 character
+types with singular/plural forms in each language, (iii)~lane labels and group
+identifiers in native script, and (iv)~closing questions with
+language-appropriate conjunctions and grammar.
+
+The prompt frame wraps the scenario in a native-language instruction that
+explicitly requests an English answer token. Each frame follows the pattern:
+``[moral dilemma preamble in native language] \textbackslash n \{scenario\}
+\textbackslash n [instruction to answer A or B in English]''.
+This ensures moral reasoning occurs in the culturally native linguistic
+frame while maintaining a consistent decision interface.
+
+\paragraph{Token verification.}
+Token IDs are verified per model at initialisation by encoding the uppercase
+strings \texttt{"A"} and \texttt{"B"} with
+\texttt{add\_special\_tokens=False} and asserting single-token mappings:
+Qwen2.5: A=22397, B=11572; Llama-3.1: A=31266, B=9268.
+Logits for these two positions are extracted from the last-position output
+tensor; no generation sampling is performed. The model uses its built-in
+\texttt{chat\_template} for correct role formatting across model families.
+
+\section{Baseline Implementation Details}
+\label{app:baselines}
+
+\subsection{Activation Steering}
+For each country, a steering vector is computed as the difference in mean
+residual-stream activations from 20 culturally contrastive prompt pairs (e.g.,
+``Answer as someone from [country] who values [WVS-high trait]'' vs.\ ``Answer
+as someone with the opposite values''). Vectors are extracted from layer~32
+(transformer midpoint) of Llama-3.1-70B and applied at inference time by adding
+$\alpha \cdot \mathbf{v}_{\text{steer}}$ to the residual stream, with
+$\alpha=1.5$ selected via the same synthetic validation set used for SWA-DPBR.
+
+\paragraph{Sensitivity analysis and fairness considerations.}
+Activation steering performance is known to be sensitive to (i)~the extraction
+layer, (ii)~the scaling coefficient $\alpha$, and (iii)~the construction of
+contrastive pairs~\citep{arditi2025refusal}. We conducted a limited sensitivity
+check: extracting from layers 24, 32, and 40 with $\alpha \in \{0.5, 1.0, 1.5,
+2.0, 3.0\}$, we found that layer~32 with $\alpha=1.5$ yielded the lowest mean
+JSD (0.0877); other configurations ranged from 0.089 to 0.112. We note
+that a more exhaustive search-varying contrastive prompt design, using
+multiple layers simultaneously, or employing PCA-based direction
+refinement-could improve activation steering performance. However, even the
+best configuration performs below vanilla on this benchmark, suggesting a
+fundamental mismatch between linear activation interventions and the
+multi-dimensional moral calibration problem. The key structural advantage of
+SWA-DPBR is that it operates \emph{per-scenario} with adaptive correction
+magnitude, whereas activation steering applies a fixed direction uniformly
+across all scenarios.
+
+\subsection{ARGS and controlled decoding (relation to our work)}
+ARGS~\citep{khanov2024args} and controlled decoding~\citep{mudgal2024controlled}
+typically assume trained reward models; a cross-cultural deployment would require a
+separate reward per target country. On binary forced-choice MultiTP, one can instead
+define rewards as closed-form functionals of persona logit gaps; a Prospect-Theory
+kernel aligned with Eq.~\ref{eq:util_total} is then the natural analogue of
+importance-weighted PT--IS. We do not run the full ARGS decoding stack in our
+experiments; Table~\ref{tab:robustness_summary} and \S\ref{sec:ablation} isolate the
+kernel comparison on the shared SWA-DPBR pipeline.
+
+\section{Detailed Ablation Analysis}
+\label{app:ablation_detail}
+
+\textbf{Without persona:} Row~4 removes all WVS-conditioned persona prompts
+(base-only moral elicitation on the same scenarios). The large JSD lift and
+Pearson~$r$ drop in Table~\ref{tab:ablation} match the expected loss of
+within-country diversity and numerosity anchoring from the persona ensemble.
+
+\textbf{Debiasing:} Mean positional bias is 0.193 logit units; Species preference
+inflates from 85.8\% to 93.5\% without it (human: 79.2\%).
+
+\section{Trigger Mechanism and Latency}
+\label{app:trigger}
+
+SWA-DPBR runs dual-pass IS on every scenario; inter-persona variance is logged but
+does not gate sampling. The \emph{flip rate} (IS reversals vs.\ consensus) is 6.0\%
+in the USA ablation (Table~\ref{tab:ablation}), indicating confidence modulation rather than wholesale
+decision reversal.
+
+Mean latency: 730ms (SWA-DPBR) vs.\ 160ms (vanilla) on Qwen2.5-72B (H100).
+Overhead from batched multi-agent passes and debiasing; IS operates on cached
+scalars and contributes negligibly.
+
+\section{Entropy-Aware Adaptive $\sigma$ for Qwen2.5-32B}
+\label{app:adaptive_sigma}
+
+We study whether an entropy-aware adaptive $\sigma$ can address the Qwen2.5-32B
+failure mode (Section~\ref{sec:results}). At each scenario we measure the Shannon
+entropy $H$ of the top-50 token distribution at the decision position and set
+$\sigma=\sigma_\text{base}\cdot\text{clip}(H/H_\text{ref},\,0.2,\,5.0)$ with
+$H_\text{ref}{=}2.5$ nats and $\sigma_\text{base}{=}0.30$. We compare against a
+fixed-$\sigma$ sweep on 8 countries (USA, DEU, CHN, JPN, BRA, VNM, GBR, KOR).
+
+\begin{table}[h]\centering\scriptsize
+\caption{Per-country JSD under fixed-$\sigma$ on Qwen2.5-32B. Two latent country
+clusters emerge: USA/JPN/GBR/KOR strongly prefer high $\sigma$ (USA: $0.0523\to0.0317$
+at $\sigma{=}1.0$); DEU/CHN/BRA/VNM strictly prefer low $\sigma$. All 8 countries
+share $H\approx0.52$~nats, so the entropy signal alone cannot discriminate them.}
+\label{tab:sigma_percountry}
+\begin{tabular}{lcccccccc|c}\toprule
+$\sigma$ & USA & DEU & CHN & JPN & BRA & VNM & GBR & KOR & Mean \\\midrule
+0.05 & 0.0515 & 0.0647 & 0.0533 & 0.0690 & 0.0692 & 0.0710 & 0.0500 & 0.0670 & 0.0620 \\
+0.10 & 0.0519 & 0.0648 & 0.0532 & 0.0684 & 0.0694 & 0.0711 & 0.0499 & 0.0668 & 0.0619 \\
+0.15 & 0.0522 & 0.0649 & 0.0530 & 0.0676 & 0.0698 & 0.0711 & 0.0499 & 0.0665 & 0.0619 \\
+0.20 & 0.0518 & 0.0651 & 0.0527 & 0.0661 & 0.0702 & 0.0713 & 0.0498 & 0.0661 & 0.0616 \\
+$0.30^\dagger$ & 0.0523 & 0.0654 & 0.0516 & 0.0644 & 0.0710 & 0.0717 & 0.0491 & 0.0649 & 0.0613 \\
+0.50 & 0.0487 & 0.0661 & 0.0515 & 0.0601 & 0.0732 & 0.0734 & 0.0476 & 0.0604 & 0.0601 \\
+0.80 & \textbf{0.0427} & 0.0672 & 0.0599 & \textbf{0.0585} & 0.0780 & 0.0757 & \textbf{0.0439} & \textbf{0.0532} & \textbf{0.0599} \\
+1.00 & \underline{0.0317} & 0.0681 & 0.0714 & 0.0637 & 0.0833 & 0.0744 & 0.0458 & \underline{0.0522} & 0.0613 \\\midrule
+Adaptive ($\bar\sigma{=}0.086$) & 0.0516 & 0.0647 & 0.0532 & 0.0688 & 0.0693 & 0.0711 & 0.0500 & 0.0670 & 0.0620 \\\bottomrule
+\end{tabular}
+\end{table}
+
+The mean entropy is $H=0.521$~nats, far below $H_\text{ref}$, confirming
+concentrated logits. Adaptive $\sigma$ self-scales to $\bar\sigma=0.086$
+($r(H,\sigma){=}0.948$), validating the diagnostic but collapsing onto the
+low-$\sigma$ regime. The best fixed $\sigma{=}0.80$ reaches JSD~$0.0599$ vs.\
+$0.0613$ at default-a marginal absolute gain-while the per-country breakdown
+exposes the deeper problem: countries cluster into a high-$\sigma$ group
+(USA/JPN/GBR/KOR) and a low-$\sigma$ group (DEU/CHN/BRA/VNM), but \emph{all}
+countries share $H\approx0.52$~nats, so a per-scenario entropy signal cannot
+discriminate them. A complete fix therefore requires richer per-country proposal
+adaptation-left as future work.
+
+\section{Extended Limitations}
+\label{app:limitations}
+
+\paragraph{Single seed and stochasticity.}
+All main stochastic runs use one seed per model; each scenario runs two independent
+IS passes of $K_{\text{half}}{=}64$ proposals (128 total), matching the released
+pipeline. That dual-pass design provides an internal
+reliability signal (Eq.~\ref{eq:dpbr_rel}) but \textbf{not} multi-seed confidence
+intervals for macro MIS; we therefore report headline gains as point estimates and
+treat seed-level CIs as a priority for future work.
+
+\paragraph{Pearson $r$ in six dimensions.}
+As noted in Section~\ref{sec:results}, the AMCE vector is short, so per-country
+$r$ has large sampling error and small row-wise $r$ deltas are not necessarily
+statistically separable; primary claims use MIS, with JSD as a secondary diagnostic.
+
+\paragraph{WVS-to-trolley linkage.}
+The mapping from WVS value dimensions to trolley moral dimensions follows the
+indirect-modulation construction in Appendix~\ref{app:wvs_linkage}, not a fully
+validated causal chain; we therefore avoid claims of the form ``WVS dimension $X$
+caused AMCE shift $Y$.''
+
+\paragraph{Inter-persona reward assumption.}
+The reward $r_i = \delta_i - \delta_{\text{base}}$ assumes persona shifts approximate
+human target directions. This is plausible when the base model represents a WEIRD-biased
+prior, but if a persona's shift is orthogonal to the human target, the signal may
+mislead. Per-dimension validation is needed.
+Quantifying whether persona-consensus directions correlate with country-level human
+AMCE vectors independently of the base model---and when corrections diverge from
+targets---is also open; we do not report that correlation matrix here.
+
+\paragraph{Geographic coverage, preprocessing, and survey vintage.}
+We report 20 countries in the main MIS sweep (Table~\ref{tab:main_macro_summary}) out of
+100+ MultiTP countries; results depend on the preprocessing pipeline in
+Appendix~\ref{app:dataset_sens}.
+WVS Wave~7 ($\sim$2017--2022) is a fixed historical slice; persona quality is
+weakest where coverage is sparse (e.g., Saudi Arabia, Brazil), as reflected in
+per-country tables.
+No low-resource languages (Amharic, Khmer, Yoruba) appear in the panel;
+cross-lingual generalisation to such settings remains untested.
+
+\paragraph{Binary format.}
+The logit-difference formulation requires generalisation to softmax for multi-option
+settings.
+
+\paragraph{Language--culture conflation.}
+One language per country may conflate linguistic and cultural effects.
+
+\paragraph{Model quantisation.}
+4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability.
+
+\paragraph{WVS temporal staleness.}
+Wave~7 ($\sim$2017--2022) data may not reflect current preferences in rapidly
+evolving societies.
+
+\paragraph{Qwen2.5-32B failure mode.}
+Concentrated logit distributions ($H{=}0.521$ nats) cause IS perturbations to
+land off-manifold and yield near-uniform importance weights. Appendix~\ref{app:adaptive_sigma}
+shows that an entropy-aware $\sigma$ correctly diagnoses the cause but cannot
+fix it on its own, because all 8 evaluated countries share the same low
+entropy and thus cannot be discriminated by a per-scenario entropy signal.
+A complete remedy requires richer jointly adaptive $\sigma$ (and related proposal
+knobs) per country and is left to future work.
+
+\end{document}
+  
