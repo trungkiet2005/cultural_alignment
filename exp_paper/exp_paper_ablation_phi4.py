@@ -38,7 +38,12 @@ Environment overrides:
     ABLATION_COUNTRIES      comma-separated ISO3  (default: USA)
     ABLATION_N_SCENARIOS    int                   (default: 342)
     ABLATION_SEED           int                   (default: 42)
-    MORAL_MODEL_BACKEND     unsloth|hf_native|vllm (default: unsloth)
+    MORAL_MODEL_BACKEND     unsloth|hf_native|vllm (default: vllm — matches
+                            the main EXP-24-PHI_4 experiment which was run
+                            with vLLM BF16 full precision on Kaggle; Unsloth
+                            4-bit quantisation produces near-uniform logits
+                            for Phi-4 on moral reasoning, causing MIS≈0.51
+                            instead of the main-exp MIS≈0.24)
     EXP24_K_HALF            int  — override K per IS pass (default: 64)
     EXP24_VAR_SCALE         float — override DPBR scale  (default: 0.04)
 """
@@ -80,6 +85,13 @@ def _ensure_repo() -> str:
 
 
 _ensure_repo()
+
+# ── Backend default: vLLM (BF16) — matches the main EXP-24-PHI_4 run ─────────
+# Unsloth 4-bit quantisation causes near-flat logits for Phi-4 on moral
+# reasoning (delta_consensus ≈ 0.003 after debiasing → all MPR ≈ 50%),
+# producing MIS ≈ 0.51 instead of the vLLM baseline MIS ≈ 0.24.
+# The user can still force Unsloth with: MORAL_MODEL_BACKEND=unsloth
+os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")
 
 # ── Env / deps (must run BEFORE exp24_dpbr_core is imported) ─────────────────
 from exp_paper.paper_runtime import configure_paper_env, install_paper_kaggle_deps  # noqa: E402

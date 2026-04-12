@@ -63,35 +63,34 @@ def _run(cmd: str, verbose: bool = False) -> int:
 
 if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
-    print("[SETUP] (1/7) scipy tqdm matplotlib seaborn ...")
+
+    # -----------------------------------------------------------------------
+    # huggingface_hub fix — Kaggle's system has a version mismatch between
+    # transformers and huggingface_hub. We install the correct huggingface_hub
+    # into a private directory and prepend it to sys.path so Python finds it
+    # BEFORE the broken system version. This avoids all permission/path issues.
+    # -----------------------------------------------------------------------
+    _COMPAT = "/kaggle/working/_compat_packages"
+    os.makedirs(_COMPAT, exist_ok=True)
+    print("[SETUP] (1/7) huggingface_hub>=1.3.0 (compat fix) ...")
+    _run(f"pip install -q --target={_COMPAT} --no-deps 'huggingface_hub>=1.3.0'", verbose=True)
+    if _COMPAT not in sys.path:
+        sys.path.insert(0, _COMPAT)
+
+    print("[SETUP] (2/7) scipy tqdm matplotlib seaborn ...")
     _run("pip install -q scipy tqdm matplotlib seaborn", verbose=True)
-    print("[SETUP] (2/7) pyarrow ...")
+    print("[SETUP] (3/7) pyarrow ...")
     _run("pip install --quiet --no-deps --force-reinstall pyarrow", verbose=True)
-    print("[SETUP] (3/7) datasets ...")
+    print("[SETUP] (4/7) datasets ...")
     _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'", verbose=True)
-    print("[SETUP] (4/7) huggingface_hub + transformers + accelerate ...")
-    # --upgrade --force-reinstall overwrites the system-installed packages in
-    # /usr/local/lib/python3.12/dist-packages/ so Python picks up the new version.
-    # Needed because huggingface_hub 0.21+ removed is_offline_mode which the
-    # pre-installed transformers still imports.
-    _run("pip install -q --upgrade --force-reinstall "
-         "'huggingface_hub>=0.26.0' 'transformers>=4.47.0' accelerate", verbose=True)
-    # Purge any cached module state from this Jupyter session so the
-    # freshly installed versions are picked up on next import.
-    import importlib, sys
-    for _mod in list(sys.modules.keys()):
-        if _mod == "transformers" or _mod.startswith("transformers.") \
-                or _mod == "huggingface_hub" or _mod.startswith("huggingface_hub."):
-            sys.modules.pop(_mod, None)
-    importlib.invalidate_caches()
-    print("[SETUP] (5/7) spacy ...")
+    print("[SETUP] (5/7) accelerate (for device_map=auto) ...")
+    _run("pip install -q --upgrade accelerate", verbose=True)
+    print("[SETUP] (6/7) spacy + en_core_web_sm ...")
     _run("pip install -q spacy", verbose=True)
-    print("[SETUP] (6/7) spacy en_core_web_sm model ...")
     _run("python -m spacy download en_core_web_sm -q", verbose=True)
     print("[SETUP] (7/7) konlpy jieba hazm qalsadi nlp-id hausastemmer ...")
     _run("pip install -q konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
-    # NOTE: cltk, pyspark, spark-nlp are heavy and slow — installed lazily
-    #       per language in _ensure_lang_tools() below, only when needed.
+    # NOTE: cltk, pyspark, spark-nlp are heavy — installed lazily per language.
     print("[SETUP] Installation complete.")
 
 
@@ -304,7 +303,7 @@ def load_model():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
         device_map="auto",
-        torch_dtype=torch.bfloat16,
+        dtype=torch.bfloat16,
         attn_implementation="sdpa",  # PyTorch built-in, dispatches FA on H100
         token=HF_TOKEN if HF_TOKEN else None,
         trust_remote_code=True,      # required for Phi-4

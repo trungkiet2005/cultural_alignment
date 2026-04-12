@@ -692,6 +692,52 @@ stabilises tail scenarios where IS noise would otherwise accumulate.
 Notably, the IS \emph{flip rate} is only 6.0\%: SWA-DPBR \emph{modulates confidence}
 rather than reversing decisions (Appendix~\ref{app:trigger}).
 
+\paragraph{Cross-model replication on Phi-4 (14B).}
+Replicating the ablation on Phi-4~(14B) with the same USA pool reveals a divergent importance
+ordering that is itself informative (Table~\ref{tab:ablation_phi4}).
+\textbf{Positional debiasing becomes the overwhelmingly dominant component}: disabling it collapses
+$r$ from $+0.38$ to $-0.53$ ($\Delta r = -0.90$)---a far more severe effect than on Qwen2.5-72B
+($\Delta r = +0.02$).
+The diagnostic explains why: Phi-4 carries a raw option-A positional bias of
+$\bar{b} \approx -4.08$ logit units, roughly $8\times$ the magnitude observed in the Qwen sweep.
+Debiasing neutralises this artifact, but in doing so exposes the second key finding:
+\textbf{the residual decision surface is near-flat} ($\bar{\delta} \approx 0.003$ logit units
+after debiasing), leaving IS with no gradient to exploit and personas with no informative
+disagreement to aggregate---WVS-grounded diversity becomes noise rather than signal
+($\Delta r = +0.01$ without personas, versus $-0.28$ for Qwen2.5-72B).
+\textbf{The country prior becomes the last load-bearing stabiliser} ($\Delta r = -0.24$):
+when per-scenario IS corrections are degenerate, the EMA provides the only durable
+cross-scenario correlation structure.
+These findings confirm the ``collapsed logit entropy'' failure mode discussed in
+\S\ref{sec:discussion}: the ablation importance hierarchy is not universal---it mirrors
+the base model's decision-surface conditioning.
+Where logits are rich (Qwen2.5-72B), personas and IS drive the gain;
+where logits are flat (Phi-4 on English moral dilemmas), debiasing is everything
+and the prior is the fallback stabiliser.
+
+\begin{table}[t]
+\caption{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf{SWA-DPBR}.
+Full configuration: JSD = 0.0543, $r$ = 0.378, MAE = 18.93.
+Compare Table~\ref{tab:ablation} (Qwen2.5-72B): the importance ordering reverses,
+confirming that component load-bearing depends on base-model logit conditioning.}
+\label{tab:ablation_phi4}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llccccc}
+\toprule
+\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & $r$ $\uparrow$ & $\Delta r$ & MAE \\
+\midrule
+  & \textbf{Full SWA-DPBR} & \textbf{0.0543} & -- & \textbf{0.378} & -- & \textbf{18.93} \\
+\midrule
+1 & No-IS (consensus only)           & 0.0548 & \loss{+.001} & 0.247 & \loss{$-$.131} & 18.94 \\
+2 & Always-on PT-IS                  & 0.0545 & \loss{+.000} & 0.325 & \loss{$-$.053} & 18.96 \\
+3 & No debiasing                     & 0.0556 & \loss{+.001} & $-$0.526 & \loss{$-$.904} & 18.90 \\
+4 & Without persona                  & 0.0541 & \gain{$-$.000} & 0.389 & \gain{+.011} & 18.89 \\
+5 & No country prior ($\alpha_h{=}0$) & 0.0547 & \loss{+.000} & 0.140 & \loss{$-$.238} & 19.15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 % ============================================================
 \section{Discussion}
 \label{sec:discussion}

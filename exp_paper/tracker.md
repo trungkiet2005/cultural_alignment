@@ -1,5 +1,46 @@
 # EXP paper — results tracker
 
+---
+
+#### 2026-04-13 — EXP-24 Ablation (Phi-4 14B, USA) — `exp_paper/exp_paper_ablation_phi4.py`
+
+**Setup:** microsoft/phi-4 · USA · 310 scenarios (post quality-filter from 342) · K=64×2=128 · VAR_SCALE=0.04 · seed=42
+
+| # | Configuration | JSD ↓ | Δ JSD | r ↑ | Δ r | MAE ↓ | MIS ↓ | flip% |
+|:--|:-------------|:-----:|:------:|:---:|:---:|:-----:|:-----:|:-----:|
+| — | **Full SWA-DPBR** | **0.0543** | — | **+0.378** | — | **18.93** | **0.5104** | 50.3% |
+| 1 | No-IS (consensus only) | 0.0548 | +.001 | +0.247 | −.131 | 18.94 | 0.5112 | 17.4% |
+| 2 | Always-on PT-IS | 0.0545 | +.000 | +0.325 | −.053 | 18.96 | 0.5114 | 49.4% |
+| 3 | No debiasing | 0.0556 | +.001 | −0.526 | −.904 | 18.90 | 0.5114 | 0.0% |
+| 4 | Without persona | 0.0541 | −.000 | +0.389 | +.011 | 18.89 | 0.5093 | 9.7% |
+| 5 | No country prior | 0.0547 | +.000 | +0.140 | −.238 | 19.15 | 0.5157 | 43.2% |
+
+**Internal diagnostics (Full):** pos_b μ=−4.076 · delta_consensus μ=0.003 · ESS=0.351 · rel_r=0.995 · α_h=0.928
+
+**Key findings vs Qwen2.5-72B paper ablation:**
+- Row 3 (No debiasing): Phi-4 Δr=**−0.904** vs Qwen Δr=+0.019 — Phi-4 has extreme raw A-position bias (~4 logit units); debiasing is the single most load-bearing component
+- Row 4 (Without persona): Phi-4 Δr=**+0.011** vs Qwen Δr=−0.283 — personas are neutral/harmful for Phi-4 because debiased logits are near-flat (delta_consensus≈0.003), making WVS disagreement pure noise
+- Row 5 (No prior): Phi-4 Δr=**−0.238** vs Qwen Δr=−0.010 — prior unexpectedly load-bearing for Phi-4; EMA is the only accumulator of signal when per-scenario IS corrections are degenerate
+- All model MPR ≈ 50% (vs human 56–79%) — IS has no gradient to exploit after positional bias is removed; confirms "collapsed logit entropy" failure mode (§Discussion)
+
+**Artifacts:** `/kaggle/working/cultural_alignment/results/exp24_ablation_phi4/`
+
+> **Post-hoc note (2026-04-12) — Backend mismatch explains discrepancy vs main EXP-24-PHI_4**
+>
+> The ablation was run with **Unsloth 4-bit** (default), but the main EXP-24-PHI_4 sweep
+> was run with **vLLM BF16** full precision (confirmed by `(vLLM)` in `exp_paper_phi_4.py`
+> header and main-run MIS=0.2433/r=+0.723 vs ablation MIS=0.5104/r=+0.378).
+>
+> Root cause: Unsloth INT4 quantisation produces near-uniform moral-reasoning logits
+> for Phi-4 (`delta_consensus` μ≈0.003 after A↔B debiasing), so IS has no gradient
+> to exploit → all MPR collapse to ≈50%.  The ablation results above therefore reflect
+> the **Unsloth 4-bit failure mode**, not the production vLLM regime.
+>
+> **Fix applied**: `exp_paper_ablation_phi4.py` now defaults to `MORAL_MODEL_BACKEND=vllm`
+> (matching the main experiment). Re-run on Kaggle to obtain correct ablation numbers.
+
+---
+
 Artifacts:
 
 - `[EXP-24-LLAMA32_1B] DONE` — `/kaggle/working/cultural_alignment/results/exp24_paper_20c/llama32_1b/compare`
