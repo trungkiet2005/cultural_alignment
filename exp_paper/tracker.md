@@ -25,19 +25,25 @@
 
 **Artifacts:** `/kaggle/working/cultural_alignment/results/exp24_ablation_phi4/`
 
-> **Post-hoc note (2026-04-12) — Backend mismatch explains discrepancy vs main EXP-24-PHI_4**
+> **Post-hoc note (2026-04-13) — Backend mismatch explains discrepancy vs main EXP-24-PHI_4**
 >
-> The ablation was run with **Unsloth 4-bit** (default), but the main EXP-24-PHI_4 sweep
-> was run with **vLLM BF16** full precision (confirmed by `(vLLM)` in `exp_paper_phi_4.py`
-> header and main-run MIS=0.2433/r=+0.723 vs ablation MIS=0.5104/r=+0.378).
+> The ablation was run with **Unsloth 4-bit** (the `MORAL_MODEL_BACKEND` default), but
+> the main EXP-24-PHI_4 sweep was run with `MORAL_MODEL_BACKEND=vllm` set in the Kaggle
+> session (confirmed by the `(vLLM)` annotation in `exp_paper_phi_4.py` and by the fact
+> that `src/model.py::load_model` routes to vLLM when that env var is set).  Main-run
+> metrics: MIS=0.2433, r=+0.723, flip%=18.7%.  Ablation metrics: MIS=0.5104, r=+0.378, flip%=50.3%.
 >
-> Root cause: Unsloth INT4 quantisation produces near-uniform moral-reasoning logits
-> for Phi-4 (`delta_consensus` μ≈0.003 after A↔B debiasing), so IS has no gradient
-> to exploit → all MPR collapse to ≈50%.  The ablation results above therefore reflect
-> the **Unsloth 4-bit failure mode**, not the production vLLM regime.
+> Root cause: Unsloth INT4 quantisation degrades Phi-4's moral-reasoning logit resolution
+> (`delta_consensus` μ≈0.003 after A↔B debiasing vs the vLLM regime where the model
+> retains real content signal).  With near-zero delta_consensus the IS correction is also
+> near-zero and flip direction is random → flip%≈50%, all MPR≈50%, MIS≈0.51.
 >
-> **Fix applied**: `exp_paper_ablation_phi4.py` now defaults to `MORAL_MODEL_BACKEND=vllm`
-> (matching the main experiment). Re-run on Kaggle to obtain correct ablation numbers.
+> **Fixes applied**:
+> - `exp_paper_ablation_phi4.py`: `os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")` before `configure_paper_env()`
+> - `paper_runtime.py` vllm install sequence: `pip install --upgrade 'huggingface_hub>=0.24.0'` added first,
+>   plus `sys.modules` cache flush, to resolve `ImportError: cannot import name 'reset_sessions'` on Kaggle's base image.
+>
+> **Re-run on Kaggle** to obtain ablation numbers comparable to the main experiment.
 
 ---
 

@@ -16,18 +16,34 @@ Runtime   : ~6–9 h on Kaggle H100 80 GB (bf16, batch=5 per forward)
 import sys, os, subprocess
 from pathlib import Path
 
-def _run(cmd: str, verbose: bool = False) -> int:
-    r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if verbose and r.stdout: print(r.stdout.strip())
-    if r.returncode != 0 and r.stderr: print(r.stderr.strip())
-    return r.returncode
+def _run(cmd: str, verbose: bool = True) -> int:
+    """Run shell command, streaming stdout line-by-line when verbose=True."""
+    if verbose:
+        proc = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1,
+        )
+        for line in proc.stdout:
+            line = line.rstrip()
+            if line:
+                print(line)
+        proc.wait()
+        return proc.returncode
+    else:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if r.returncode != 0 and r.stderr:
+            print(r.stderr.strip())
+        return r.returncode
 
 _ON_KAGGLE = os.path.exists("/kaggle/working")
 if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
-    _run("pip install -q accelerate bitsandbytes scipy tqdm matplotlib seaborn sentencepiece protobuf")
-    _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'")
-    _run("pip install -q flash-attn --no-build-isolation", verbose=False)
+    print("[SETUP] (1/3) accelerate bitsandbytes scipy tqdm matplotlib seaborn sentencepiece protobuf ...")
+    _run("pip install accelerate bitsandbytes scipy tqdm matplotlib seaborn sentencepiece protobuf")
+    print("[SETUP] (2/3) datasets ...")
+    _run("pip install 'datasets>=3.4.1,<4.4.0'")
+    print("[SETUP] (3/3) flash-attn (may take a few minutes) ...")
+    _run("pip install flash-attn --no-build-isolation")
 
     WORK_DIR = Path("/kaggle/working/SWA_MPPI_DPBR")
     DATA_DIR = WORK_DIR / "data"

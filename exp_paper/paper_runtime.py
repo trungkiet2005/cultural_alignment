@@ -41,6 +41,11 @@ def install_paper_kaggle_deps() -> None:
         return
     if paper_backend() == "vllm":
         cmds = [
+            # huggingface_hub must be upgraded BEFORE vLLM is imported.
+            # Kaggle's base image ships an older version that lacks
+            # `reset_sessions` in huggingface_hub.utils, which causes an
+            # ImportError deep inside vllm's import chain.
+            "pip install --upgrade --quiet 'huggingface_hub>=0.24.0'",
             'pip install -q "numpy<2.3"',
             "pip uninstall -y -q tensorflow tensorflow-cpu tf_keras 2>/dev/null || true",
             'pip install -q --upgrade "protobuf>=5.29.6,<6" "grpcio>=1.68" "googleapis-common-protos>=1.66"',
@@ -58,3 +63,11 @@ def install_paper_kaggle_deps() -> None:
         ]
     for c in cmds:
         subprocess.run(c, shell=True, check=False)
+    if paper_backend() == "vllm":
+        # Flush any stale cached huggingface_hub module objects so the
+        # upgraded version is used on the next import (same fix as
+        # baseline_open_ended.py's setup block).
+        import sys as _sys
+        for _mod in list(_sys.modules):
+            if _mod.startswith("huggingface_hub"):
+                del _sys.modules[_mod]

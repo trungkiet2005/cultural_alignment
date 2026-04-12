@@ -65,31 +65,34 @@ if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
 
     # -----------------------------------------------------------------------
-    # huggingface_hub fix — Kaggle's system has a version mismatch between
-    # transformers and huggingface_hub. We install the correct huggingface_hub
-    # into a private directory and prepend it to sys.path so Python finds it
-    # BEFORE the broken system version. This avoids all permission/path issues.
+    # transformers + huggingface_hub compat fix.
+    # Kaggle ships a mismatched pair: the system transformers calls APIs
+    # (validate_typed_dict, is_offline_mode, …) that only exist in specific
+    # huggingface_hub version windows.  Upgrading both together gives pip
+    # the freedom to resolve a self-consistent pair — the same strategy used
+    # by paper_runtime.py when it installs vllm (which brings its own
+    # compatible transformers+huggingface_hub combo).
+    # Flush sys.modules afterwards so any stale cached import is discarded.
     # -----------------------------------------------------------------------
-    _COMPAT = "/kaggle/working/_compat_packages"
-    os.makedirs(_COMPAT, exist_ok=True)
-    print("[SETUP] (1/7) huggingface_hub>=1.3.0 (compat fix) ...")
-    _run(f"pip install -q --target={_COMPAT} --no-deps 'huggingface_hub>=1.3.0'", verbose=True)
-    if _COMPAT not in sys.path:
-        sys.path.insert(0, _COMPAT)
+    print("[SETUP] (1/7) transformers + huggingface_hub upgrade (compat fix) ...")
+    _run("pip install -q --upgrade transformers huggingface_hub", verbose=True)
+    for _mod in list(sys.modules):
+        if _mod.startswith(("huggingface_hub", "transformers")):
+            del sys.modules[_mod]
 
     print("[SETUP] (2/7) scipy tqdm matplotlib seaborn ...")
-    _run("pip install -q scipy tqdm matplotlib seaborn", verbose=True)
+    _run("pip install scipy tqdm matplotlib seaborn", verbose=True)
     print("[SETUP] (3/7) pyarrow ...")
-    _run("pip install --quiet --no-deps --force-reinstall pyarrow", verbose=True)
+    _run("pip install --no-deps --force-reinstall pyarrow", verbose=True)
     print("[SETUP] (4/7) datasets ...")
-    _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'", verbose=True)
+    _run("pip install 'datasets>=3.4.1,<4.4.0'", verbose=True)
     print("[SETUP] (5/7) accelerate (for device_map=auto) ...")
-    _run("pip install -q --upgrade accelerate", verbose=True)
+    _run("pip install --upgrade accelerate", verbose=True)
     print("[SETUP] (6/7) spacy + en_core_web_sm ...")
-    _run("pip install -q spacy", verbose=True)
-    _run("python -m spacy download en_core_web_sm -q", verbose=True)
+    _run("pip install spacy", verbose=True)
+    _run("python -m spacy download en_core_web_sm", verbose=True)
     print("[SETUP] (7/7) konlpy jieba hazm qalsadi nlp-id hausastemmer ...")
-    _run("pip install -q konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
+    _run("pip install konlpy jieba hazm qalsadi nlp-id hausastemmer", verbose=True)
     # NOTE: cltk, pyspark, spark-nlp are heavy — installed lazily per language.
     print("[SETUP] Installation complete.")
 

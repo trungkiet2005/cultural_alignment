@@ -447,13 +447,13 @@ ABLATION_SPECS: List[AblationSpec] = [
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def _build_cfg(target_countries: List[str]) -> SWAConfig:
+def _build_cfg(target_countries: List[str], load_in_4bit: bool = False) -> SWAConfig:
     return SWAConfig(
         model_name=MODEL_NAME,
         n_scenarios=N_SCENARIOS,
         batch_size=1,
         target_countries=list(target_countries),
-        load_in_4bit=True,
+        load_in_4bit=load_in_4bit,
         use_real_data=True,
         multitp_data_path=MULTITP_DATA_PATH,
         wvs_data_path=WVS_DATA_PATH,
@@ -883,24 +883,27 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Load model ONCE — all ablations share the same weights ────────────────
-    backend = os.environ.get("MORAL_MODEL_BACKEND", "unsloth").strip().lower()
-    print(f"[LOAD] backend={backend}  model={MODEL_NAME}")
+    # vllm / hf_native → BF16 full precision (matches main EXP-24-PHI_4 run)
+    # unsloth          → 4-bit (legacy fallback; produces flat logits for Phi-4)
+    backend = os.environ.get("MORAL_MODEL_BACKEND", "vllm").strip().lower()
+    use_4bit = (backend == "unsloth")
+    print(f"[LOAD] backend={backend}  model={MODEL_NAME}  4bit={use_4bit}")
 
     if backend == "vllm":
         from src.vllm_causal import load_model_vllm  # type: ignore[import]
         model, tokenizer = load_model_vllm(
-            MODEL_NAME, max_seq_length=2048, load_in_4bit=True
+            MODEL_NAME, max_seq_length=2048, load_in_4bit=False   # BF16
         )
     elif backend == "hf_native":
         model, tokenizer = load_model_hf_native(
-            MODEL_NAME, max_seq_length=2048, load_in_4bit=True
+            MODEL_NAME, max_seq_length=2048, load_in_4bit=False   # BF16
         )
-    else:
+    else:  # unsloth (not recommended for Phi-4 — causes flat logits)
         model, tokenizer = load_model(
             MODEL_NAME, max_seq_length=2048, load_in_4bit=True
         )
 
-    cfg = _build_cfg(ABLATION_COUNTRIES)
+    cfg = _build_cfg(ABLATION_COUNTRIES, load_in_4bit=use_4bit)
     all_rows: List[Dict] = []
 
     # ── Per-country loop ──────────────────────────────────────────────────────
