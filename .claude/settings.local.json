@@ -10,7 +10,9 @@
       "Bash(grep -h \"MODEL_NAME\\\\|MODEL_SHORT\\\\|load_in_4bit\\\\|backend\\\\|BACKEND\\\\|vllm\\\\|unsloth\" d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/exp_paper_*.py)",
       "Bash(latexmk -pdf -interaction=nonstopmode paper_revised.tex)",
       "Bash(gh api:*)",
-      "Bash(curl -s \"https://raw.githubusercontent.com/trungkiet2005/cultural_alignment/492eccd98691f174ebec37f3611451f21518931c/open_ended/baseline_open_ended.py\")"
+      "Bash(curl -s \"https://raw.githubusercontent.com/trungkiet2005/cultural_alignment/492eccd98691f174ebec37f3611451f21518931c/open_ended/baseline_open_ended.py\")",
+      "Bash(grep -r \"subprocess\\\\|pip install\" /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)",
+      "Bash(ls /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)"
     ]
   }
 }

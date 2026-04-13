@@ -50,7 +50,7 @@ def install_paper_kaggle_deps() -> None:
             "pip uninstall -y -q tensorflow tensorflow-cpu tf_keras 2>/dev/null || true",
             'pip install -q --upgrade "protobuf>=5.29.6,<6" "grpcio>=1.68" "googleapis-common-protos>=1.66"',
             "pip install -q scipy tqdm sentencepiece",
-            "pip install -q vllm",
+            # vLLM install is handled separately below (version-pinned to PyTorch)
             'pip install --quiet "datasets>=3.4.1,<4.4.0"',
         ]
     else:
@@ -64,6 +64,32 @@ def install_paper_kaggle_deps() -> None:
     for c in cmds:
         subprocess.run(c, shell=True, check=False)
     if paper_backend() == "vllm":
+        # --- Install vLLM pinned to the Kaggle PyTorch version ---
+        # Latest vLLM often ships patches for a newer torch than Kaggle
+        # provides, causing RuntimeError on import (e.g. aten::OpaqueObject).
+        _torch_ver = subprocess.check_output(
+            "python -c \"import torch; print(torch.__version__)\"",
+            shell=True, text=True,
+        ).strip().split("+")[0]
+        _mm = ".".join(_torch_ver.split(".")[:2])
+        _VLLM_COMPAT = {"2.4": "vllm==0.6.4.post1",
+                         "2.5": "vllm==0.6.6.post1",
+                         "2.6": "vllm==0.7.3"}
+        _vspec = _VLLM_COMPAT.get(_mm)
+        if _vspec:
+            subprocess.run(f"pip install -q '{_vspec}'", shell=True, check=False)
+        else:
+            rc = subprocess.run("pip install -q vllm", shell=True).returncode
+            if rc != 0:
+                subprocess.run("pip install -q 'vllm==0.8.5'", shell=True, check=False)
+        # Smoke-test import
+        rc = subprocess.run(
+            "python -c \"import vllm; print('vLLM', vllm.__version__, 'OK')\"",
+            shell=True,
+        ).returncode
+        if rc != 0:
+            subprocess.run("pip install -q 'vllm==0.6.6.post1'", shell=True, check=False)
+
         # Flush any stale cached huggingface_hub module objects so the
         # upgraded version is used on the next import (same fix as
         # baseline_open_ended.py's setup block).

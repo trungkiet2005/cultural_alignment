@@ -6,8 +6,11 @@ Single-file Kaggle-ready script combining:
   1. BLEnD benchmark evaluation (NeurIPS 2024 Datasets & Benchmarks)
   2. SWA-MPPI candidate-level cultural steering (our method)
 
+Model: Phi-4 14B (BF16 full precision, SDPA attention, ~28GB on H100 80GB)
+Requires raw logit access for candidate scoring → HF native transformers (not vLLM)
+
 Pipeline:
-  Step 1 — Load Llama 3.1 70B (4-bit, H100 80GB)
+  Step 1 — Load Phi-4 14B (BF16, SDPA, H100 80GB)
   Step 2 — For each (country, language, prompt):
             a) Generate M candidate answers via persona-steered decoding
             b) Score candidates under N cultural agents (log-prob matrix)
@@ -55,14 +58,18 @@ def _run(cmd: str, verbose: bool = False) -> int:
 
 if _ON_KAGGLE:
     print("[SETUP] Installing dependencies...")
-    # Core ML
-    _run("pip install -q bitsandbytes scipy tqdm matplotlib seaborn")
-    _run("pip install --upgrade --no-deps unsloth")
-    _run("pip install -q unsloth_zoo")
-    _run("pip install --quiet --no-deps --force-reinstall pyarrow")
-    _run("pip install --quiet 'datasets>=3.4.1,<4.4.0'")
 
-    # Evaluation — lemmatizers per language
+    # 1. huggingface_hub upgrade first — transformers import chain needs it
+    _run("pip install --upgrade -q 'huggingface_hub>=0.24.0'")
+    for _mod in list(sys.modules):
+        if _mod.startswith("huggingface_hub"):
+            del sys.modules[_mod]
+
+    # 2. Core ML — accelerate for device_map="auto", sentencepiece for Phi-4 tokenizer
+    _run("pip install -q accelerate scipy tqdm matplotlib seaborn sentencepiece protobuf")
+    _run("pip install -q 'datasets>=3.4.1,<4.4.0'")
+
+    # 3. Evaluation — lemmatizers per language
     _run("pip install -q spacy")
     _run("python -m spacy download en_core_web_sm")
     _run("pip install -q konlpy")          # Korean
@@ -85,11 +92,8 @@ if _ON_KAGGLE:
 
     print("[SETUP] Installation complete.")
 
-# CRITICAL: import unsloth BEFORE transformers
-try:
-    import unsloth  # noqa: F401
-except Exception:
-    pass
+# Phi-4 uses PyTorch built-in SDPA (dispatches FA kernel on H100 via cuDNN)
+os.environ.setdefault("HF_ATTN_IMPLEMENTATION", "sdpa")
 
 import numpy as np
 import pandas as pd
@@ -186,8 +190,8 @@ for d in [RESULTS_DIR, EVAL_DIR]:
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
-MODEL_ID = "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit"
-MODEL_NAME = "Llama-3.1-70B-Instruct"
+MODEL_ID = "microsoft/phi-4"
+MODEL_NAME = "Phi-4-14B"
 HF_TOKEN = os.environ.get("HF_TOKEN")
 MAX_NEW_TOKENS = 512
 TEMPERATURE = 0.0
@@ -588,19 +592,11 @@ class CulturalQAController:
 
         self.persona_prefix_ids = []
         for persona_text in self.personas:
-            prefix = (
-                f"<|start_header_id|>system<|end_header_id|>\n\n"
-                f"{persona_text}<|eot_id|>"
-                f"<|start_header_id|>user<|end_header_id|>\n\n"
-            )
+            prefix = f"<|system|>\n{persona_text}<|end|>\n<|user|>\n"
             ids = self.tokenizer(prefix, return_tensors="pt").input_ids.to(self.device)
             self.persona_prefix_ids.append(ids)
 
-        base_prefix = (
-            "<|start_header_id|>system<|end_header_id|>\n\n"
-            "You are a helpful assistant.<|eot_id|>"
-            "<|start_header_id|>user<|end_header_id|>\n\n"
-        )
+        base_prefix = "<|system|>\nYou are a helpful assistant.<|end|>\n<|user|>\n"
         self.base_prefix_ids = self.tokenizer(
             base_prefix, return_tensors="pt"
         ).input_ids.to(self.device)
@@ -612,7 +608,7 @@ class CulturalQAController:
     def _generate_single(self, prefix_ids: torch.Tensor, query_text: str,
                          do_sample: bool = False, temperature: float = 1.0) -> str:
         """Generate one answer given a prefix and query (fallback for sampling)."""
-        suffix = query_text + "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+        suffix = query_text + "<|end|>\n<|assistant|>\n"
         query_ids = self.tokenizer(suffix, return_tensors="pt").input_ids.to(self.device)
         if query_ids[0, 0] == self.tokenizer.bos_token_id:
             query_ids = query_ids[:, 1:]
@@ -639,7 +635,7 @@ class CulturalQAController:
     @torch.no_grad()
     def _generate_batched(self, query_text: str) -> List[str]:
         """Batched greedy generation: base + all personas in ONE forward pass."""
-        suffix = query_text + "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+        suffix = query_text + "<|end|>\n<|assistant|>\n"
         query_ids = self.tokenizer(suffix, return_tensors="pt").input_ids.to(self.device)
         if query_ids[0, 0] == self.tokenizer.bos_token_id:
             query_ids = query_ids[:, 1:]
@@ -720,7 +716,7 @@ class CulturalQAController:
         all_prefixes = [self.base_prefix_ids] + self.persona_prefix_ids
         n_agents = len(all_prefixes)
 
-        suffix = query_text + "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"
+        suffix = query_text + "<|end|>\n<|assistant|>\n"
         query_ids = self.tokenizer(suffix, return_tensors="pt").input_ids.to(self.device)
         if query_ids[0, 0] == self.tokenizer.bos_token_id:
             query_ids = query_ids[:, 1:]
@@ -968,23 +964,31 @@ def make_prompt(question: str, prompt_no: str, language: str,
 # ============================================================================
 
 def load_model():
-    """Load Llama 3.1 70B Instruct (4-bit, fits H100 80GB)."""
-    print(f"[MODEL] Loading {MODEL_ID} via HF transformers ...")
+    """Load Phi-4 14B (BF16 full precision, SDPA attention, ~28GB on H100 80GB)."""
     from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "sdpa")
+    print(f"[MODEL] Loading {MODEL_ID} (BF16, attn={attn_impl}) ...")
 
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_ID,
         device_map="auto",
         torch_dtype=torch.bfloat16,
-        token=HF_TOKEN,
+        attn_implementation=attn_impl,
+        trust_remote_code=True,
+        token=HF_TOKEN if HF_TOKEN else None,
     )
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_ID,
-        token=HF_TOKEN,
+        trust_remote_code=True,
+        token=HF_TOKEN if HF_TOKEN else None,
     )
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token_id = tokenizer.eos_token_id
     model.eval()
-    model.generation_config.max_length = None
-    print(f"[MODEL] Loaded (4-bit). Device: {model.device}")
+
+    vram_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
+    print(f"[MODEL] Loaded. GPU: {torch.cuda.get_device_name(0)} ({vram_gb:.0f}GB)")
     return model, tokenizer, "hf"
 
 

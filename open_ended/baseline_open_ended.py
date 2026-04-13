@@ -88,7 +88,39 @@ if _ON_KAGGLE:
     _run("pip install -q scipy tqdm sentencepiece", verbose=True)
 
     print("[SETUP] (4/8) vllm ...")
-    _run("pip install -q vllm", verbose=True)
+    # --- Detect PyTorch version and install compatible vLLM ---
+    # Latest vLLM often breaks on Kaggle due to PyTorch version mismatch
+    # (e.g. vLLM patches for torch 2.9 fail on Kaggle's torch build).
+    _torch_ver = subprocess.check_output(
+        "python -c \"import torch; print(torch.__version__)\"",
+        shell=True, text=True,
+    ).strip().split("+")[0]          # strip +cu121 etc.
+    print(f"[SETUP]   Detected PyTorch {_torch_ver}")
+
+    _torch_major_minor = ".".join(_torch_ver.split(".")[:2])   # e.g. "2.5"
+    _VLLM_COMPAT = {
+        "2.4": "vllm==0.6.4.post1",
+        "2.5": "vllm==0.6.6.post1",
+        "2.6": "vllm==0.7.3",
+    }
+    _vllm_spec = _VLLM_COMPAT.get(_torch_major_minor, None)
+
+    if _vllm_spec:
+        print(f"[SETUP]   Pinning {_vllm_spec} (compatible with torch {_torch_major_minor})")
+        _run(f"pip install -q '{_vllm_spec}'", verbose=True)
+    else:
+        # torch 2.7+ — try latest vLLM, fall back to 0.8.5 if it fails
+        print(f"[SETUP]   torch {_torch_major_minor}: trying latest vLLM ...")
+        if _run("pip install -q vllm", verbose=True) != 0:
+            print("[SETUP]   Latest vLLM failed — falling back to vllm==0.8.5")
+            _run("pip install -q 'vllm==0.8.5'", verbose=True)
+
+    # Quick smoke-test: can we import vllm without crashing?
+    _import_rc = _run("python -c \"import vllm; print('vLLM', vllm.__version__, 'OK')\"", verbose=True)
+    if _import_rc != 0:
+        print("[SETUP]   ⚠ vLLM import failed — trying vllm==0.6.6.post1 as last resort")
+        _run("pip install -q 'vllm==0.6.6.post1'", verbose=True)
+        _run("python -c \"import vllm; print('vLLM', vllm.__version__, 'OK')\"", verbose=True)
 
     print("[SETUP] (5/8) datasets ...")
     _run('pip install -q "datasets>=3.4.1,<4.4.0"', verbose=True)
@@ -126,7 +158,7 @@ def _ensure_lang_tools(language: str):
             import sparknlp  # noqa: F401
         except ImportError:
             print(f"[SETUP] Installing spark-nlp for {language} (may take a few minutes)...")
-            _run("pip install -q pyspark spark-nlp")
+            _run("pip install -q 'pyspark==3.5.3' 'spark-nlp==5.3.3'")
 
     elif language == "Azerbaijani":
         repo = "/kaggle/working/stemmer" if _ON_KAGGLE else "stemmer"
@@ -141,6 +173,15 @@ def _ensure_lang_tools(language: str):
             print(f"[SETUP] Cloning indic_nlp_library for {language}...")
             base = "/kaggle/working" if _ON_KAGGLE else "."
             _run(f"cd {base} && git clone https://github.com/anoopkunchukuttan/indic_nlp_library.git")
+        # indic_nlp_library must be on sys.path for `from indicnlp import ...` to work
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        # Also clone indic_nlp_resources (needed by indic_nlp_library loader)
+        res_dir = "/kaggle/working/indic_nlp_resources" if _ON_KAGGLE else "indic_nlp_resources"
+        if not os.path.exists(res_dir):
+            print(f"[SETUP] Cloning indic_nlp_resources for {language}...")
+            base = "/kaggle/working" if _ON_KAGGLE else "."
+            _run(f"cd {base} && git clone https://github.com/anoopkunchukuttan/indic_nlp_resources.git")
 
     elif language == "Sundanese":
         repo = "/kaggle/working/SUSTEM" if _ON_KAGGLE else "SUSTEM"
@@ -519,11 +560,7 @@ def run_all_inference_and_eval(model, tokenizer) -> pd.DataFrame:
     total_combos = []
     for country, local_lang in COUNTRY_LANG.items():
         for prompt_no in PROMPT_NOS:
-            # local language
             total_combos.append((country, local_lang, prompt_no))
-            # English (skip if local is already English)
-            if local_lang != "English":
-                total_combos.append((country, "English", prompt_no))
 
     print(f"\n{'='*60}")
     print(f"INFERENCE + EVAL: {len(total_combos)} combos "
