@@ -3,6 +3,11 @@ WVS_data/
 # Secrets and local env (never commit real tokens)
 .env
 
+# Claude Code
+.claude/settings.local.json
+.agents/
+skills-lock.json
+
 __pycache__/
 *.py[cod]
 *$py.class

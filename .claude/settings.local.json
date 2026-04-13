@@ -1,23 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs wc:*)",
-      "Bash(ls -lh /d/AI_RESEARCH/moral_machine/cultural_alignment/*.csv)",
-      "Bash(grep -E \"\\\\.py$\")",
-      "Bash(grep -r \"phi\" /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)",
-      "Bash(grep -n \"Table 2\\\\|Table 3\\\\|\\\\\\\\\\\\\\\\begin{table}\" /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
-      "Bash(ls -la /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)",
-      "Bash(grep -h \"MODEL_NAME\\\\|MODEL_SHORT\\\\|load_in_4bit\\\\|backend\\\\|BACKEND\\\\|vllm\\\\|unsloth\" d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/exp_paper_*.py)",
-      "Bash(latexmk -pdf -interaction=nonstopmode paper_revised.tex)",
-      "Bash(gh api:*)",
-      "Bash(curl -s \"https://raw.githubusercontent.com/trungkiet2005/cultural_alignment/492eccd98691f174ebec37f3611451f21518931c/open_ended/baseline_open_ended.py\")",
-      "Bash(grep -r \"subprocess\\\\|pip install\" /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)",
-      "Bash(ls /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)",
-      "Bash(npx skills:*)",
-      "Read(//c/Users/huynh/.claude/skills/**)",
-      "Read(//c/Users/huynh/.agents/skills/**)",
-      "Read(//c/Users/huynh/**)",
-      "Bash(cat ~/.agents/skills/paper-lookup/*.md)"
+      "Bash(ls -1 /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/*.py /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/evaluation/*.py)",
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/data/annotations/*.json)"
     ]
   }
 }
