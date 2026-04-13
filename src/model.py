@@ -191,6 +191,7 @@ def _load_model_vllm(
         "trust_remote_code": True,
         "gpu_memory_utilization": gpu_mem,
         "enforce_eager": eager,
+        "device": "cuda",
     }
     if os.path.isdir("/kaggle/working"):
         if os.environ.get("VLLM_DISABLE_CUSTOM_ALL_REDUCE", "1").strip().lower() not in (

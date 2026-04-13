@@ -36,7 +36,7 @@ Local (inside repo root):
 
 Environment overrides:
     ABLATION_COUNTRIES      comma-separated ISO3  (default: USA)
-    ABLATION_N_SCENARIOS    int                   (default: 342)
+    ABLATION_N_SCENARIOS    int                   (default: 500 — matches exp_paper_phi_4.py)
     ABLATION_SEED           int                   (default: 42)
     MORAL_MODEL_BACKEND     unsloth|hf_native|vllm (default: vllm — matches
                             the main EXP-24-PHI_4 experiment which was run
@@ -138,6 +138,7 @@ from src.amce import (  # noqa: E402
 )
 from src.config import SWAConfig  # noqa: E402
 from src.constants import COUNTRY_LANG  # noqa: E402
+from src.config import model_slug  # noqa: E402
 from src.data import load_multitp_dataset  # noqa: E402
 from src.model import load_model, load_model_hf_native, setup_seeds  # noqa: E402
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas  # noqa: E402
@@ -152,10 +153,27 @@ ABLATION_COUNTRIES: List[str] = [
     for c in os.environ.get("ABLATION_COUNTRIES", "USA").split(",")
     if c.strip()
 ]
-N_SCENARIOS: int = int(os.environ.get("ABLATION_N_SCENARIOS", "342"))
+# N_SCENARIOS matches exp_paper_phi_4.py (_base_dpbr.N_SCENARIOS = 500) so that
+# the Full SWA-DPBR reference row is evaluated on the same scenario set.
+N_SCENARIOS: int = int(os.environ.get("ABLATION_N_SCENARIOS", "500"))
 SEED: int = int(os.environ.get("ABLATION_SEED", "42"))
 LAMBDA_COOP: float = 0.70
 LOAD_TIMEOUT_MINUTES: int = int(os.environ.get("ABLATION_LOAD_TIMEOUT_MINUTES", "15"))
+
+# ── Pre-computed Full SWA-DPBR results (optional) ─────────────────────────────
+# If ABLATION_FULL_SWA_BASE is set (or the Kaggle default path exists from a
+# previous exp_paper_phi_4.py run in the same session), the "Full SWA-DPBR"
+# row is loaded from swa_results_<country>.csv instead of being re-run.
+# When the file does not exist the script falls back to running Full normally.
+# Default path mirrors _base_dpbr.run_for_model():
+#   {results_base}/{model_short}/swa/{model_slug(MODEL_NAME)}/swa_results_<C>.csv
+_KAGGLE_MAIN_RUN_SWA = (
+    f"/kaggle/working/cultural_alignment/results/exp24_paper_20c"
+    f"/{MODEL_SHORT}/swa/{model_slug(MODEL_NAME)}"
+)
+FULL_SWA_BASE: Optional[str] = os.environ.get("ABLATION_FULL_SWA_BASE") or (
+    _KAGGLE_MAIN_RUN_SWA if _on_kaggle() else None
+)
 
 RESULTS_BASE = (
     "/kaggle/working/cultural_alignment/results/exp24_ablation_phi4"
@@ -497,6 +515,52 @@ def _reset_prior_state(country: str) -> None:
     PRIOR_STATE.clear()
     PRIOR_STATE[country] = BootstrapPriorState()
     PRIOR_STATE[f"__noprior_{country}"] = NoPriorController._NullPriorState()
+
+
+def _find_full_swa_csv(country: str) -> Optional[str]:
+    """Return path to pre-computed swa_results_<country>.csv from the main run,
+    or None if FULL_SWA_BASE is unset / file does not exist."""
+    if not FULL_SWA_BASE:
+        return None
+    p = os.path.join(FULL_SWA_BASE, f"swa_results_{country}.csv")
+    if os.path.isfile(p):
+        return p
+    return None
+
+
+def _reconstruct_summary(results_df: pd.DataFrame, country: str, cfg: "SWAConfig") -> Dict:
+    """Recompute the summary dict from a pre-loaded results_df.
+
+    Mirrors the tail of src/swa_runner.run_country_experiment() so that
+    metric computation is identical to a live run.
+    """
+    model_amce = compute_amce_from_preferences(results_df)
+    human_amce = load_human_amce(cfg.human_amce_path, country)
+    alignment  = compute_alignment_metrics(model_amce, human_amce)
+    per_dim    = compute_per_dimension_alignment(model_amce, human_amce)
+    util_slope = compute_utilitarianism_slope(results_df)
+
+    flip_col   = "mppi_flipped"
+    flip_count = int(results_df[flip_col].sum()) if flip_col in results_df.columns else 0
+    n          = len(results_df)
+
+    return {
+        "country":                country,
+        "n_scenarios":            n,
+        "flip_rate":              flip_count / max(1, n),
+        "flip_count":             flip_count,
+        "mean_variance":          float(results_df["mppi_variance"].mean())
+                                  if "mppi_variance" in results_df.columns else float("nan"),
+        "mean_delta_z_norm":      float(results_df["delta_z_norm"].mean())
+                                  if "delta_z_norm" in results_df.columns else float("nan"),
+        "mean_decision_gap":      float(results_df["delta_consensus"].mean())
+                                  if "delta_consensus" in results_df.columns else float("nan"),
+        "model_amce":             model_amce,
+        "human_amce":             human_amce,
+        "alignment":              alignment,
+        "per_dimension_alignment": per_dim,
+        "utilitarianism_slope":   util_slope,
+    }
 
 
 def _run_ablation_country(
@@ -995,9 +1059,21 @@ def main() -> None:
             gc.collect()
 
             t_start = time.time()
-            results_df, summary = _run_ablation_country(
-                spec, model, tokenizer, country, personas, scenario_df, cfg
+            # Full SWA-DPBR: load pre-computed results from exp_paper_phi_4.py
+            # if available, so the reference row matches the main 500-scenario run.
+            _precomp_csv = (
+                _find_full_swa_csv(country)
+                if spec.row_label == "Full SWA-DPBR"
+                else None
             )
+            if _precomp_csv is not None:
+                print(f"  [FULL] Loading pre-computed results: {_precomp_csv}")
+                results_df = pd.read_csv(_precomp_csv)
+                summary    = _reconstruct_summary(results_df, country, cfg)
+            else:
+                results_df, summary = _run_ablation_country(
+                    spec, model, tokenizer, country, personas, scenario_df, cfg
+                )
             elapsed = time.time() - t_start
 
             # Save per-ablation CSV
