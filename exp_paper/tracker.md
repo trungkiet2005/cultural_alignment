@@ -2,48 +2,50 @@
 
 ---
 
-#### 2026-04-13 — EXP-24 Ablation (Phi-4 14B, USA) — `exp_paper/exp_paper_ablation_phi4.py`
+#### 2026-04-13 — EXP-24 Ablation CORRECTED (Phi-4 14B **vLLM**, USA) — `exp_paper/exp_paper_ablation_phi4.py`
 
-**Setup:** microsoft/phi-4 · USA · 310 scenarios (post quality-filter from 342) · K=64×2=128 · VAR_SCALE=0.04 · seed=42
+> **Supersedes the Unsloth entry below.** Backend fixed to vLLM; numbers now match the main EXP-24-PHI_4 sweep.
 
-| # | Configuration | JSD ↓ | Δ JSD | r ↑ | Δ r | MAE ↓ | MIS ↓ | flip% |
-|:--|:-------------|:-----:|:------:|:---:|:---:|:-----:|:-----:|:-----:|
-| — | **Full SWA-DPBR** | **0.0543** | — | **+0.378** | — | **18.93** | **0.5104** | 50.3% |
-| 1 | No-IS (consensus only) | 0.0548 | +.001 | +0.247 | −.131 | 18.94 | 0.5112 | 17.4% |
-| 2 | Always-on PT-IS | 0.0545 | +.000 | +0.325 | −.053 | 18.96 | 0.5114 | 49.4% |
-| 3 | No debiasing | 0.0556 | +.001 | −0.526 | −.904 | 18.90 | 0.5114 | 0.0% |
-| 4 | Without persona | 0.0541 | −.000 | +0.389 | +.011 | 18.89 | 0.5093 | 9.7% |
-| 5 | No country prior | 0.0547 | +.000 | +0.140 | −.238 | 19.15 | 0.5157 | 43.2% |
+**Setup:** microsoft/phi-4 · USA · 310 scenarios (post quality-filter from 342) · K=64×2=128 · VAR_SCALE=0.04 · seed=42 · Backend=**vLLM**
 
-**Internal diagnostics (Full):** pos_b μ=−4.076 · delta_consensus μ=0.003 · ESS=0.351 · rel_r=0.995 · α_h=0.928
+| # | Configuration | JSD ↓ | Δ JSD | r ↑ | Δ r | MAE ↓ | MIS ↓ | Δ MIS | flip% |
+|:--|:-------------|:-----:|:------:|:---:|:---:|:-----:|:-----:|:------:|:-----:|
+| — | **Full SWA-DPBR** | **0.0813** | — | **+0.603** | — | **11.36** | **0.3489** | — | 29.0% |
+| 1 | No-IS (consensus only) | 0.0863 | +.005 | +0.577 | −.026 | 11.40 | 0.3550 | +.006 | 26.8% |
+| 2 | Always-on PT-IS | 0.0857 | +.004 | +0.577 | −.026 | 11.90 | 0.3639 | +.015 | 31.0% |
+| 3 | No debiasing | 0.0527 | **−.029** ⚠️ | +0.320 | −.282 | 19.66 | 0.5243 | +.175 | 3.5% |
+| 4 | Without persona | 0.0531 | **−.028** ⚠️ | +0.420 | −.183 | 15.67 | 0.4324 | +.083 | 21.9% |
+| 5 | No country prior (a_h=0) | 0.0794 | −.002 | +0.668 | **+.066** | 11.46 | 0.3205 | **−.028** | 8.7% |
+
+⚠️ JSD paradox (rows 3–4): JSD improves superficially because removing debiasing/personas collapses the model toward a near-uniform distribution with small marginal KL — but rank-order alignment (r, MIS) degrades severely. JSD alone is insufficient as a primary metric.
+
+**Internal diagnostics (Full):** pos_b μ=−29.14 · pos_b σ=26.84 · ESS₁=0.550 · rel_r=0.629 · δ_cntry=1.656 · α_h=0.928
 
 **Key findings vs Qwen2.5-72B paper ablation:**
-- Row 3 (No debiasing): Phi-4 Δr=**−0.904** vs Qwen Δr=+0.019 — Phi-4 has extreme raw A-position bias (~4 logit units); debiasing is the single most load-bearing component
-- Row 4 (Without persona): Phi-4 Δr=**+0.011** vs Qwen Δr=−0.283 — personas are neutral/harmful for Phi-4 because debiased logits are near-flat (delta_consensus≈0.003), making WVS disagreement pure noise
-- Row 5 (No prior): Phi-4 Δr=**−0.238** vs Qwen Δr=−0.010 — prior unexpectedly load-bearing for Phi-4; EMA is the only accumulator of signal when per-scenario IS corrections are degenerate
-- All model MPR ≈ 50% (vs human 56–79%) — IS has no gradient to exploit after positional bias is removed; confirms "collapsed logit entropy" failure mode (§Discussion)
+- Row 3 (No debiasing): Phi-4 Δr=**−0.282** vs Qwen Δr=+0.019 — debiasing still the single most load-bearing component; pos_b μ=−29.1 logit units (large raw A-position bias) confirmed
+- Row 4 (Without persona): Phi-4 Δr=**−0.183** vs Qwen Δr=−0.283 — personas genuinely helpful with vLLM; "neutral/harmful" finding was an Unsloth quantisation artifact
+- Row 5 (No prior): Phi-4 Δr=**+0.066** (improvement!) vs Qwen Δr=−0.010 — country prior is slightly harmful for USA specifically; USA over-represented in training data makes the generic WVS prior add regularisation bias rather than signal
+- IS is functional: flip%=29% (vs 50% in Unsloth run), rel_r=0.629 — IS correction is selective and meaningful
+- JSD paradox confirmed: rows 3,4 show lower JSD but catastrophically worse r/MIS; must report MIS as primary metric
 
 **Artifacts:** `/kaggle/working/cultural_alignment/results/exp24_ablation_phi4/`
 
-> **Post-hoc note (2026-04-13) — Backend mismatch explains discrepancy vs main EXP-24-PHI_4**
->
-> The ablation was run with **Unsloth 4-bit** (the `MORAL_MODEL_BACKEND` default), but
-> the main EXP-24-PHI_4 sweep was run with `MORAL_MODEL_BACKEND=vllm` set in the Kaggle
-> session (confirmed by the `(vLLM)` annotation in `exp_paper_phi_4.py` and by the fact
-> that `src/model.py::load_model` routes to vLLM when that env var is set).  Main-run
-> metrics: MIS=0.2433, r=+0.723, flip%=18.7%.  Ablation metrics: MIS=0.5104, r=+0.378, flip%=50.3%.
->
-> Root cause: Unsloth INT4 quantisation degrades Phi-4's moral-reasoning logit resolution
-> (`delta_consensus` μ≈0.003 after A↔B debiasing vs the vLLM regime where the model
-> retains real content signal).  With near-zero delta_consensus the IS correction is also
-> near-zero and flip direction is random → flip%≈50%, all MPR≈50%, MIS≈0.51.
->
-> **Fixes applied**:
-> - `exp_paper_ablation_phi4.py`: `os.environ.setdefault("MORAL_MODEL_BACKEND", "vllm")` before `configure_paper_env()`
-> - `paper_runtime.py` vllm install sequence: `pip install --upgrade 'huggingface_hub>=0.24.0'` added first,
->   plus `sys.modules` cache flush, to resolve `ImportError: cannot import name 'reset_sessions'` on Kaggle's base image.
->
-> **Re-run on Kaggle** to obtain ablation numbers comparable to the main experiment.
+---
+
+#### ~~2026-04-13 — EXP-24 Ablation (Phi-4 14B **Unsloth 4-bit**, USA) — SUPERSEDED~~
+
+> ~~**SUPERSEDED** by corrected vLLM entry above. Kept for audit trail. Root cause: Unsloth INT4 quantisation collapsed delta_consensus to μ≈0.003, making IS corrections degenerate and flip direction random (flip%≈50%). All findings below reflect the quantisation artifact, not Phi-4's true behaviour.~~
+
+~~**Setup:** microsoft/phi-4 · USA · 310 scenarios · K=64×2=128 · VAR_SCALE=0.04 · seed=42 · Backend=Unsloth 4-bit~~
+
+| # | Configuration | JSD ↓ | r ↑ | MAE ↓ | MIS ↓ | flip% |
+|:--|:-------------|:-----:|:---:|:-----:|:-----:|:-----:|
+| — | **Full SWA-DPBR** | **0.0543** | **+0.378** | **18.93** | **0.5104** | 50.3% |
+| 1 | No-IS | 0.0548 | +0.247 | 18.94 | 0.5112 | 17.4% |
+| 2 | Always-on PT-IS | 0.0545 | +0.325 | 18.96 | 0.5114 | 49.4% |
+| 3 | No debiasing | 0.0556 | −0.526 | 18.90 | 0.5114 | 0.0% |
+| 4 | Without persona | 0.0541 | +0.389 | 18.89 | 0.5093 | 9.7% |
+| 5 | No country prior | 0.0547 | +0.140 | 19.15 | 0.5157 | 43.2% |
 
 ---
 

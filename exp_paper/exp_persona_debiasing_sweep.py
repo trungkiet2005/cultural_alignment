@@ -237,10 +237,10 @@ MODEL_REGISTRY: List[ModelSpec] = [
     # ── ≥70 B: 4-bit to fit H100 80 GB ──────────────────────────────────────
     ModelSpec("qwen25_72b",        "unsloth/Qwen2.5-72B-Instruct-bnb-4bit",
               "unsloth", True,  72.0, "Qwen2.5-72B (4-bit, Unsloth)"),
-    ModelSpec("llama33_70b",       "meta-llama/Llama-3.3-70B-Instruct",
-              "vllm",    True,  70.0, "Llama-3.3-70B (vLLM auto-quant)"),
-    ModelSpec("llama31_70b",       "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit",
-              "unsloth", True,  70.0, "Llama-3.1-70B (4-bit, Unsloth)"),
+    # ModelSpec("llama33_70b",       "meta-llama/Llama-3.3-70B-Instruct",
+    #           "vllm",    True,  70.0, "Llama-3.3-70B (vLLM auto-quant)"),  # gated repo
+    # ModelSpec("llama31_70b",       "unsloth/Meta-Llama-3.1-70B-Instruct-bnb-4bit",
+    #           "unsloth", True,  70.0, "Llama-3.1-70B (4-bit, Unsloth)"),  # gated repo
     ModelSpec("gpt_oss_20b",       "unsloth/gpt-oss-20b-unsloth-bnb-4bit",
               "unsloth", True,  20.0, "GPT-OSS-20B (4-bit, Unsloth)"),
     # ── 20–30 B: bf16 fits in 80 GB ──────────────────────────────────────────
@@ -251,8 +251,8 @@ MODEL_REGISTRY: List[ModelSpec] = [
               "vllm",    False, 14.0, "Phi-4 (14B, bf16)"),
     ModelSpec("hf_gemma2_9b_bf16", "google/gemma-2-9b-it",
               "hf_native", False, 9.0, "Gemma-2-9B (bf16, HF-native)"),
-    ModelSpec("llama31_8b",        "meta-llama/Meta-Llama-3.1-8B-Instruct",
-              "vllm",    False,  8.0, "Llama-3.1-8B (bf16)"),
+    # ModelSpec("llama31_8b",        "meta-llama/Meta-Llama-3.1-8B-Instruct",
+    #           "vllm",    False,  8.0, "Llama-3.1-8B (bf16)"),  # gated repo
     ModelSpec("qwen3_vl_8b",       "unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit",
               "unsloth", True,   8.0, "Qwen3-VL-8B (4-bit, Unsloth)"),
     # ── 6–8 B ────────────────────────────────────────────────────────────────
@@ -274,8 +274,8 @@ MODEL_REGISTRY: List[ModelSpec] = [
     ModelSpec("gemma4_e2b",        "unsloth/gemma-4-E2B-it",
               "unsloth", True,   2.0, "Gemma-4-E2B (4-bit, Unsloth)"),
     # ── ≤2 B ─────────────────────────────────────────────────────────────────
-    ModelSpec("llama32_1b",        "meta-llama/Llama-3.2-1B-Instruct",
-              "vllm",    False,  1.0, "Llama-3.2-1B (bf16)"),
+    # ModelSpec("llama32_1b",        "meta-llama/Llama-3.2-1B-Instruct",
+    #           "vllm",    False,  1.0, "Llama-3.2-1B (bf16)"),  # gated repo
     ModelSpec("qwen35_08b",        "Qwen/Qwen3.5-0.8B",
               "vllm",    False,  0.8, "Qwen3.5-0.8B (bf16)"),
     ModelSpec("gemma3_270m",       "google/gemma-3-270m-it",

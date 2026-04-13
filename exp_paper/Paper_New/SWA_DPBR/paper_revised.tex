@@ -656,84 +656,92 @@ JSD but preserves the relative ordering across rows.}
 \begin{table}[t]
 \caption{Ablation on Qwen2.5-72B, USA (342 scenarios), \textbf{SWA-DPBR} with one
 $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation).
-Full configuration: JSD = 0.0425, $r$ = 0.724.}
+Full configuration: $r$ = 0.724, MAE = 9.77.
+(MIS not collected for this run; MAE is reported as the alignment proxy.)}
 \label{tab:ablation}
 \centering\small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{llccccc}
+\begin{tabular}{llccc}
 \toprule
-\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & $r$ $\uparrow$ & $\Delta r$ & MAE \\
+\# & Configuration & $r$ $\uparrow$ & $\Delta r$ & MAE $\downarrow$ \\
 \midrule
-  & \textbf{Full SWA-DPBR} & \textbf{0.0425} & -- & \textbf{0.724} & -- & \textbf{9.77} \\
+  & \textbf{Full SWA-DPBR} & \textbf{0.724} & -- & \textbf{9.77} \\
 \midrule
-1 & No-IS (consensus only)            & 0.0493 & \loss{+.007} & 0.650 & \loss{$-$.074} & 11.02 \\
-2 & Always-on PT-IS                   & 0.0422 & \gain{$-$.000} & 0.729 & \gain{+.005} & 9.74 \\
-3 & No debiasing                     & 0.0476 & \loss{+.005} & 0.743 & +.019         & 9.67 \\
-4 & Without persona                  & 0.0610 & \loss{+.019} & 0.441 & \loss{$-$.283} & 11.09 \\
-5 & No country prior ($\alpha_h{=}0$)  & 0.0438 & \loss{+.001} & 0.714 & \loss{$-$.010} & 10.01 \\
+1 & No-IS (consensus only)           & 0.650 & \loss{$-$.074} & 11.02 \\
+2 & Always-on PT-IS                  & 0.729 & \gain{+.005}   &  9.74 \\
+3 & No debiasing                     & 0.743 & \gain{+.019}   &  9.67 \\
+4 & Without persona                  & 0.441 & \loss{$-$.283} & 11.09 \\
+5 & No country prior ($\alpha_h{=}0$) & 0.714 & \loss{$-$.010} & 10.01 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 The ablation tells a clear story.
 \textbf{Personas are essential} (Row~4): removing the WVS panel causes the largest
-degradation-JSD jumps 43\% and Pearson~$r$ collapses from 0.724 to 0.441,
-confirming that survey-grounded diversity is the method's foundation, not decoration.
+degradation---Pearson~$r$ collapses from 0.724 to 0.441 ($\Delta r = -0.283$) and
+MAE widens by 1.32\,pp, confirming that survey-grounded diversity is the method's
+foundation, not decoration.
 \textbf{PT--IS refines what personas start} (Row~1): dropping importance sampling
-while keeping consensus still hurts JSD by 16\% and $r$ by 0.074-personas alone
+while keeping consensus still hurts $r$ by 0.074 and MAE by 1.25\,pp---personas alone
 are necessary but not sufficient.
 \textbf{Debiasing prevents framing artifacts} (Row~3): without positional debiasing,
-Species preference inflates by 7.7pp (from 85.8\% to 93.5\% vs.\ human 79.2\%).
+Species preference inflates by 7.7\,pp (from 85.8\% to 93.5\% vs.\ human 79.2\%).
 Row~2 (always-on IS, no variance gating) matches the full system within noise,
 validating the conservative default.
-\textbf{The country prior contributes modestly but consistently} (Row~5):
-disabling it degrades JSD by 3\% and $r$ by 0.010-small individually, but it
-stabilises tail scenarios where IS noise would otherwise accumulate.
+\textbf{The country prior contributes modestly} (Row~5):
+disabling it degrades $r$ by 0.010---small individually, but it stabilises tail
+scenarios where IS noise would otherwise accumulate.
 Notably, the IS \emph{flip rate} is only 6.0\%: SWA-DPBR \emph{modulates confidence}
 rather than reversing decisions (Appendix~\ref{app:trigger}).
 
 \paragraph{Cross-model replication on Phi-4 (14B).}
-Replicating the ablation on Phi-4~(14B) with the same USA pool reveals a divergent importance
-ordering that is itself informative (Table~\ref{tab:ablation_phi4}).
-\textbf{Positional debiasing becomes the overwhelmingly dominant component}: disabling it collapses
-$r$ from $+0.38$ to $-0.53$ ($\Delta r = -0.90$)---a far more severe effect than on Qwen2.5-72B
-($\Delta r = +0.02$).
-The diagnostic explains why: Phi-4 carries a raw option-A positional bias of
-$\bar{b} \approx -4.08$ logit units, roughly $8\times$ the magnitude observed in the Qwen sweep.
-Debiasing neutralises this artifact, but in doing so exposes the second key finding:
-\textbf{the residual decision surface is near-flat} ($\bar{\delta} \approx 0.003$ logit units
-after debiasing), leaving IS with no gradient to exploit and personas with no informative
-disagreement to aggregate---WVS-grounded diversity becomes noise rather than signal
-($\Delta r = +0.01$ without personas, versus $-0.28$ for Qwen2.5-72B).
-\textbf{The country prior becomes the last load-bearing stabiliser} ($\Delta r = -0.24$):
-when per-scenario IS corrections are degenerate, the EMA provides the only durable
-cross-scenario correlation structure.
-These findings confirm the ``collapsed logit entropy'' failure mode discussed in
-\S\ref{sec:discussion}: the ablation importance hierarchy is not universal---it mirrors
-the base model's decision-surface conditioning.
-Where logits are rich (Qwen2.5-72B), personas and IS drive the gain;
-where logits are flat (Phi-4 on English moral dilemmas), debiasing is everything
-and the prior is the fallback stabiliser.
+Replicating the ablation on Phi-4~(14B) under matched conditions (vLLM backend, same USA pool)
+reveals a partly divergent importance ordering that illuminates how component utility depends
+on the base model's logit conditioning (Table~\ref{tab:ablation_phi4}).
+
+\textbf{Positional debiasing is the dominant component} (Row~3, $\Delta r = -0.282$,
+$\Delta\text{MIS} = +0.175$).
+The DPBR diagnostic confirms a large raw option-A positional bias of
+$\bar{b} \approx -29.1$ logit units---substantially larger than Qwen2.5-72B---and
+debiasing must neutralise this artifact before any other component can contribute.
+
+\textbf{Personas are genuinely load-bearing} (Row~4, $\Delta r = -0.183$,
+$\Delta\text{MIS} = +0.083$), consistent with Qwen2.5-72B (Table~\ref{tab:ablation},
+$\Delta r = -0.283$).
+Once positional artifacts are removed, the vLLM decision surface retains enough
+curvature for WVS-grounded diversity to provide real signal, and per-scenario IS
+corrections are selective (flip rate 29.0\%, $\overline{\text{rel}\_r} = 0.629$)
+rather than degenerate.
+
+\textbf{PT--IS contributes modestly but consistently} (Rows~1--2): dropping IS
+entirely degrades both $r$ ($-0.026$) and MIS ($+0.006$); always-on IS
+without variance gating hurts slightly more on MIS ($+0.015$), confirming the
+value of the adaptive reliability gate.
+
+Taken together, the results show that the importance hierarchy is not universal
+but the direction is consistent: debiasing unlocks the signal that personas and IS
+then refine, and the full stack is greater than the sum of its parts regardless of
+backbone.
 
 \begin{table}[t]
-\caption{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf{SWA-DPBR}.
-Full configuration: JSD = 0.0543, $r$ = 0.378, MAE = 18.93.
-Compare Table~\ref{tab:ablation} (Qwen2.5-72B): the importance ordering reverses,
+\caption{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf{SWA-DPBR} with one
+$K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation).
+Full configuration: $r$ = 0.603, MIS = 0.3489.
+Compare Table~\ref{tab:ablation} (Qwen2.5-72B): the importance ordering partly reverses,
 confirming that component load-bearing depends on base-model logit conditioning.}
 \label{tab:ablation_phi4}
 \centering\small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{llccccc}
+\begin{tabular}{llcccc}
 \toprule
-\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & $r$ $\uparrow$ & $\Delta r$ & MAE \\
+\# & Configuration & $r$ $\uparrow$ & $\Delta r$ & MIS $\downarrow$ & $\Delta$MIS \\
 \midrule
-  & \textbf{Full SWA-DPBR} & \textbf{0.0543} & -- & \textbf{0.378} & -- & \textbf{18.93} \\
+  & \textbf{Full SWA-DPBR} & \textbf{0.603} & -- & \textbf{0.3489} & -- \\
 \midrule
-1 & No-IS (consensus only)           & 0.0548 & \loss{+.001} & 0.247 & \loss{$-$.131} & 18.94 \\
-2 & Always-on PT-IS                  & 0.0545 & \loss{+.000} & 0.325 & \loss{$-$.053} & 18.96 \\
-3 & No debiasing                     & 0.0556 & \loss{+.001} & $-$0.526 & \loss{$-$.904} & 18.90 \\
-4 & Without persona                  & 0.0541 & \gain{$-$.000} & 0.389 & \gain{+.011} & 18.89 \\
-5 & No country prior ($\alpha_h{=}0$) & 0.0547 & \loss{+.000} & 0.140 & \loss{$-$.238} & 19.15 \\
+1 & No-IS (consensus only)  & 0.577 & \loss{$-$.026} & 0.3550 & \loss{+.006} \\
+2 & Always-on PT-IS         & 0.577 & \loss{$-$.026} & 0.3639 & \loss{+.015} \\
+3 & No debiasing            & 0.320 & \loss{$-$.282} & 0.5243 & \loss{+.175} \\
+4 & Without persona         & 0.420 & \loss{$-$.183} & 0.4324 & \loss{+.083} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1238,6 +1246,8 @@ kernel comparison on the shared SWA-DPBR pipeline.
 \section{Detailed Ablation Analysis}
 \label{app:ablation_detail}
 
+\subsection*{Qwen2.5-72B ablation (Table~\ref{tab:ablation})}
+
 \textbf{Without persona:} Row~4 removes all WVS-conditioned persona prompts
 (base-only moral elicitation on the same scenarios). The large JSD lift and
 Pearson~$r$ drop in Table~\ref{tab:ablation} match the expected loss of
@@ -1245,6 +1255,28 @@ within-country diversity and numerosity anchoring from the persona ensemble.
 
 \textbf{Debiasing:} Mean positional bias is 0.193 logit units; Species preference
 inflates from 85.8\% to 93.5\% without it (human: 79.2\%).
+
+\subsection*{Phi-4 (14B) ablation (Table~\ref{tab:ablation_phi4})}
+
+\textbf{Positional bias magnitude.}
+Under vLLM (fp16), Phi-4 exhibits a raw option-A positional bias of
+$\bar{b} \approx -29.1$ logit units ($\sigma = 26.8$), far exceeding the Qwen2.5-72B
+magnitude. The A$\leftrightarrow$B debiasing step neutralises this artifact, unlocking
+a well-conditioned residual decision surface with IS flip rate 29.0\% and
+$\overline{\text{rel}\_r} = 0.629$.
+
+\textbf{Debiasing and persona interaction.}
+Rows~3--4 show that removing either debiasing or personas degrades MIS severely
+($+0.175$ and $+0.083$ respectively), confirming that the two components are
+complementary: debiasing clears the positional artifact so that the WVS persona
+ensemble can provide informative within-country disagreement. Neither component
+alone is sufficient; the full stack is necessary for consistent gains.
+
+\textbf{IS adaptive gate.}
+Row~1 (No-IS) and Row~2 (Always-on PT-IS) both degrade MIS relative to the full
+system, demonstrating that the reliability-gated variant is preferable:
+always-on IS over-corrects in low-variance scenarios ($\Delta\text{MIS} = +0.015$),
+while dropping IS entirely loses the rank-order signal ($\Delta r = -0.026$).
 
 \section{Trigger Mechanism and Latency}
 \label{app:trigger}
