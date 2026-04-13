@@ -104,28 +104,27 @@
 \newlabel{tab:robustness_summary}{{4}{8}{Robustness suite. Each test independently probes one assumption behind SWA-DPBR; the bootstrap confidence interval on JSD is $\pm 0.004$}{table.caption.10}{}}
 \citation{sorensen2024roadmap}
 \citation{payne2025prospect}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Ablation on Qwen2.5-72B, USA (342 scenarios), \textbf  {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r$ = 0.724, MAE = 9.77. (MIS not collected for this run; MAE is reported as the alignment proxy.)}}{9}{table.caption.11}\protected@file@percent }
-\newlabel{tab:ablation}{{5}{9}{Ablation on Qwen2.5-72B, USA (342 scenarios), \textbf {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r$ = 0.724, MAE = 9.77. (MIS not collected for this run; MAE is reported as the alignment proxy.)}{table.caption.11}{}}
+\citation{guo2025nofree}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Ablation on Phi-4 (14B), USA (310 scenarios), \textbf  {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r = 0.603$, MIS $= 0.3489$. Primary metric: MIS\,($\downarrow $).}}{9}{table.caption.11}\protected@file@percent }
+\newlabel{tab:ablation_phi4}{{5}{9}{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r = 0.603$, MIS $= 0.3489$. Primary metric: MIS\,($\downarrow $)}{table.caption.11}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {6}Ablation: Identifying Load-Bearing Components}{9}{section.6}\protected@file@percent }
 \newlabel{sec:ablation}{{6}{9}{Ablation: Identifying Load-Bearing Components}{section.6}{}}
-\@writefile{toc}{\contentsline {paragraph}{Cross-model replication on Phi-4 (14B).}{9}{section*.12}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {7}Discussion}{9}{section.7}\protected@file@percent }
 \newlabel{sec:discussion}{{7}{9}{Discussion}{section.7}{}}
-\citation{guo2025nofree}
 \citation{an2026logit}
 \citation{khanuja2026steering}
 \citation{awad2018moral,jin2025multitp}
 \citation{atari2023humans}
 \citation{cao2025randomness}
 \citation{zewail2025moral}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Ablation on Phi-4 (14B), USA (310 scenarios), \textbf  {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r$ = 0.603, MIS = 0.3489. Compare Table~\ref {tab:ablation} (Qwen2.5-72B): the importance ordering partly reverses, confirming that component load-bearing depends on base-model logit conditioning.}}{10}{table.caption.13}\protected@file@percent }
-\newlabel{tab:ablation_phi4}{{6}{10}{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf {SWA-DPBR} with one $K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation). Full configuration: $r$ = 0.603, MIS = 0.3489. Compare Table~\ref {tab:ablation} (Qwen2.5-72B): the importance ordering partly reverses, confirming that component load-bearing depends on base-model logit conditioning}{table.caption.13}{}}
 \citation{sorensen2024roadmap}
 \bibstyle{abbrvnat}
 \bibdata{references}
 \bibcite{aakanksha2024evalmor}{{1}{2024}{{Aakanksha et~al.}}{{}}}
 \bibcite{an2026logit}{{2}{2026}{{An et~al.}}{{An, Park, Jin, and Han}}}
 \bibcite{arditi2025refusal}{{3}{2025}{{Arditi et~al.}}{{Arditi, Obeso, Syed, Paleka, Panickssery, Gurnee, and Nanda}}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{10}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{10}{Conclusion}{section.8}{}}
 \bibcite{atari2023humans}{{4}{2023}{{Atari et~al.}}{{Atari, Xue, Park, Blasi, and Henrich}}}
 \bibcite{awad2018moral}{{5}{2018}{{Awad et~al.}}{{Awad, Dsouza, Kim, Schulz, Henrich, Shariff, Bonnefon, and Rahwan}}}
 \bibcite{bai2022constitutional}{{6}{2022}{{Bai et~al.}}{{Bai, Kadavath, Kundu, Askell, et~al.}}}
@@ -136,8 +135,6 @@
 \bibcite{haerpfer2022wvs}{{11}{2022}{{Haerpfer et~al.}}{{Haerpfer, Inglehart, Moreno, Welzel, Kizilova, Diez-Medrano, Lagos, Norris, Ponarin, and Puranen}}}
 \bibcite{hendrycks2021aligning}{{12}{2021}{{Hendrycks et~al.}}{{Hendrycks, Burns, Basart, Critch, Li, Song, and Steinhardt}}}
 \bibcite{henrich2010weirdest}{{13}{2010}{{Henrich et~al.}}{{Henrich, Heine, and Norenzayan}}}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{11}{section.8}\protected@file@percent }
-\newlabel{sec:conclusion}{{8}{11}{Conclusion}{section.8}{}}
 \bibcite{huang2024mppi}{{14}{2024}{{Huang et~al.}}{{Huang, Chen, Lyu, et~al.}}}
 \bibcite{jin2022exceptions}{{15}{2022}{{Jin et~al.}}{{Jin, Levine, Gonzalez~Adauto, Kamal, Sap, Sachan, Mihalcea, Tenenbaum, and Sch{\"o}lkopf}}}
 \bibcite{jin2025multitp}{{16}{2025}{{Jin et~al.}}{{Jin, Kleiman-Weiner, Piatti, Levine, Liu, Gonzalez, Ortu, Strausz, Sachan, Mihalcea, Choi, and Sch{\"o}lkopf}}}
@@ -165,90 +162,90 @@
 \bibcite{zou2023representation}{{38}{2023}{{Zou et~al.}}{{Zou, Phan, Chen, Campbell, Guo, et~al.}}}
 \citation{jin2025multitp}
 \citation{awad2018moral}
-\@writefile{toc}{\contentsline {section}{\numberline {A}AMCE Estimation Details}{14}{appendix.A}\protected@file@percent }
-\newlabel{app:amce}{{A}{14}{AMCE Estimation Details}{appendix.A}{}}
-\@writefile{toc}{\contentsline {paragraph}{Binary dimensions.}{14}{section*.15}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Utilitarianism dimension.}{14}{section*.16}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{14}{section*.17}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Consistency.}{14}{section*.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {B}Persona Construction Details}{14}{appendix.B}\protected@file@percent }
-\newlabel{app:personas}{{B}{14}{Persona Construction Details}{appendix.B}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Example Personas}{14}{subsection.B.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}WVS Data Processing Pipeline}{14}{subsection.B.2}\protected@file@percent }
-\newlabel{app:wvs_pipeline}{{B.2}{14}{WVS Data Processing Pipeline}{subsection.B.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A}AMCE Estimation Details}{13}{appendix.A}\protected@file@percent }
+\newlabel{app:amce}{{A}{13}{AMCE Estimation Details}{appendix.A}{}}
+\@writefile{toc}{\contentsline {paragraph}{Binary dimensions.}{13}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Utilitarianism dimension.}{13}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{13}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Consistency.}{13}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {B}Persona Construction Details}{13}{appendix.B}\protected@file@percent }
+\newlabel{app:personas}{{B}{13}{Persona Construction Details}{appendix.B}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.1}Example Personas}{13}{subsection.B.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.2}WVS Data Processing Pipeline}{13}{subsection.B.2}\protected@file@percent }
+\newlabel{app:wvs_pipeline}{{B.2}{13}{WVS Data Processing Pipeline}{subsection.B.2}{}}
 \citation{awad2018moral}
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces The 10 WVS cultural-value dimensions used for persona generation, following Greco et al.\ (2025). All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole.}}{15}{table.caption.19}\protected@file@percent }
-\newlabel{tab:wvs_thresholds}{{7}{15}{The 10 WVS cultural-value dimensions used for persona generation, following Greco et al.\ (2025). All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole}{table.caption.19}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}WVS-to-Trolley Dimension Linkage}{15}{subsection.B.3}\protected@file@percent }
-\newlabel{app:wvs_linkage}{{B.3}{15}{WVS-to-Trolley Dimension Linkage}{subsection.B.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {C}PT--IS, Sampling, and Dual-Pass Reliability}{15}{appendix.C}\protected@file@percent }
-\newlabel{app:dpbr_theory}{{C}{15}{PT--IS, Sampling, and Dual-Pass Reliability}{appendix.C}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Gain definitions}{15}{subsection.C.1}\protected@file@percent }
-\newlabel{eq:g_per_agent}{{7}{15}{Gain definitions}{equation.C.7}{}}
-\newlabel{eq:g_cons}{{8}{15}{Gain definitions}{equation.C.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces The 10 WVS cultural-value dimensions used for persona generation, following Greco et al.\ (2025). All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole.}}{14}{table.caption.17}\protected@file@percent }
+\newlabel{tab:wvs_thresholds}{{6}{14}{The 10 WVS cultural-value dimensions used for persona generation, following Greco et al.\ (2025). All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole}{table.caption.17}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {B.3}WVS-to-Trolley Dimension Linkage}{14}{subsection.B.3}\protected@file@percent }
+\newlabel{app:wvs_linkage}{{B.3}{14}{WVS-to-Trolley Dimension Linkage}{subsection.B.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {C}PT--IS, Sampling, and Dual-Pass Reliability}{14}{appendix.C}\protected@file@percent }
+\newlabel{app:dpbr_theory}{{C}{14}{PT--IS, Sampling, and Dual-Pass Reliability}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.1}Gain definitions}{14}{subsection.C.1}\protected@file@percent }
+\newlabel{eq:g_per_agent}{{7}{14}{Gain definitions}{equation.C.7}{}}
+\newlabel{eq:g_cons}{{8}{14}{Gain definitions}{equation.C.8}{}}
 \citation{williams2017mppi}
 \citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Utility shape and the omitted explicit KL-on-$\epsilon $ term}{16}{subsection.C.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Comparison with Simpler Alternatives}{16}{subsection.C.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Why split $K$ into two passes?}{16}{subsection.C.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {C.5}Positional Debiasing: Implementation Detail}{16}{subsection.C.5}\protected@file@percent }
-\newlabel{app:debias_impl}{{C.5}{16}{Positional Debiasing: Implementation Detail}{subsection.C.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {D}Hyperparameter Validation}{16}{appendix.D}\protected@file@percent }
-\newlabel{app:hyperparams}{{D}{16}{Hyperparameter Validation}{appendix.D}{}}
-\@writefile{toc}{\contentsline {paragraph}{Implementation.}{16}{section*.21}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces SWA-DPBR hyperparameters. Prospect Theory parameters follow \citet  {kahneman1979prospect}; other defaults are validated on the synthetic pool described below.}}{17}{table.caption.20}\protected@file@percent }
-\newlabel{tab:hyperparams}{{8}{17}{SWA-DPBR hyperparameters. Prospect Theory parameters follow \citet {kahneman1979prospect}; other defaults are validated on the synthetic pool described below}{table.caption.20}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {E}Temperature Sensitivity}{17}{appendix.E}\protected@file@percent }
-\newlabel{app:temp_sensitivity}{{E}{17}{Temperature Sensitivity}{appendix.E}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {F}Dataset Preprocessing and Sensitivity}{17}{appendix.F}\protected@file@percent }
-\newlabel{app:dataset}{{F}{17}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
-\newlabel{app:dataset_sens}{{F}{17}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
-\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{17}{section*.23}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{17}{section*.24}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{18}{table.caption.22}\protected@file@percent }
-\newlabel{tab:temperature_sensitivity}{{9}{18}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.22}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{18}{table.caption.25}\protected@file@percent }
-\newlabel{tab:dataset_sens}{{10}{18}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.25}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.2}Utility shape and the omitted explicit KL-on-$\epsilon $ term}{15}{subsection.C.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.3}Comparison with Simpler Alternatives}{15}{subsection.C.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.4}Why split $K$ into two passes?}{15}{subsection.C.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {C.5}Positional Debiasing: Implementation Detail}{15}{subsection.C.5}\protected@file@percent }
+\newlabel{app:debias_impl}{{C.5}{15}{Positional Debiasing: Implementation Detail}{subsection.C.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {D}Hyperparameter Validation}{15}{appendix.D}\protected@file@percent }
+\newlabel{app:hyperparams}{{D}{15}{Hyperparameter Validation}{appendix.D}{}}
+\@writefile{toc}{\contentsline {paragraph}{Implementation.}{15}{section*.19}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces SWA-DPBR hyperparameters. Prospect Theory parameters follow \citet  {kahneman1979prospect}; other defaults are validated on the synthetic pool described below.}}{16}{table.caption.18}\protected@file@percent }
+\newlabel{tab:hyperparams}{{7}{16}{SWA-DPBR hyperparameters. Prospect Theory parameters follow \citet {kahneman1979prospect}; other defaults are validated on the synthetic pool described below}{table.caption.18}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {E}Temperature Sensitivity}{16}{appendix.E}\protected@file@percent }
+\newlabel{app:temp_sensitivity}{{E}{16}{Temperature Sensitivity}{appendix.E}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {F}Dataset Preprocessing and Sensitivity}{16}{appendix.F}\protected@file@percent }
+\newlabel{app:dataset}{{F}{16}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
+\newlabel{app:dataset_sens}{{F}{16}{Dataset Preprocessing and Sensitivity}{appendix.F}{}}
+\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{16}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{16}{section*.22}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{17}{table.caption.20}\protected@file@percent }
+\newlabel{tab:temperature_sensitivity}{{8}{17}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.20}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{17}{table.caption.23}\protected@file@percent }
+\newlabel{tab:dataset_sens}{{9}{17}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.23}{}}
 \citation{arditi2025refusal}
 \citation{khanov2024args}
 \citation{mudgal2024controlled}
-\@writefile{toc}{\contentsline {section}{\numberline {G}Cross-Lingual Token Elicitation}{19}{appendix.G}\protected@file@percent }
-\newlabel{app:token_elicitation}{{G}{19}{Cross-Lingual Token Elicitation}{appendix.G}{}}
-\@writefile{toc}{\contentsline {paragraph}{Native-language prompting system.}{19}{section*.26}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Token verification.}{19}{section*.27}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {H}Baseline Implementation Details}{19}{appendix.H}\protected@file@percent }
-\newlabel{app:baselines}{{H}{19}{Baseline Implementation Details}{appendix.H}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {H.1}Activation Steering}{19}{subsection.H.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{19}{section*.28}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {H.2}ARGS and controlled decoding (relation to our work)}{19}{subsection.H.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {I}Detailed Ablation Analysis}{19}{appendix.I}\protected@file@percent }
-\newlabel{app:ablation_detail}{{I}{19}{Detailed Ablation Analysis}{appendix.I}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {J}Trigger Mechanism and Latency}{20}{appendix.J}\protected@file@percent }
-\newlabel{app:trigger}{{J}{20}{Trigger Mechanism and Latency}{appendix.J}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {K}Extended Limitations}{20}{appendix.K}\protected@file@percent }
-\newlabel{app:limitations}{{K}{20}{Extended Limitations}{appendix.K}{}}
-\@writefile{toc}{\contentsline {paragraph}{Single seed and stochasticity.}{20}{section*.31}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Pearson $r$ in six dimensions.}{20}{section*.32}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{20}{section*.33}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{20}{section*.34}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and survey vintage.}{20}{section*.35}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Binary format.}{21}{section*.36}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Language--culture conflation.}{21}{section*.37}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{21}{section*.38}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{WVS temporal staleness.}{21}{section*.39}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {L}Per-Dimension Error Analysis}{21}{appendix.L}\protected@file@percent }
-\newlabel{app:perdim}{{L}{21}{Per-Dimension Error Analysis}{appendix.L}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Per-dimension worst-error analysis across the 20-country panel. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph  {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed.}}{21}{table.caption.40}\protected@file@percent }
-\newlabel{tab:perdim_summary}{{11}{21}{Per-dimension worst-error analysis across the 20-country panel. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed}{table.caption.40}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. SWA-DPBR wins \textbf  {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S  \ref {sec:discussion}.}}{21}{table.caption.41}\protected@file@percent }
-\newlabel{tab:phi4_percountry}{{12}{21}{Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. SWA-DPBR wins \textbf {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S \ref {sec:discussion}}{table.caption.41}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {M}Broader Model Landscape}{21}{appendix.M}\protected@file@percent }
-\newlabel{app:model_landscape}{{M}{21}{Broader Model Landscape}{appendix.M}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation.}}{22}{table.caption.42}\protected@file@percent }
-\newlabel{tab:model_landscape}{{13}{22}{Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation}{table.caption.42}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {N}Engineering Journey: Method Selection}{22}{appendix.N}\protected@file@percent }
-\newlabel{app:engineering}{{N}{22}{Engineering Journey: Method Selection}{appendix.N}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage.}}{22}{table.caption.43}\protected@file@percent }
-\newlabel{tab:engineering}{{14}{22}{Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage}{table.caption.43}{}}
-\gdef \@abspage@last{22}
+\@writefile{toc}{\contentsline {section}{\numberline {G}Cross-Lingual Token Elicitation}{18}{appendix.G}\protected@file@percent }
+\newlabel{app:token_elicitation}{{G}{18}{Cross-Lingual Token Elicitation}{appendix.G}{}}
+\@writefile{toc}{\contentsline {paragraph}{Native-language prompting system.}{18}{section*.24}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Token verification.}{18}{section*.25}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {H}Baseline Implementation Details}{18}{appendix.H}\protected@file@percent }
+\newlabel{app:baselines}{{H}{18}{Baseline Implementation Details}{appendix.H}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {H.1}Activation Steering}{18}{subsection.H.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{18}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {H.2}ARGS and controlled decoding (relation to our work)}{18}{subsection.H.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {I}Detailed Ablation Analysis}{18}{appendix.I}\protected@file@percent }
+\newlabel{app:ablation_detail}{{I}{18}{Detailed Ablation Analysis}{appendix.I}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {J}Trigger Mechanism and Latency}{19}{appendix.J}\protected@file@percent }
+\newlabel{app:trigger}{{J}{19}{Trigger Mechanism and Latency}{appendix.J}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {K}Extended Limitations}{19}{appendix.K}\protected@file@percent }
+\newlabel{app:limitations}{{K}{19}{Extended Limitations}{appendix.K}{}}
+\@writefile{toc}{\contentsline {paragraph}{Single seed and stochasticity.}{19}{section*.28}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Pearson $r$ in six dimensions.}{19}{section*.29}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{19}{section*.30}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{19}{section*.31}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and survey vintage.}{19}{section*.32}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Binary format.}{19}{section*.33}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Language--culture conflation.}{19}{section*.34}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{19}{section*.35}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WVS temporal staleness.}{20}{section*.36}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {L}Per-Dimension Error Analysis}{20}{appendix.L}\protected@file@percent }
+\newlabel{app:perdim}{{L}{20}{Per-Dimension Error Analysis}{appendix.L}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-dimension worst-error analysis across the 20-country panel. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph  {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed.}}{20}{table.caption.37}\protected@file@percent }
+\newlabel{tab:perdim_summary}{{10}{20}{Per-dimension worst-error analysis across the 20-country panel. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed}{table.caption.37}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. SWA-DPBR wins \textbf  {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S  \ref {sec:discussion}.}}{20}{table.caption.38}\protected@file@percent }
+\newlabel{tab:phi4_percountry}{{11}{20}{Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. SWA-DPBR wins \textbf {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S \ref {sec:discussion}}{table.caption.38}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {M}Broader Model Landscape}{20}{appendix.M}\protected@file@percent }
+\newlabel{app:model_landscape}{{M}{20}{Broader Model Landscape}{appendix.M}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation.}}{21}{table.caption.39}\protected@file@percent }
+\newlabel{tab:model_landscape}{{12}{21}{Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation}{table.caption.39}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {N}Engineering Journey: Method Selection}{21}{appendix.N}\protected@file@percent }
+\newlabel{app:engineering}{{N}{21}{Engineering Journey: Method Selection}{appendix.N}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage.}}{21}{table.caption.40}\protected@file@percent }
+\newlabel{tab:engineering}{{13}{21}{Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage}{table.caption.40}{}}
+\gdef \@abspage@last{21}

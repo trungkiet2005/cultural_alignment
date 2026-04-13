@@ -356,6 +356,7 @@ def load_model():
             dtype="bfloat16",
             max_model_len=4096,
             gpu_memory_utilization=gpu_mem,
+            enforce_eager=True,   # disable AOT/torch.compile (incompatible w/ torch 2.10)
         )
         tokenizer = AutoTokenizer.from_pretrained(
             MODEL_ID,

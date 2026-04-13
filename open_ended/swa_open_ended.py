@@ -13,7 +13,7 @@ Runtime   : ~6–9 h on Kaggle H100 80 GB (bf16, batch=5 per forward)
 # ============================================================================
 # KAGGLE ENVIRONMENT SETUP (skip if running locally)
 # ============================================================================
-import sys, os, subprocess
+import sys, os, subprocess, signal
 from pathlib import Path
 
 def _run(cmd: str, verbose: bool = True, timeout: int = 0) -> int:
@@ -4065,6 +4065,40 @@ def _load_model_hf(config: SWAConfig):
     return model, tokenizer
 
 
+class _LoadTimeout(Exception):
+    pass
+
+
+def _load_model_with_timeout(config: SWAConfig):
+    """
+    Wrap _load_model_hf() with a hard wall-clock timeout using signal.SIGALRM
+    on Linux/Kaggle; falls back to plain load on Windows or where SIGALRM is
+    unavailable.  Mirrors baseline_open_ended.py's _load_model_with_timeout().
+    """
+    timeout_minutes = MODEL_LOAD_TIMEOUT_SEC // 60
+
+    if sys.platform == "win32" or not hasattr(signal, "SIGALRM"):
+        print(f"[LOAD] SIGALRM unavailable on {sys.platform} — loading directly.")
+        return _load_model_hf(config)
+
+    def _handler(signum, frame):
+        raise _LoadTimeout(f"Model load exceeded {timeout_minutes} minute(s).")
+
+    prev_handler = signal.signal(signal.SIGALRM, _handler)
+    signal.alarm(MODEL_LOAD_TIMEOUT_SEC)
+    try:
+        result = _load_model_hf(config)
+        signal.alarm(0)
+        return result
+    except _LoadTimeout as exc:
+        signal.alarm(0)
+        if _ON_KAGGLE:
+            raise SystemExit("[LOAD] Timed out — stopping to avoid wasting GPU.") from exc
+        raise RuntimeError(str(exc)) from exc
+    finally:
+        signal.signal(signal.SIGALRM, prev_handler)
+
+
 def main():
     import transformers
     transformers.logging.set_verbosity_error()
@@ -4112,7 +4146,7 @@ def main():
         print("[DATA] Synthetic scenario generation mode")
 
     # ── 3. Load model (HF native, bf16) ──
-    model, tokenizer = _load_model_hf(config)
+    model, tokenizer = _load_model_with_timeout(config)
 
     # ══════════════════════════════════════════════════════════════════════
     # PER-COUNTRY LOOP: Vanilla Baseline → DPBR (EXP-24)
@@ -4427,7 +4461,7 @@ def debug_main():
 
     # ── Load model (HF native, bf16) ──
     print(f"[MODEL] Loading {cfg.model_name} ...")
-    model, tokenizer = _load_model_hf(cfg)
+    model, tokenizer = _load_model_with_timeout(cfg)
     print(f"[MODEL] Loaded. VRAM: {torch.cuda.memory_allocated() / 1e9:.2f} GB\n")
 
     # ── Build controller ──
