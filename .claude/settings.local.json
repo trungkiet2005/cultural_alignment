@@ -4,7 +4,10 @@
       "Bash(xargs wc:*)",
       "Bash(ls -lh /d/AI_RESEARCH/moral_machine/cultural_alignment/*.csv)",
       "Bash(grep -E \"\\\\.py$\")",
-      "Bash(grep -r \"phi\" /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)"
+      "Bash(grep -r \"phi\" /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)",
+      "Bash(grep -n \"Table 2\\\\|Table 3\\\\|\\\\\\\\\\\\\\\\begin{table}\" /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(ls -la /d/AI_RESEARCH/moral_machine/cultural_alignment/src/*.py)",
+      "Bash(grep -h \"MODEL_NAME\\\\|MODEL_SHORT\\\\|load_in_4bit\\\\|backend\\\\|BACKEND\\\\|vllm\\\\|unsloth\" d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/exp_paper_*.py)"
     ]
   }
 }

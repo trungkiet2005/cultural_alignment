@@ -888,8 +888,12 @@ def _load_model_timed(
     """
     def _do_load():
         if backend == "vllm":
-            from src.vllm_causal import load_model_vllm  # type: ignore[import]
-            return load_model_vllm(MODEL_NAME, max_seq_length=2048, load_in_4bit=False)
+            # Use load_model (routes to _load_model_vllm → VllmCausalLogitModel),
+            # which is the exact same path as the main EXP-24-PHI_4 run.
+            # Do NOT use src.vllm_causal.load_model_vllm — it returns a different
+            # wrapper class (VllmCausalWrapper) with a different inference path,
+            # causing mismatched metrics vs the main run.
+            return load_model(MODEL_NAME, max_seq_length=2048, load_in_4bit=False)
         elif backend == "hf_native":
             return load_model_hf_native(MODEL_NAME, max_seq_length=2048, load_in_4bit=False)
         else:
