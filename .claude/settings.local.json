@@ -4,7 +4,11 @@
       "Bash(ls -1 /d/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/*.py)",
       "Bash(xargs -I {} basename {})",
       "Bash(wc -l /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/*.py /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/evaluation/*.py)",
-      "Bash(wc -l /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/data/annotations/*.json)"
+      "Bash(wc -l /d/AI_RESEARCH/moral_machine/cultural_alignment/open_ended/data/annotations/*.json)",
+      "Skill(scientific-writing)",
+      "Skill(scientific-writing:*)",
+      "Bash(pdflatex -interaction=nonstopmode -halt-on-error paper_revised.tex)",
+      "Bash(pdflatex -interaction=nonstopmode paper_revised.tex)"
     ]
   }
 }

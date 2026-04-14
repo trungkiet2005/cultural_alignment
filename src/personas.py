@@ -777,10 +777,10 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
     """
     Return 4 personas per country.
 
-    Priority: WVS Wave 7 data (3 age-cohort personas + 1 utilitarian anchor) →
-    BASE_PERSONAS manual fallback. WVS personas are emitted in the country's
-    native language via :data:`PERSONA_SCAFFOLD_I18N` / :data:`PERSONA_DESCRIPTORS_I18N`
-    (including the 4th utilitarian persona). The moral-dilemma vignette is
+    Priority: WVS Wave 7 data (3 age-cohort personas + 1 population-wide
+    aggregate) → BASE_PERSONAS manual fallback. WVS personas are emitted in
+    the country's native language via :data:`PERSONA_SCAFFOLD_I18N` /
+    :data:`PERSONA_DESCRIPTORS_I18N`. The moral-dilemma vignette is
     localized separately via PROMPT_FRAME_I18N in ``controller.predict()``.
     """
     country_name = COUNTRY_FULL_NAMES.get(country_iso, country_iso)
@@ -804,17 +804,17 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
                         country_iso, ag, p, country_name,
                         lang=lang,
                     ))
-            # 4th persona: utilitarian anchor — a fixed philosophical voice
-            # ("save more lives, count outcomes only") that contrasts with
-            # the WVS-derived cultural agents. Length is matched to P1-P3
-            # so all four agents contribute roughly the same context to the
-            # SWA-PTIS prefix budget. Localized via UTILITARIAN_PERSONA_I18N.
-            utilitarian_template = UTILITARIAN_PERSONA_I18N.get(
-                lang, UTILITARIAN_PERSONA_I18N["en"]
-            )
-            personas.append(
-                utilitarian_template.format(country_name=native_country)
-            )
+            # 4th persona: population-wide WVS profile ("all" age cohort).
+            # This anchors the agent ensemble with the country's aggregate
+            # cultural values averaged across all respondents, complementing
+            # the three age-stratified personas above.  Unlike the previous
+            # country-invariant utilitarian persona, this agent carries
+            # genuine cultural signal and does not bias the ensemble toward
+            # any particular moral dimension.
+            personas.append(generate_wvs_persona(
+                country_iso, "all", country_profile["all"], country_name,
+                lang=lang,
+            ))
             # Ensure exactly 4 (defensive: if some age band had no data).
             while len(personas) < 4:
                 personas.append(generate_wvs_persona(
