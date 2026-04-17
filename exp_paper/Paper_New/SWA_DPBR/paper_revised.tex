@@ -54,13 +54,13 @@
 % ============================================================
 \begin{abstract}
 % ============================================================
-Large language models make moral judgments as if the whole world thinks like the West-yet 40~million human responses across 233~countries say otherwise.
-We show that a frozen LLM can be taught to \emph{respect} that diversity \emph{without any training}.
-We introduce \textbf{SWA-DPBR} (Socially-Weighted Alignment with Dual-Pass Bootstrap Reliability), a training-free, inference-time method that steers binary moral choices toward country-specific human preferences using only logit corrections-no weight updates, no per-country finetuning, no white-box access.
-The key insight is that \emph{disagreement is signal}: we instantiate each country as a panel of World Values Survey--grounded persona agents whose within-country disagreement pinpoints exactly where and how much to correct the model's default.
-That structured disagreement is converted into a bounded logit shift via Prospect-Theory importance sampling, stabilised through a dual-pass bootstrap reliability gate that automatically shrinks corrections when sampling is noisy.
-Evaluated on MultiTP across \textbf{twenty countries, four continents}, and six open model families (3.8B--70B parameters), SWA-DPBR reduces misalignment by \textbf{19--24\%} on the strongest checkpoints, with gains spanning the Americas, Europe, and Asia-not confined to any single region.
-When the method fails, the culprit is architectural-poorly conditioned decision logits rather than cultural blind spots-suggesting that inference-time cultural steering is broadly viable wherever the base model maintains a well-behaved decision surface.
+Large language models make moral judgments as if the whole world thinks like the West, yet 40~million human responses across 233~countries say otherwise~\citep{awad2018moral}. We introduce \textbf{SWA-DPBR} (Socially-Weighted Alignment with Dual-Pass Bootstrap Reliability), a method that adapts a frozen LLM to the moral preferences of a specific country at inference time, without modifying any weights or requiring white-box access to internal activations.
+Three design choices distinguish SWA-DPBR from generic decoding-time steering, each motivated by a concrete property of the cultural-alignment problem.
+\emph{First}, we treat \emph{within-country disagreement as the signal itself}: culture is not monolithic but stratified by age cohort and social position~\citep{inglehart2005modernization, awad2018moral}, so we instantiate each country as a small panel of World Values Survey (WVS)--grounded persona agents whose disagreement pinpoints where and by how much to correct the model's default.
+\emph{Second}, we aggregate that disagreement through a \emph{loss-averse} Prospect-Theory value function~\citep{kahneman1979prospect, tversky1992advances}: a cultural correction that improves three personas while harming one is penalised more than one that helps all four modestly, operationalising a ``do no harm'' prior that deterministic averaging cannot express--and echoing risk-asymmetries recently shown to emerge inside LLMs themselves~\citep{payne2025prospect}.
+\emph{Third}, we gate the importance-sampled correction with a \emph{dual-pass bootstrap reliability} weight~\citep{efron1979bootstrap}: two independent Monte-Carlo replicates must agree before the method commits, so the correction shrinks smoothly toward zero on scenarios where the logit landscape is noisy.
+Evaluated on MultiTP across \textbf{twenty countries, four continents}, and six open model families (3.8B--70B parameters), SWA-DPBR reduces misalignment by \textbf{19--24\%} on the strongest checkpoints, with gains spanning the Americas, Europe, and Asia rather than concentrating in any single region.
+When the method fails, the culprit is architectural--poorly conditioned decision logits rather than cultural blind spots--suggesting that inference-time cultural steering is broadly viable wherever the base model maintains a well-behaved decision surface.
 Code: \texttt{[repository]}.
 \end{abstract}
 
@@ -116,6 +116,16 @@ passes~\citep{kahneman1979prospect} whose outputs are merged with a bootstrap
 reliability weight that automatically shrinks corrections when the two passes
 disagree. An effective-sample-size guard and a light hierarchical country prior
 complete the stack (\S\ref{sec:method}; hyperparameters in Table~\ref{tab:hyperparams}).
+
+Each component of SWA-DPBR answers a specific failure mode of simpler
+alternatives: a panel rather than a single country prompt preserves the
+within-country spread that the correction stage consumes; Prospect
+Theory~\citep{kahneman1979prospect, tversky1992advances} supplies the
+loss-averse asymmetry that a linear or quadratic aggregator cannot express;
+and the dual-pass bootstrap turns the same IS budget into a direct reliability
+probe~\citep{efron1979bootstrap, elvira2021advances} rather than hiding
+estimator bias behind more samples. A concise decision tree through these
+choices is deferred to Appendix~\ref{app:design_rationale}.
 
 \paragraph{Contributions.}
 \begin{itemize}
@@ -183,19 +193,39 @@ To the best of our knowledge, SWA-DPBR is the first training-free method
 targeting country-level moral calibration specifically.
 
 \paragraph{Theoretical grounding.}
-SWA-DPBR draws on the control-as-inference view from path-integral
-steering~\citep{williams2017mppi, huang2024mppi}, where softmax-weighted
-perturbations approximate the optimal control distribution. We shape the
-utility with Prospect Theory~\citep{kahneman1979prospect} to encode loss
-aversion-penalising corrections that worsen any persona's alignment more
-heavily than rewarding equal-sized gains. Recent evidence that prospect-theory
-biases emerge naturally in LLM decision-making~\citep{payne2025prospect}
-lends additional motivation: the asymmetric gain/loss structure we impose
-mirrors one the models themselves already exhibit, rather than introducing
-an alien objective. The dual-pass reliability gate splits the Monte Carlo
-budget into two independent replicates to detect sampling noise without
-doubling forward passes; we treat it as a variance heuristic rather than a
-formal unbiasedness certificate (Appendix~\ref{app:dpbr_theory}).
+SWA-DPBR sits at the intersection of three theoretical traditions, each
+supplying one ingredient that the others lack.
+\emph{Control as probabilistic inference}~\citep{levine2018reinforcement,
+todorov2009generalized} recasts optimal decision-making as posterior
+inference over an intention distribution; path-integral
+steering~\citep{williams2017mppi, huang2024mppi} instantiates that view
+with softmax-weighted perturbations that provably approximate the KL-regularised
+optimal control under mild regularity conditions~\citep{todorov2009generalized}.
+This is what licences us to read our Eq.~\ref{eq:util_total} as an inference
+step rather than an arbitrary scalar interpolation, and it motivates the
+Gaussian proposal around $\bar\delta$ as the entropy-maximal default in the
+absence of stronger priors.
+\emph{Prospect Theory}~\citep{kahneman1979prospect, tversky1992advances} then
+supplies the utility shape: the key empirical regularity---that human decision
+makers weight a loss of magnitude $x$ roughly $\kappa{\approx}2.25$ times more
+than a gain of the same magnitude---is exactly the asymmetry we want an
+LLM cultural controller to respect, because a correction that silences one
+demographic persona is worse than a correction that fails to help it.
+Recent evidence that prospect-theoretic biases emerge naturally in LLM
+decision-making under risk~\citep{payne2025prospect} strengthens the match:
+the asymmetric gain/loss structure we impose \emph{mirrors} one the models
+themselves already exhibit, rather than introducing an alien objective.
+\emph{Importance-sampling theory}~\citep{elvira2021advances} finally supplies
+the variance-control machinery, and it is here that self-normalised IS is
+known to be biased at finite $K$; the dual-pass construction we adopt is a
+light-weight bootstrap-style variance probe~\citep{efron1979bootstrap} that
+uses the same compute budget to detect instability rather than silently
+accept it, paired with an effective-sample-size guard grounded in design-effect
+theory~\citep{kish1965survey}.
+We treat the dual-pass gate as a variance heuristic rather than a formal
+unbiasedness certificate; formal finite-$K$ bounds would require stronger
+assumptions on the logit landscape than we are willing to claim
+(Appendix~\ref{app:dpbr_theory}).
 Structured multi-agent systems such as OG-MAR~\citep{ogmar2024} pursue
 richer ontology-level reasoning; we trade that depth for a single additional
 batched forward pass and explicit country-level calibration.
@@ -204,6 +234,14 @@ batched forward pass and explicit country-level calibration.
 \section{Method: SWA-DPBR}
 \label{sec:method}
 % ============================================================
+
+The pipeline has three logical stages: extract cultural signal from a
+WVS-grounded persona panel (\S\ref{sec:method:personas}--\S\ref{sec:method:debias}),
+convert dispersion into a bounded correction via Prospect-Theory IS with
+dual-pass reliability (\S\ref{sec:method:dpbr}), and stabilise across scenarios
+via a hierarchical country prior (\S\ref{sec:method:prior}).
+Algorithm~\ref{alg:swa} ties the three together; rationale for each choice is
+summarised in Appendix~\ref{app:design_rationale}.
 
 \subsection{Problem Formulation}
 \label{sec:method:problem}
@@ -236,9 +274,15 @@ and Pearson~$r$ are reported as secondary diagnostics where noted.
 \subsection{Cultural Persona Construction}
 \label{sec:method:personas}
 
-For each country $c$, SWA-DPBR constructs $N{=}4$ persona agents entirely from
-WVS Wave~7 individual-level microdata~\citep{haerpfer2022wvs}, following the
-10-variable cultural-value scheme of Greco et al.\ (2025). We extract:
+We use $N{=}4$ personas---three age cohorts plus a country-wide aggregate---grounded
+in WVS Wave~7 individual-level microdata~\citep{haerpfer2022wvs}. The choice
+of $N{=}4$ is the smallest panel that covers the primary demographic axis of
+within-country variance while preserving a population anchor against
+cohort-specific noise~\citep{inglehart2005modernization, kish1965survey}; full
+justification is in Appendix~\ref{app:design_rationale}.
+
+For each country $c$, following the 10-variable cultural-value scheme of
+Greco et al.\ (2025), we extract:
 \emph{religiosity} (Q6P), \emph{child-rearing values} (Q17P),
 \emph{moral acceptability} (Q177--Q182),
 \emph{social trust} (Q57P), \emph{political participation} (Q199P, Q200P),
@@ -321,11 +365,14 @@ alignment with every persona, not just the loudest one. We sample candidate
 perturbations $\epsilon_k \sim \mathcal{N}(0,\sigma^2)$ around the consensus
 and score each candidate by how much it moves the model closer to each
 persona relative to the uncorrected baseline. These per-persona gains are
-aggregated through a Prospect-Theory value function that treats improvements
-and regressions asymmetrically-a correction that \emph{helps} three personas
-but \emph{hurts} one is penalised more heavily than a correction that helps
-all four modestly. This ``do no harm'' prior is the core mechanism that prevents
-the IS stage from overcorrecting:
+aggregated through a Prospect-Theory value
+function~\citep{kahneman1979prospect, tversky1992advances}---loss-averse with
+$\kappa{\approx}2.25$, encoding a ``do no harm'' prior that linear or
+quadratic aggregators cannot express and that recent work shows LLMs
+themselves already exhibit under risk~\citep{payne2025prospect}. The
+softmax-weighted IS update can be read as approximate
+control-as-inference~\citep{williams2017mppi, levine2018reinforcement}; see
+Appendix~\ref{app:design_rationale} for the full motivation behind PT and IS\@.
 \begin{equation}
   U_{\text{total}}(\epsilon_k)
   = (1 - \lambda_{\text{coop}})\,\frac{1}{N}\sum_{i=1}^{N}
@@ -361,6 +408,16 @@ prevents the method from making confident but wrong corrections on scenarios
 where the logit landscape is noisy, and it provides the safety margin needed
 for future extension to open-ended moral reasoning tasks where unchecked IS
 corrections would be more dangerous.
+
+Splitting the same IS budget into two independent replicates yields a
+scenario-level bootstrap-style variance probe~\citep{efron1979bootstrap,
+elvira2021advances} that flags instability instead of hiding it behind more
+samples, while the exponential map preserves a smooth differentiable code
+path. An effective-sample-size guard~\citep{kish1965survey} on each pass
+zeros the offset entirely when the weights collapse. We treat the dual-pass
+gate as a variance heuristic, not a formal unbiasedness certificate; full
+reasoning and finite-$K$ caveats are in
+Appendices~\ref{app:design_rationale}--\ref{app:dpbr_theory}.
 
 The micro correction combines the reliability-gated IS offset with an
 interpolation between the persona consensus and the debiased base, controlled
@@ -763,6 +820,105 @@ LLMs need not be retrained to respect moral diversity. SWA-DPBR shows that surve
 % ============================================================
 \newpage
 \appendix
+
+\section{Design Rationale: Why Each Component}
+\label{app:design_rationale}
+
+This appendix collects the full justification for the three design choices
+previewed in \S\ref{sec:intro} and \S\ref{sec:method}: the four-persona WVS
+panel, the Prospect-Theory IS kernel, and the dual-pass reliability gate.
+
+\paragraph{Why a panel, and why the World Values Survey?}
+A single ``prompt-as-country'' encoder---e.g., \emph{``Answer as a Japanese
+person''}---collapses a distribution to a point estimate and discards the very
+spread the correction stage needs. Cultural-value research has long argued
+against this framing: both Inglehart-Welzel's modernisation
+theory~\citep{inglehart2005modernization} and Schwartz's refined theory of
+basic individual values~\citep{schwartz2012refining} find within-country
+variance on any single value dimension comparable to between-country variance,
+with demographic cleavages---most prominently age cohort---driving the largest
+slice. The Moral Machine analysis confirms this specifically for trolley
+preferences: generational differences in how respondents weight youth, social
+status, and species cut across every country cluster~\citep{awad2018moral,
+kleiman2017learning}. WVS Wave~7~\citep{haerpfer2022wvs} is the largest public
+instrument that reports \emph{individual-level} microdata with the relevant
+age, gender, and value coverage, making it the natural substrate for
+data-driven personas rather than author-crafted stereotypes---a well-documented
+failure mode of prompt-based persona work~\citep{deshpande2023toxicity}.
+
+\paragraph{Why $N{=}4$ specifically?}
+Four is the smallest panel that simultaneously covers the three demographic
+axes documented to carry most within-country variance---young ($<$36),
+middle-aged (36--55), older ($>$55)---\emph{plus} a country-wide aggregate
+that anchors the ensemble against cohort-specific sampling noise. Three
+personas would sacrifice the population anchor and leave the consensus
+$\bar\delta$ vulnerable to a single outlier cohort; five or more would
+duplicate coverage of the same axis without adding a new source of variance
+(WVS does not resolve finer cohorts reliably for every country). The cohort
+structure matches the statistical-survey tradition of stratifying by age
+before any country-level estimate~\citep{kish1965survey}. Empirically, the
+ablation in \S\ref{sec:ablation} confirms the ensemble is load-bearing:
+removing it costs $-0.183$ Pearson~$r$ and $+0.083$ MIS\@.
+
+\paragraph{Why Prospect Theory specifically, not a linear or quadratic
+aggregator?}
+Three independent considerations pick out the Kahneman-Tversky value
+function~\citep{kahneman1979prospect, tversky1992advances} over simpler
+alternatives.
+\emph{(1)~Asymmetric harm.} In a cultural panel, a correction that improves
+three personas while making one worse is not equivalent to one that helps all
+four equally: the former silences a demographic group the survey says exists.
+Linear averaging is oblivious to this asymmetry; quadratic aggregation treats
+$+x$ and $-x$ as equally valuable and costly. Loss aversion with
+$\kappa{\approx}2.25$ is the textbook object for encoding ``harm is worse than
+equal-sized help''.
+\emph{(2)~Diminishing sensitivity matches the scale of the cultural signal.}
+Gain curvature $\alpha{=}0.88{<}1$ compresses large persona gains relative to
+small ones, preventing one outlier persona (perhaps from sparse WVS coverage)
+from dominating the utility~\citep{tversky1992advances}.
+\emph{(3)~The base model is already prospect-theoretic.} Recent empirical
+work shows that LLMs exhibit prospect-theoretic biases in decision-making
+under risk, with loss-aversion coefficients in the same neighbourhood as human
+respondents~\citep{payne2025prospect}. Using a PT utility therefore
+\emph{aligns the controller's objective with a structure the base model is
+already tuned for} rather than imposing an alien linear-utility objective.
+
+\paragraph{Why importance sampling at all?}
+The cultural correction we seek is the argmax of a utility that values each
+persona's alignment and penalises corrections that make any of them
+worse~\citep{levine2018reinforcement}. Closed-form optimisation is unavailable
+because the utility is non-convex (PT's kink at zero, the $\ell_1$-style gain
+definition in Eq.~\ref{eq:g_per_agent}), so we approximate the optimal control
+distribution with a path-integral-style softmax over
+perturbations~\citep{williams2017mppi, huang2024mppi, todorov2009generalized}.
+The Gaussian proposal $\epsilon_k\sim\mathcal{N}(0,\sigma^2)$ plays the role
+of an entropy-maximal default, and the softmax weights
+$w_k\propto\exp(U_{\text{total}}/\eta)$ implement the KL-regularised Boltzmann
+posterior balancing utility against deviation from the consensus. This
+control-as-inference reading licenses Eq.~\ref{eq:util_total} as an
+approximate Bayesian update rather than arbitrary scalar interpolation.
+
+\paragraph{Why dual-pass, rather than more samples or a hard threshold?}
+Self-normalised IS is a biased estimator at finite sample
+size~\citep{elvira2021advances}: the bias shrinks as $O(1/K)$ but does not
+reveal itself to the caller, so ``more samples'' hides instability rather than
+flagging it. Two independent replicates of size $K_{\text{half}}$ using the
+same total budget $K{=}2K_{\text{half}}$ trade a small increase in per-pass
+variance for a \emph{direct, scenario-level probe} of that instability: the
+squared gap $(\delta^\star_1-\delta^\star_2)^2$ is a one-dimensional
+bootstrap-style variance estimator~\citep{efron1979bootstrap} whose small
+values license the correction and whose large values veto it automatically,
+without a hand-tuned threshold. The exponential map
+$r{=}\exp\!\bigl(-(\delta^\star_1-\delta^\star_2)^2/s\bigr)$ is preferred over
+a hard indicator because it preserves a single differentiable code path and
+its decay matches the shape of a Gaussian likelihood ratio under independent
+noise. An effective-sample-size guard~\citep{kish1965survey} on each pass
+($N_{\text{eff}}/K_{\text{half}}{<}\rho_{\text{eff}}$) zeros the offset
+entirely when the weights collapse, providing a second, coarser safety net
+below the smooth reliability gate. We emphasise that this construction is a
+variance heuristic, not a formal unbiasedness certificate; finite-$K$ bounds
+would require stronger assumptions on the logit landscape than we are willing
+to claim (Appendix~\ref{app:dpbr_theory}).
 
 \section{AMCE Estimation Details}
 \label{app:amce}
