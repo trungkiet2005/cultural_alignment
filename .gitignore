@@ -1,3 +1,4 @@
+# Data (large, external)
 WVS_data/
 
 # Secrets and local env (never commit real tokens)
@@ -8,6 +9,36 @@ WVS_data/
 .agents/
 skills-lock.json
 
+# Python build artifacts
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc
+
+# Results (too large to commit)
+results/
+*.ckpt
+*.pt
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db

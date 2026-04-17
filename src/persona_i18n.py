@@ -54,8 +54,8 @@ Maintenance notes
 from copy import deepcopy
 from typing import Dict, List, Tuple
 
-from i18n_batch1 import BATCH1_DESCRIPTORS
-from i18n_batch2 import BATCH2_DESCRIPTORS
+from src.i18n_batch1 import BATCH1_DESCRIPTORS
+from src.i18n_batch2 import BATCH2_DESCRIPTORS
 
 
 # ============================================================================
