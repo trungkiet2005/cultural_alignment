@@ -191,8 +191,21 @@ def _load_model_vllm(
         "trust_remote_code": True,
         "gpu_memory_utilization": gpu_mem,
         "enforce_eager": eager,
-        "device": "cuda",
     }
+    # ``device`` kwarg: accepted by vLLM ≤ 0.8, removed in ≥ 0.9 (detection
+    # is automatic on modern builds). Only pass it if the current
+    # EngineArgs signature still has it, so we support both the
+    # PyTorch-2.4/2.5/2.6 pinned legacy vLLMs AND the PyTorch-2.10+
+    # latest vLLM (0.19+) that Kaggle now ships by default.
+    try:
+        import inspect as _inspect
+        from vllm.engine.arg_utils import EngineArgs as _EA
+        if "device" in _inspect.signature(_EA.__init__).parameters:
+            llm_kw["device"] = "cuda"
+    except Exception:
+        # If introspection fails, default to NOT passing ``device`` — that
+        # path works on every modern vLLM. Legacy vLLMs auto-detect CUDA too.
+        pass
     if os.path.isdir("/kaggle/working"):
         if os.environ.get("VLLM_DISABLE_CUSTOM_ALL_REDUCE", "1").strip().lower() not in (
             "0",
