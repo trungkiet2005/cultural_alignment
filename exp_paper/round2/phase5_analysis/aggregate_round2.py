@@ -300,6 +300,28 @@ def _build_summary_numbers() -> None:
     print("\n".join("  " + l for l in lines))
 
 
+# ─── zip helper ─────────────────────────────────────────────────────────────
+def _zip_outputs(out_dir: Path, label: str) -> None:
+    """Zip *out_dir* so it appears as a single downloadable file.
+
+    On Kaggle: writes to /kaggle/working/{label}.zip (visible in the output panel).
+    Locally:   writes to results/download/{label}.zip next to the results tree.
+    """
+    import shutil
+    dest_base = (
+        Path("/kaggle/working")
+        if os.path.isdir("/kaggle/working")
+        else out_dir.parent.parent / "download"
+    )
+    dest_base.mkdir(parents=True, exist_ok=True)
+    zip_path = shutil.make_archive(
+        str(dest_base / label), "zip",
+        root_dir=str(out_dir.parent),
+        base_dir=out_dir.name,
+    )
+    print(f"[ZIP] {zip_path}")
+
+
 # ─── main ───────────────────────────────────────────────────────────────────
 def main() -> None:
     print(f"[AGGREGATE] reading from {R2_BASE}\n[AGGREGATE] writing to  {OUT_DIR}\n")
@@ -310,6 +332,7 @@ def main() -> None:
     _build_persona_variant_table()
     _build_summary_numbers()
     print(f"\n[DONE] {OUT_DIR}")
+    _zip_outputs(OUT_DIR, "round2_phase5_analysis")
 
 
 if __name__ == "__main__":

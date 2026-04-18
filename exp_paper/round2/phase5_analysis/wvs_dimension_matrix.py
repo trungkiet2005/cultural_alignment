@@ -138,6 +138,24 @@ def main() -> None:
     (OUT_DIR / "wvs_dim_impact_matrix.tex").write_text("\n".join(lines), encoding="utf-8")
     print(f"\n[SAVED] {OUT_DIR / 'wvs_dim_impact_matrix.tex'}")
 
+    _zip_outputs(OUT_DIR, "round2_phase5_analysis")
+
+
+def _zip_outputs(out_dir: Path, label: str) -> None:
+    import shutil
+    dest_base = (
+        Path("/kaggle/working")
+        if os.path.isdir("/kaggle/working")
+        else out_dir.parent.parent / "download"
+    )
+    dest_base.mkdir(parents=True, exist_ok=True)
+    zip_path = shutil.make_archive(
+        str(dest_base / label), "zip",
+        root_dir=str(out_dir.parent),
+        base_dir=out_dir.name,
+    )
+    print(f"[ZIP] {zip_path}")
+
 
 if __name__ == "__main__":
     main()

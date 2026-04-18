@@ -139,6 +139,24 @@ def main() -> None:
         print(f"  {r['country']:>4s}  margin={r['mean_margin']:.3f}  "
               f"gain={r['mis_gain_pct']:+6.1f}%  {bar}")
 
+    _zip_outputs(OUT_DIR, "round2_phase5_analysis")
+
+
+def _zip_outputs(out_dir: Path, label: str) -> None:
+    import shutil
+    dest_base = (
+        Path("/kaggle/working")
+        if os.path.isdir("/kaggle/working")
+        else out_dir.parent.parent / "download"
+    )
+    dest_base.mkdir(parents=True, exist_ok=True)
+    zip_path = shutil.make_archive(
+        str(dest_base / label), "zip",
+        root_dir=str(out_dir.parent),
+        base_dir=out_dir.name,
+    )
+    print(f"[ZIP] {zip_path}")
+
 
 if __name__ == "__main__":
     main()
