@@ -31,6 +31,12 @@ BETA_EMA = 0.10
 K_HALF = int(os.environ.get("EXP24_K_HALF", "64"))  # samples per pass (2 × K_HALF = EXP-09 K)
 VAR_SCALE = float(os.environ.get("EXP24_VAR_SCALE", "0.04"))  # r = exp(-bootstrap_var / VAR_SCALE)
 
+# Per-persona utility floor (paper §Broader impact, minority-protection safeguard).
+# When > 0, each persona's Prospect-Theory utility v(g_i/σ) is clamped from below
+# at -PERSONA_FLOOR so no single persona's preference can be driven arbitrarily
+# negative by a correction favouring the rest. Default 0 = no floor (legacy).
+PERSONA_FLOOR = float(os.environ.get("EXP24_PERSONA_FLOOR", "0.0"))
+
 # ESS-adaptive anchor blend (EXP-05 / paper §Limitations): ON by default — when IS quality is low,
 # interpolate anchor toward delta_base before adding delta_star. Disable: EXP24_ESS_ANCHOR_REG=0
 def _use_ess_anchor_reg() -> bool:
@@ -139,6 +145,12 @@ class Exp24DualPassController(ImplicitSWAController):
         dist_cand_to_i = (delta_tilde.unsqueeze(1) - delta_agents.unsqueeze(0)).abs()
         g_per_agent = (dist_base_to_i.unsqueeze(0) - dist_cand_to_i) / sigma
         v_per_agent = self._pt_value(g_per_agent)
+        # Minority-protection safeguard (paper §Broader impact): clamp each
+        # persona's post-correction utility from below at -PERSONA_FLOOR so no
+        # single persona can be driven arbitrarily negative by a correction
+        # favouring the rest. Default 0 = off, preserving legacy behaviour.
+        if PERSONA_FLOOR > 0:
+            v_per_agent = torch.clamp(v_per_agent, min=-PERSONA_FLOOR)
         mean_v = v_per_agent.mean(dim=1)
 
         g_cons = ((delta_base - anchor).abs() - (delta_tilde - anchor).abs()) / sigma

@@ -13,6 +13,8 @@ fresh Kaggle notebook cell and it will bootstrap the repo for you. See
 | [phase2_baselines/](phase2_baselines/) | Three inference-time baselines on the 20-country Phi-4 grid. | `exp_r2_baseline_dropout.py`, `exp_r2_baseline_tempmargin.py`, `exp_r2_baseline_diffpo.py` | Yes (≈2–3h each) |
 | [phase3_sensitivity/](phase3_sensitivity/) | Hyperparameter / persona / WVS / preprocessing sensitivity + logit diagnostic. | `exp_r2_logit_conditioning.py`, `exp_r2_persona_variant.py`, `exp_r2_hparam_sensitivity.py`, `exp_r2_wvs_dropout.py`, `exp_r2_no_oversampling.py` | Yes (≈4–6h combined) |
 | [phase4_big_sweeps/](phase4_big_sweeps/) | Expensive: multi-model ablation breadth + multi-seed CI. | `exp_r2_ablation_breadth.py`, `exp_r2_multiseed_phi4.py` | Yes (≈6–8h each) |
+| [phase5_analysis/](phase5_analysis/)  | Post-hoc aggregation over phase 1–4 CSVs → paper-ready LaTeX tables + W9 causal matrix + W10 margin-vs-gain correlation. | `aggregate_round2.py`, `logit_gain_correlation.py`, `wvs_dimension_matrix.py` | No (seconds) |
+| [phase6_extensions/](phase6_extensions/) | Per-persona floor minority-protection safeguard (the §Broader impact claim, quantitatively backed). | `exp_r2_persona_floor.py` | Yes (≈2h) |
 
 ## Hardware target
 
