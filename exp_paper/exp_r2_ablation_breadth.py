@@ -19,6 +19,37 @@ Kaggle:
 
 from __future__ import annotations
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Self-bootstrap — works when copy-pasted into a fresh Kaggle notebook cell.
+# Clones the repo on Kaggle if not already on sys.path, then adds it. Safe to
+# run multiple times (idempotent: detects src/controller.py in cwd).
+# ─────────────────────────────────────────────────────────────────────────────
+import os as _os, subprocess as _sp, sys as _sys
+
+_REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
+_REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
+
+
+def _r2_bootstrap() -> str:
+    here = _os.getcwd()
+    if _os.path.isfile(_os.path.join(here, "src", "controller.py")):
+        if here not in _sys.path:
+            _sys.path.insert(0, here)
+        return here
+    if not _os.path.isdir("/kaggle/working"):
+        raise RuntimeError(
+            "Not on Kaggle and not inside the repo root. "
+            "Either cd into the cultural_alignment repo first, or run on Kaggle."
+        )
+    if not _os.path.isdir(_REPO_DIR_KAGGLE):
+        _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
+    _os.chdir(_REPO_DIR_KAGGLE)
+    _sys.path.insert(0, _REPO_DIR_KAGGLE)
+    return _REPO_DIR_KAGGLE
+
+
+_r2_bootstrap()
+
 import gc
 import os
 import time
@@ -27,15 +58,11 @@ from typing import Dict, List
 
 from exp_paper._r2_common import (
     build_cfg,
-    ensure_repo,
     load_model_timed,
     load_scenarios,
     on_kaggle,
     save_summary,
 )
-
-ensure_repo()
-
 from exp_paper.paper_runtime import configure_paper_env, install_paper_kaggle_deps  # noqa: E402
 
 configure_paper_env()
