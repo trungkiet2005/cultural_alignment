@@ -147,6 +147,57 @@ def compute_utilitarianism_slope(
 
 
 # ============================================================================
+# SUPPLEMENTARY: Per-dimension rank agreement (reviewer W7)
+# ============================================================================
+def compute_per_dim_rank_agreement(
+    model_scores: Dict[str, float],
+    human_scores: Dict[str, float],
+) -> Dict[str, float]:
+    """Rank-based agreement between the model's per-dimension AMCE vector
+    and the human vector.
+
+    Pearson r can be negative even when MIS decreases because r measures the
+    *shape* of the AMCE ordering over the six MultiTP dimensions: if the
+    model and human disagree about which dimension is the strongest
+    preference, r sits near zero or below while the L2 distance still
+    shrinks. Reviewer W7 asks for a rank-based alternative so the paper can
+    make the orthogonality explicit.
+
+    Returns:
+        kendall_tau     - Kendall's tau over the d matched dimensions
+                          (ranges [-1, 1]; ties ok; >0 = same ordering).
+        spearman_rho    - Spearman's rank correlation (same range).
+        rank_abs_err_mean - mean |rank_model - rank_human| across dimensions
+                          (ranges [0, d-1]; 0 = identical ordering).
+        n_dims          - number of matched dimensions (usually 6).
+
+    All values are NaN when fewer than 2 dimensions match.
+    """
+    from scipy.stats import kendalltau, spearmanr, rankdata
+
+    common = sorted(set(model_scores.keys()) & set(human_scores.keys()))
+    if len(common) < 2:
+        return {
+            "kendall_tau":  float("nan"),
+            "spearman_rho": float("nan"),
+            "rank_abs_err_mean": float("nan"),
+            "n_dims": len(common),
+        }
+    m = np.array([model_scores[k] for k in common], dtype=np.float64)
+    h = np.array([human_scores[k] for k in common], dtype=np.float64)
+    tau, _ = kendalltau(m, h)
+    rho, _ = spearmanr(m, h)
+    r_m = rankdata(m)
+    r_h = rankdata(h)
+    return {
+        "kendall_tau":       float(tau) if tau is not None else float("nan"),
+        "spearman_rho":      float(rho) if rho is not None else float("nan"),
+        "rank_abs_err_mean": float(np.abs(r_m - r_h).mean()),
+        "n_dims":            len(common),
+    }
+
+
+# ============================================================================
 # SUPPLEMENTARY: Per-dimension alignment breakdown
 # ============================================================================
 def compute_per_dimension_alignment(

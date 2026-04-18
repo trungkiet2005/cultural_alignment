@@ -55,7 +55,7 @@
   \node[cbox=orange, minimum width=2.6cm] (po) at (1.9, 4.0)
     {\textbf{Older} $(>\!55)$};
   \node[cbox=blue, minimum width=2.6cm] (pu) at (1.9, 3.15)
-    {\textbf{Utilitarian}};
+    {\textbf{Aggregate}};
 
   % WVS → persona arrows (fan from a single point)
   \draw[arr, color=orange!40] (1.9, 6.45) -- (py.north);
@@ -221,7 +221,7 @@
 \caption{%
   \textbf{SWA-DPBR pipeline overview.}
   \textbf{Stage~1:} WVS Wave\,7 microdata yields four culturally grounded persona
-  agents per country (three age cohorts $+$ one utilitarian).
+  agents per country (three age cohorts $+$ one population-wide aggregate).
   \textbf{Stage~2:} A frozen LLM evaluates the base prompt and all personas in a
   single batched forward pass; each scenario is run twice (A/B swap) for positional
   debiasing, producing debiased logit gaps $\delta_i$ and per-agent rewards $r_i$.
