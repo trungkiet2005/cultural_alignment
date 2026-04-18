@@ -125,21 +125,46 @@ DIM_SHORT = {
 
 # ─── loaders ────────────────────────────────────────────────────────────────
 def _find_csv(pattern: str) -> Optional[str]:
-    hits = glob.glob(pattern)
+    # ``recursive=True`` is REQUIRED for ``**`` to actually recurse — without
+    # it, glob silently treats ``**`` as a single ``*`` and most wildcard
+    # patterns return nothing.
+    hits = glob.glob(pattern, recursive=True)
     return hits[0] if hits else None
+
+
+def _search_roots() -> List[str]:
+    """Roots to probe for per-country result CSVs.
+
+    Always includes ``RESULTS_BASE``; on Kaggle also probes every directory
+    directly under ``/kaggle/input/`` so an attached results dataset is
+    auto-discovered.
+    """
+    roots = [RESULTS_BASE]
+    if on_kaggle():
+        # Two-level deep so we cover both /kaggle/input/<dataset>/ and
+        # /kaggle/input/<dataset>/<subdir>/  (common nested layouts).
+        for d in sorted(glob.glob("/kaggle/input/*")):
+            roots.append(d)
+            for d2 in sorted(glob.glob(f"{d}/*")):
+                if os.path.isdir(d2):
+                    roots.append(d2)
+    return roots
 
 
 def _load_results(country: str, kind: str) -> Optional[pd.DataFrame]:
     """kind = 'swa' | 'baseline'"""
-    # Try standard per-model layout first.
-    patterns = [
-        f"{RESULTS_BASE}/{MODEL_SHORT}/{kind}/{MODEL_SLUG}/{kind}_results_{country}.csv",
-        f"{RESULTS_BASE}/{MODEL_SHORT}/{kind}/**/{kind}_results_{country}.csv",
-        f"{RESULTS_BASE}/**/{kind}_results_{country}.csv",
-    ]
+    patterns: List[str] = []
+    for root in _search_roots():
+        patterns += [
+            f"{root}/{MODEL_SHORT}/{kind}/{MODEL_SLUG}/{kind}_results_{country}.csv",
+            f"{root}/{MODEL_SHORT}/{kind}/**/{kind}_results_{country}.csv",
+            f"{root}/**/{kind}/**/{kind}_results_{country}.csv",
+            f"{root}/**/{kind}_results_{country}.csv",
+        ]
     for pat in patterns:
         p = _find_csv(pat)
         if p:
+            print(f"  [HIT] {kind} {country} ← {p}")
             return pd.read_csv(p)
     print(f"[MISS] {kind} results for {country} (tried {len(patterns)} patterns)")
     return None
@@ -246,7 +271,25 @@ def main() -> None:
             ))
 
     if not rows:
-        raise SystemExit("[ERROR] No country results found. Check R2_RESULTS_BASE / R2_MODEL_SHORT.")
+        roots = _search_roots()
+        msg = [
+            "[ERROR] No per-country result CSVs found.",
+            "",
+            "This script needs the per-country files from the main Phi-4 run:",
+            f"  swa_results_<COUNTRY>.csv  and  baseline_results_<COUNTRY>.csv",
+            "",
+            "Searched these roots (recursively):",
+            *[f"  - {r}" for r in roots],
+            "",
+            "Fix one of these:",
+            "  1) Attach a Kaggle Input dataset that contains the previous Phi-4",
+            "     `results/exp24_paper_20c/phi_4/{swa,baseline}/phi-4/*.csv` files.",
+            "  2) Run the main Phi-4 experiment first in this session:",
+            "       !python exp_paper/exp_paper_phi_4.py",
+            "  3) Set R2_RESULTS_BASE to the dir that contains `phi_4/swa/...`,",
+            "     e.g. `/kaggle/input/<your-dataset>/results/exp24_paper_20c`.",
+        ]
+        raise SystemExit("\n".join(msg))
 
     df = pd.DataFrame(rows)
     df.to_csv(OUT_DIR / "per_dim_errors.csv", index=False)

@@ -46,8 +46,10 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+import glob
 import os
 from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -59,25 +61,74 @@ R2_BASE = Path(os.environ.get(
     if os.path.isdir("/kaggle/working")
     else "results/exp24_round2",
 ))
-MAIN_CMP = Path(os.environ.get(
-    "R2_MAIN_COMPARISON",
-    "/kaggle/working/cultural_alignment/results/exp24_paper_20c/phi_4/compare/comparison.csv"
-    if os.path.isdir("/kaggle/working")
-    else "results/exp24_paper_20c/phi_4/compare/comparison.csv",
-))
 OUT_DIR = R2_BASE / "phase5_analysis"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _search_roots() -> List[Path]:
+    """R2_BASE first, then every Kaggle Input dataset (1-2 levels deep)."""
+    roots: List[Path] = [R2_BASE, R2_BASE.parent]  # also probe results/
+    if os.path.isdir("/kaggle/input"):
+        for d in sorted(glob.glob("/kaggle/input/*")):
+            roots.append(Path(d))
+            for d2 in sorted(glob.glob(f"{d}/*")):
+                if os.path.isdir(d2):
+                    roots.append(Path(d2))
+    return roots
+
+
+def _find_first(filename: str, override_env: Optional[str] = None) -> Optional[Path]:
+    if override_env and os.environ.get(override_env):
+        p = Path(os.environ[override_env])
+        if p.exists():
+            return p
+    for root in _search_roots():
+        for hit in glob.glob(f"{root}/**/{filename}", recursive=True):
+            return Path(hit)
+    return None
+
+
 def main() -> None:
-    cond_path = R2_BASE / "logit_conditioning" / "logit_conditioning_per_country.csv"
-    if not cond_path.exists():
-        raise SystemExit(f"Missing: {cond_path}. Run phase 3 logit_conditioning first.")
+    cond_path = _find_first(
+        "logit_conditioning_per_country.csv",
+        override_env="R2_LOGIT_COND_CSV",
+    )
+    if cond_path is None:
+        msg = [
+            "Missing: logit_conditioning_per_country.csv",
+            "",
+            "Searched these roots (recursive):",
+            *[f"  - {r}" for r in _search_roots()],
+            "",
+            "Fix one of these:",
+            "  1) Run phase 3 first in this session:",
+            "       !python exp_paper/round2/phase3_sensitivity/exp_r2_logit_conditioning.py",
+            "  2) Attach a Kaggle Input dataset that contains the previous",
+            "     `results/exp24_round2/logit_conditioning/logit_conditioning_per_country.csv`.",
+            "  3) Set R2_LOGIT_COND_CSV to the absolute file path.",
+        ]
+        raise SystemExit("\n".join(msg))
+    print(f"[USING] cond = {cond_path}")
     cond = pd.read_csv(cond_path)
 
-    if not MAIN_CMP.exists():
-        raise SystemExit(f"Missing main comparison CSV: {MAIN_CMP}")
-    cmp = pd.read_csv(MAIN_CMP)
+    cmp_path = _find_first("comparison.csv", override_env="R2_MAIN_COMPARISON")
+    if cmp_path is None:
+        msg = [
+            "Missing: comparison.csv (main Phi-4 paper run)",
+            "",
+            "Searched these roots (recursive):",
+            *[f"  - {r}" for r in _search_roots()],
+            "",
+            "Fix one of these:",
+            "  1) Run the main Phi-4 experiment first in this session:",
+            "       !python exp_paper/exp_paper_phi_4.py",
+            "  2) Attach a Kaggle Input dataset that contains the previous",
+            "     `results/exp24_paper_20c/phi_4/compare/comparison.csv`.",
+            "  3) Set R2_MAIN_COMPARISON to the absolute file path.",
+        ]
+        raise SystemExit("\n".join(msg))
+    print(f"[USING] cmp  = {cmp_path}")
+    cmp = pd.read_csv(cmp_path)
 
     # Extract per-country (vanilla MIS, SWA-DPBR MIS).
     van = cmp[cmp["method"] == "baseline_vanilla"][["country", "align_mis"]].rename(

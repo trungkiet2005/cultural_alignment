@@ -46,8 +46,10 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+import glob
 import os
 from pathlib import Path
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -61,6 +63,37 @@ R2_BASE = Path(os.environ.get(
 OUT_DIR = R2_BASE / "phase5_analysis"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+
+def _search_roots() -> List[Path]:
+    """Roots to probe for upstream phase-3 outputs.
+
+    Always includes ``R2_BASE``; on Kaggle also adds every directly attached
+    Input dataset (one and two levels deep) so a previous run's CSVs can be
+    auto-discovered without setting env vars.
+    """
+    roots: List[Path] = [R2_BASE]
+    if os.path.isdir("/kaggle/input"):
+        for d in sorted(glob.glob("/kaggle/input/*")):
+            roots.append(Path(d))
+            for d2 in sorted(glob.glob(f"{d}/*")):
+                if os.path.isdir(d2):
+                    roots.append(Path(d2))
+    return roots
+
+
+def _find_first(filename: str, override_env: Optional[str] = None) -> Optional[Path]:
+    """Find the first ``filename`` under any search root (recursive). When
+    ``override_env`` is set in the environment, that path wins."""
+    if override_env and os.environ.get(override_env):
+        p = Path(os.environ[override_env])
+        if p.exists():
+            return p
+    for root in _search_roots():
+        # ``recursive=True`` is REQUIRED for ``**`` to actually recurse.
+        for hit in glob.glob(f"{root}/**/{filename}", recursive=True):
+            return Path(hit)
+    return None
+
 MT_DIMS = ["Species_Humans", "Gender_Female", "Age_Young",
            "Fitness_Fit", "SocialValue_High", "Utilitarianism_More"]
 WVS_DIMS = ["religiosity", "child_rearing", "moral_acceptability",
@@ -70,9 +103,23 @@ WVS_DIMS = ["religiosity", "child_rearing", "moral_acceptability",
 
 
 def main() -> None:
-    src = R2_BASE / "wvs_dropout" / "wvs_dropout_summary.csv"
-    if not src.exists():
-        raise SystemExit(f"Missing: {src}. Run phase 3 wvs_dropout first.")
+    src = _find_first("wvs_dropout_summary.csv", override_env="R2_WVS_DROPOUT_CSV")
+    if src is None:
+        msg = [
+            "Missing: wvs_dropout_summary.csv",
+            "",
+            "Searched these roots (recursive):",
+            *[f"  - {r}" for r in _search_roots()],
+            "",
+            "Fix one of these:",
+            "  1) Run phase 3 first in this session:",
+            "       !python exp_paper/round2/phase3_sensitivity/exp_r2_wvs_dropout.py",
+            "  2) Attach a Kaggle Input dataset that contains the previous",
+            "     `results/exp24_round2/wvs_dropout/wvs_dropout_summary.csv`.",
+            "  3) Set R2_WVS_DROPOUT_CSV to the absolute file path.",
+        ]
+        raise SystemExit("\n".join(msg))
+    print(f"[USING] {src}")
     df = pd.read_csv(src)
 
     # Control = drop_dim == '∅'
