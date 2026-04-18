@@ -8,7 +8,17 @@
       "Skill(scientific-writing)",
       "Skill(scientific-writing:*)",
       "Bash(pdflatex -interaction=nonstopmode -halt-on-error paper_revised.tex)",
-      "Bash(pdflatex -interaction=nonstopmode paper_revised.tex)"
+      "Bash(pdflatex -interaction=nonstopmode paper_revised.tex)",
+      "Bash(awk '{if \\($4 > 1000000\\) print $4, $NF}')",
+      "Bash(find /d/AI_RESEARCH/moral_machine/cultural_alignment -type f \\\\\\( -name \"*.csv\" -o -name \"*.json\" -o -name \"*.pkl\" -o -name \"*.pickle\" \\\\\\) -exec ls -lh {} \\\\;)",
+      "Bash(awk '{print $5, $NF}')",
+      "Bash(grep -E \"\\\\.\\(csv|json|pkl|pickle\\)$\")",
+      "Bash(grep -l \"amce\\\\|AMCE\\\\|CountryLevel\" /d/AI_RESEARCH/moral_machine/Moral_LP_Alignment/MultiTP/multi_tp/analysis/*.ipynb)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(git checkout *)",
+      "Bash(git fsck *)",
+      "Bash(git restore *)"
     ]
   }
 }
