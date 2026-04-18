@@ -577,8 +577,8 @@ inflating epistemic uncertainty at inference,
 (7)~\textbf{Per-country temperature / margin scaling}, which fits a scalar
 $T_c$ or additive margin $m_c$ on a 25\% calibration split against the
 country's human AMCE and applies it to the held-out 75\%, and
-(8)~\textbf{DIFFPO-binary}, a black-box adaptation of
-DIFFPO~\citep{chen2025diffpo} to binary decisions that mixes the vanilla
+(8)~\textbf{DiffPO-binary}, a black-box adaptation of
+DiffPO~\citep{chen2025diffpo} to binary decisions that mixes the vanilla
 probability with a country-conditioned target derived from the public human
 AMCE on a calibration split. Baseline (8) explicitly \emph{consumes} the
 evaluation target at inference time and is therefore an upper bound on what
@@ -1776,8 +1776,8 @@ and apply it to the remaining 75\%. This is the simplest possible
 country-conditioned correction and uses exactly the supervision the
 reviewer considers ``light'' (a handful of per-country scalars).
 
-\paragraph{(8) DIFFPO-binary.} The spirit of
-DIFFPO~\citep{chen2025diffpo} adapted to binary decisions: we mix the
+\paragraph{(8) DiffPO-binary.} The spirit of
+DiffPO~\citep{chen2025diffpo} adapted to binary decisions: we mix the
 vanilla probability with a country-conditioned target
 $p_{\text{target}}(c, \mathrm{cat})$ built directly from the country's
 \emph{public} human AMCE ($p_{\text{aligned}} = (1-\alpha)\,p_{\text{van}} +
