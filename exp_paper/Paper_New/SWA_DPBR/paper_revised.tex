@@ -57,11 +57,11 @@
 Large language models make moral judgments as if the whole world thinks like the West, yet 40~million human responses across 233~countries say otherwise~\citep{awad2018moral}. We introduce \textbf{SWA-DPBR} (Socially-Weighted Alignment with Dual-Pass Bootstrap Reliability), a method that adapts a frozen LLM to the moral preferences of a specific country at inference time, without modifying any weights or requiring white-box access to internal activations.
 Three design choices distinguish SWA-DPBR from generic decoding-time steering, each motivated by a concrete property of the cultural-alignment problem.
 \emph{First}, we treat \emph{within-country disagreement as the signal itself}: culture is not monolithic but stratified by age cohort and social position~\citep{inglehart2005modernization, awad2018moral}, so we instantiate each country as a small panel of World Values Survey (WVS)--grounded persona agents whose disagreement pinpoints where and by how much to correct the model's default.
-\emph{Second}, we aggregate that disagreement through a \emph{loss-averse} Prospect-Theory value function~\citep{kahneman1979prospect, tversky1992advances}: a cultural correction that improves three personas while harming one is penalised more than one that helps all four modestly, operationalising a ``do no harm'' prior that deterministic averaging cannot express--and echoing risk-asymmetries recently shown to emerge inside LLMs themselves~\citep{payne2025prospect}.
+\emph{Second}, we aggregate that disagreement through a \emph{loss-averse} Prospect-Theory value function~\citep{kahneman1979prospect, tversky1992advances}: a cultural correction that improves three personas while harming one is penalised more than one that helps all four modestly, operationalising a ``do no harm'' prior that deterministic averaging cannot express---and echoing risk-asymmetries recently shown to emerge inside LLMs themselves~\citep{payne2025prospect}.
 \emph{Third}, we gate the importance-sampled correction with a \emph{dual-pass bootstrap reliability} weight~\citep{efron1979bootstrap}: two independent Monte-Carlo replicates must agree before the method commits, so the correction shrinks smoothly toward zero on scenarios where the logit landscape is noisy.
 Evaluated on MultiTP across \textbf{twenty countries, four continents}, and six open model families (3.8B--70B parameters), SWA-DPBR reduces misalignment by \textbf{19--24\%} on the strongest checkpoints, with gains spanning the Americas, Europe, and Asia rather than concentrating in any single region.
-When the method fails, the culprit is architectural--poorly conditioned decision logits rather than cultural blind spots--suggesting that inference-time cultural steering is broadly viable wherever the base model maintains a well-behaved decision surface.
-Code: \texttt{[repository]}.
+When the method fails, the culprit is architectural---poorly conditioned decision logits rather than cultural blind spots---suggesting that inference-time cultural steering is broadly viable wherever the base model maintains a well-behaved decision surface.
+Code and experimental artifacts will be released publicly upon acceptance.
 \end{abstract}
 
 % ============================================================
@@ -72,7 +72,7 @@ Code: \texttt{[repository]}.
 A self-driving car must choose: spare a group of elderly men or a group of young women.
 Ask in Tokyo and Bogot\'{a} and you will get systematically different answers.
 The Moral Machine experiment~\citep{awad2018moral} demonstrated this at scale: 40~million
-judgments from 233~countries revealed that moral preferences are not noise-they are
+judgments from 233~countries revealed that moral preferences are not noise---they are
 \emph{structured} by culture. East Asian respondents weight youth more heavily;
 Southern-hemisphere populations show distinct utilitarian calculi; Islamic societies
 prioritise different social roles.
@@ -412,7 +412,7 @@ correction is reliable; if not, it shrinks. Concretely:
   \label{eq:dpbr_rel}
 \end{equation}
 When the two passes concur, $r \approx 1$ and the full correction applies; when
-they diverge, $r$ decays exponentially and the correction vanishes-no hard
+they diverge, $r$ decays exponentially and the correction vanishes---no hard
 threshold, no manual tuning. This self-limiting property is essential: it
 prevents the method from making confident but wrong corrections on scenarios
 where the logit landscape is noisy, and it provides the safety margin needed
@@ -437,7 +437,7 @@ by sampling quality (Appendix~\ref{app:dpbr_theory}).
 \label{sec:method:prior}
 
 Each scenario so far is corrected independently. But moral preferences within a
-country are not independent-a model that underestimates youth preference in
+country are not independent---a model that underestimates youth preference in
 one Japanese trolley dilemma will likely do the same in the next. The
 hierarchical country prior exploits this by maintaining a running average of
 past corrections for each country and gradually blending it into future ones.
@@ -548,7 +548,7 @@ dual-pass IS ($2{\times}64$ samples per scenario).
 
 Each country's scenarios are presented entirely in the native language-scenario
 framing, character descriptions, lane labels, and closing questions are translated
-into 12 languages-so that the model's moral reasoning is grounded in the target
+into 12 languages---so that the model's moral reasoning is grounded in the target
 culture's linguistic frame. Only the decision tokens (A/B) remain English, verified
 as single-token entries in each model's vocabulary (Appendix~\ref{app:token_elicitation}).
 The released SWA-DPBR configuration was selected from 25 method variants on a
@@ -600,8 +600,8 @@ gain, country win rate (MIS lower than vanilla), and mean~$r$.
 
 \subsection{Training-Free Steering Closes 19--24\% of the Cultural Gap}
 
-A single decoding-time intervention-no weight changes, no per-country
-labels-materially closes the gap between LLM moral judgments and human cultural
+A single decoding-time intervention---no weight changes, no per-country
+labels---materially closes the gap between LLM moral judgments and human cultural
 preferences.
 Table~\ref{tab:main_macro_summary} confirms this consistently.
 Across six open checkpoints spanning 3.8B to 70B parameters and four distinct
@@ -611,7 +611,7 @@ vanilla, with the strongest backbones achieving \textbf{20/20 country wins}.
 Two patterns deserve attention.
 \emph{Calibration competes with scale.}
 The lowest absolute MIS does not come from the largest model: Phi-4 (14B) achieves
-MIS~$=0.346$ with a 23.7\% gain, outperforming Llama-3.3-70B in absolute terms-even
+MIS~$=0.346$ with a 23.7\% gain, outperforming Llama-3.3-70B in absolute terms---even
 though the 70B model wins \emph{every} country.
 This means SWA-DPBR can both \emph{rescue} a badly misaligned large model and
 \emph{refine} an already well-calibrated mid-sized one.
@@ -666,7 +666,7 @@ well-behaved logits), not geography.
 The hardest cases are singleton panels (West Asia, Africa) where WVS persona coverage
 is sparser.
 Here, variance is higher and a small backbone can occasionally move the wrong
-direction on a single country-precisely the regime where the dual-pass reliability
+direction on a single country---precisely the regime where the dual-pass reliability
 gate earns its keep by shrinking noisy corrections toward zero.
 
 \paragraph{Why MIS can improve while Pearson $r$ stays negative.}
@@ -768,7 +768,7 @@ Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bot
 \label{sec:ablation}
 % ============================================================
 
-To understand \emph{why} the method works-not just \emph{that} it works-we
+To understand \emph{why} the method works---not just \emph{that} it works---we
 ablate four design choices on Phi-4~(14B), USA (310 scenarios;
 Table~\ref{tab:ablation_phi4}).\footnote{The ablation uses a vLLM backend to match
 the main EXP-24 sweep; one $K$-sample IS batch per scenario with dual-pass
@@ -828,12 +828,12 @@ Full configuration: $r = 0.603$, MIS $= 0.3489$. Primary metric: MIS\,($\downarr
 
 The central story of these experiments is that \emph{structured disagreement among culturally grounded personas is a surprisingly effective steering signal for frozen LLMs}. This finding connects to a broader shift in the alignment literature: recent work on pluralistic alignment~\citep{sorensen2024roadmap} argues that no single preference ordering can serve all communities, and inference-time methods are increasingly seen as the natural vehicle for expressing that plurality because they avoid committing a fixed value stance into weights. SWA-DPBR makes this concrete-WVS-derived personas disagree in informative ways, the PT--IS stage converts that disagreement into a bounded logit nudge, and the dual-pass reliability gate ensures the system commits only when both independent Monte Carlo estimates concur. The outcome is a self-regulating correction that is aggressive where the model is miscalibrated and conservative where it is not. Recent evidence that Prospect-Theory-like loss aversion emerges naturally in LLM decision-making under risk~\citep{payne2025prospect} lends additional motivation: the PT utility we use to shape corrections mirrors a structure the models themselves already exhibit, rather than imposing an alien objective.
 
-Equally important is where the method fails, because failure patterns reveal what inference-time cultural steering fundamentally requires from the base model. Per-country grids (\S\ref{sec:percountry_main}) show that residual trouble spots do not cluster by continent or cultural region-they cluster by model architecture. When a backbone's decision-token logits are poorly conditioned, IS perturbations find no informative gradient to follow regardless of the target country. This diagnosis cuts both ways: it explains why SWA-DPBR scales across model families (any backbone with a well-behaved decision surface benefits) and why it cannot help models whose logits are degenerate. The same logic explains the diminishing-returns pattern: models with already-low misalignment occasionally overshoot, because the base logits leave too little headroom for the IS stage. This connects to the broader observation that targeted debiasing can cause ``spillover'' into untargeted dimensions~\citep{guo2025nofree}, reinforcing that inference-time interventions must be self-limiting-a property the dual-pass reliability gate is specifically designed to provide.
+Equally important is where the method fails, because failure patterns reveal what inference-time cultural steering fundamentally requires from the base model. Per-country grids (\S\ref{sec:percountry_main}) show that residual trouble spots do not cluster by continent or cultural region---they cluster by model architecture. When a backbone's decision-token logits are poorly conditioned, IS perturbations find no informative gradient to follow regardless of the target country. This diagnosis cuts both ways: it explains why SWA-DPBR scales across model families (any backbone with a well-behaved decision surface benefits) and why it cannot help models whose logits are degenerate. The same logic explains the diminishing-returns pattern: models with already-low misalignment occasionally overshoot, because the base logits leave too little headroom for the IS stage. This connects to the broader observation that targeted debiasing can cause ``spillover'' into untargeted dimensions~\citep{guo2025nofree}, reinforcing that inference-time interventions must be self-limiting---a property the dual-pass reliability gate is specifically designed to provide.
 
-The ablation (Table~\ref{tab:ablation_phi4}) clarifies the division of labour. Personas supply the raw cultural signal-without them, alignment collapses. The PT--IS kernel refines that signal with a loss-averse utility that naturally encodes a ``do no harm'' desideratum, penalising corrections that worsen any persona's alignment more heavily than it rewards equal-sized gains. Positional debiasing prevents framing artifacts from contaminating the correction, and the hierarchical country prior stabilises tail scenarios. No single component suffices, but the full stack is greater than the sum of its parts. Recent work on logit-level interventions for LLM steering~\citep{an2026logit} and on culturally localised generation via sparse autoencoders~\citep{khanuja2026steering} suggests that the logit surface is a richer control interface than previously appreciated; SWA-DPBR's consistent gains across model families support this view. Deployment overhead is modest: roughly $4\times$ latency over vanilla (Appendix~\ref{app:trigger}), dominated by the batched multi-agent forward pass.
+The ablation (Table~\ref{tab:ablation_phi4}) clarifies the division of labour. Personas supply the raw cultural signal---without them, alignment collapses. The PT--IS kernel refines that signal with a loss-averse utility that naturally encodes a ``do no harm'' desideratum, penalising corrections that worsen any persona's alignment more heavily than it rewards equal-sized gains. Positional debiasing prevents framing artifacts from contaminating the correction, and the hierarchical country prior stabilises tail scenarios. No single component suffices, but the full stack is greater than the sum of its parts. Recent work on logit-level interventions for LLM steering~\citep{an2026logit} and on culturally localised generation via sparse autoencoders~\citep{khanuja2026steering} suggests that the logit surface is a richer control interface than previously appreciated; SWA-DPBR's consistent gains across model families support this view. Deployment overhead is modest: roughly $4\times$ latency over vanilla (Appendix~\ref{app:trigger}), dominated by the batched multi-agent forward pass.
 
 \textbf{Limitations.}
-Three caveats bound generalisation. First, hyperparameters were selected on a synthetic dilemma pool and transfer-checked on a small MultiTP subset; sweeps in Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} and the 25-method engineering comparison (Appendix~\ref{app:engineering}) are our main evidence of stability, but multi-seed confidence intervals remain a priority. Second, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral,jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans}, so the reader should treat our numbers as alignment to a survey statistic, not proof of legitimacy-a concern echoed by recent work questioning the reliability of cultural alignment evaluations~\citep{cao2025randomness}. Third, per-dimension analysis (Appendix~\ref{app:perdim}) shows that Species and Utilitarianism remain the hardest dimensions, and a full per-dimension improvement breakdown is an open gap. Fourth, a pilot on the open-ended BLEnD benchmark (Appendix~\ref{app:blend}) shows that SWA-DPBR's binary logit-gap formulation does not transfer to free-form generation: aggregate SEM-B drops by 4.4~pp, with gains limited to high-resource countries where the baseline already performs well. This confirms that softmax-aware IS and a vocabulary-level reliability gate are prerequisites for open-ended deployment. SWA-DPBR also requires decision-token logits, limiting deployment on text-only APIs; further limitations are in Appendix~\ref{app:limitations}.
+Three caveats bound generalisation. First, hyperparameters were selected on a synthetic dilemma pool and transfer-checked on a small MultiTP subset; sweeps in Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} and the 25-method engineering comparison (Appendix~\ref{app:engineering}) are our main evidence of stability, but multi-seed confidence intervals remain a priority. Second, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral,jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans}, so the reader should treat our numbers as alignment to a survey statistic, not proof of legitimacy---a concern echoed by recent work questioning the reliability of cultural alignment evaluations~\citep{cao2025randomness}. Third, per-dimension analysis (Appendix~\ref{app:perdim}) shows that Species and Utilitarianism remain the hardest dimensions, and a full per-dimension improvement breakdown is an open gap. Fourth, a pilot on the open-ended BLEnD benchmark (Appendix~\ref{app:blend}) shows that SWA-DPBR's binary logit-gap formulation does not transfer to free-form generation: aggregate SEM-B drops by 4.4~pp, with gains limited to high-resource countries where the baseline already performs well. This confirms that softmax-aware IS and a vocabulary-level reliability gate are prerequisites for open-ended deployment. SWA-DPBR also requires decision-token logits, limiting deployment on text-only APIs; further limitations are in Appendix~\ref{app:limitations}.
 
 \textbf{On the robustness of the Prospect-Theory kernel.}
 A recent study~\citep{kumar2025pt} reports that prospect-theoretic biases in
@@ -874,7 +874,7 @@ protection.
 \label{sec:conclusion}
 % ============================================================
 
-LLMs need not be retrained to respect moral diversity. SWA-DPBR shows that survey-grounded persona disagreement can be converted into bounded, self-regulating logit corrections at inference time, reducing misalignment by 19--24\% across twenty countries and four continents without touching a single weight. The method's limits are mechanical, not cultural: collapsed decision-logit entropy breaks importance sampling regardless of geography, models with already-low misalignment occasionally overshoot, and a pilot on BLEnD open-ended QA (Appendix~\ref{app:blend}) confirms that the binary logit-gap formulation does not yet transfer to free-form generation. The path forward is softmax-aware IS for open-ended settings, richer proposal adaptation for ill-conditioned logits, per-dimension outcome analysis, updated survey waves, and decoding-time safeguards-concrete steps toward the pluralistic alignment vision~\citep{sorensen2024roadmap} with practical, deployable tools.
+LLMs need not be retrained to respect moral diversity. SWA-DPBR shows that survey-grounded persona disagreement can be converted into bounded, self-regulating logit corrections at inference time, reducing misalignment by 19--24\% across twenty countries and four continents without touching a single weight. The method's limits are mechanical, not cultural: collapsed decision-logit entropy breaks importance sampling regardless of geography, models with already-low misalignment occasionally overshoot, and a pilot on BLEnD open-ended QA (Appendix~\ref{app:blend}) confirms that the binary logit-gap formulation does not yet transfer to free-form generation. The path forward is softmax-aware IS for open-ended settings, richer proposal adaptation for ill-conditioned logits, per-dimension outcome analysis, updated survey waves, and decoding-time safeguards---concrete steps toward the pluralistic alignment vision~\citep{sorensen2024roadmap} with practical, deployable tools.
 
 % ============================================================
 \bibliographystyle{abbrvnat}
@@ -1341,7 +1341,8 @@ determine which group is rendered on the left vs.\ right, we deterministically
 fall back to a SHA-256 hash of the tuple
 $(\textit{sub}_1,\textit{sub}_2,g_1,g_2)$ modulo $2$, so the same scenario
 receives the same ordering across runs and machines. The fallback rate is
-logged per country; for all 15 countries it stays below 5\%.
+logged per country and stays below 5\% on every country in the
+20-country panel.
 
 Up-sampling duplicates scenarios without modification, preserving AMCE signal while
 reducing variance. Category capping prevents dimension dominance. Side balancing
@@ -1512,7 +1513,7 @@ human target directions. This is plausible when the base model represents a WEIR
 prior, but if a persona's shift is orthogonal to the human target, the signal may
 mislead. Per-dimension validation is needed.
 Quantifying whether persona-consensus directions correlate with country-level human
-AMCE vectors independently of the base model-and when corrections diverge from
+AMCE vectors independently of the base model---and when corrections diverge from
 targets-is also open; we do not report that correlation matrix here.
 
 \paragraph{Geographic coverage, preprocessing, and survey vintage.}
@@ -1592,7 +1593,7 @@ Three structural insights emerge from these tables.
 
 First, \textbf{the bottleneck dimension shifts with model quality}.
 Weaker models (Llama-3.3-70B, Phi-3.5-mini) are dominated by
-\textbf{Utilitarianism}-they predict ${\approx}\,25$--$30\%$ utilitarian
+\textbf{Utilitarianism}---they predict ${\approx}\,25$--$30\%$ utilitarian
 preference where humans range 68--80\%, an error of 40--50~pp that no
 persona-based correction can close.
 Better-calibrated models (Phi-4, Magistral, Qwen2.5-7B) have already resolved
@@ -1602,12 +1603,12 @@ that are within reach of the IS stage.
 
 Second, \textbf{Phi-4 is the most balanced model}: no single dimension
 dominates ($9/20$ SocialValue, $7/20$ Age, $2/20$ Utilitarianism, $2/20$
-Species). This balance-not raw scale-explains why it achieves the lowest
+Species). This balance---not raw scale---explains why it achieves the lowest
 absolute MIS despite being 5$\times$ smaller than Llama-3.3-70B.
 
 Third, the per-country Phi-4 table (Table~\ref{tab:phi4_percountry})
 confirms that \textbf{gains are large and geographically broad}: 51\% on
-USA and Japan, 47\% on China, 40\% on Indonesia-with the two losses
+USA and Japan, 47\% on China, 40\% on Indonesia---with the two losses
 (Brazil, Iran) tracing to already-low vanilla MIS where IS overshoots.
 
 \section{Broader Model Landscape}
@@ -1647,24 +1648,24 @@ Llama-3.2-1B & 1B & 0.476 & \gain{+1.1} & 1/5 \\
 
 Several patterns inform the main paper's model selection.
 \emph{Success correlates with logit well-behavedness, not raw scale:} Phi-4 (14B)
-leads while Gemma-4-31B (31B) and Qwen3-Coder-30B (30B) degrade-confirming that
+leads while Gemma-4-31B (31B) and Qwen3-Coder-30B (30B) degrade---confirming that
 SWA-DPBR requires a cooperative decision surface, not just more parameters.
 \emph{Instruction tuning matters:} models without strong chat/instruct tuning
 (Qwen3-8B, Qwen3.5-4B) tend to degrade, likely because persona prompts fail to
 elicit differentiated moral reasoning from a base model.
 \emph{The failure mode is consistent:} models that degrade typically have
 already-low vanilla MIS ($<0.40$), leaving insufficient headroom for IS
-corrections-matching the ``diminishing returns'' pattern discussed in
+corrections---matching the ``diminishing returns'' pattern discussed in
 \S\ref{sec:discussion}.
 
 \section{Pilot: Open-Ended Cultural QA (BLEnD)}
 \label{app:blend}
 
-The binary trolley format that SWA-DPBR targets is structurally convenient-logit differences between two decision tokens provide a clean scalar signal for importance sampling-but it does not reflect the open-ended generation settings where LLMs are most commonly deployed. To probe whether the method's cultural steering transfers beyond forced binary choices, we ran a pilot experiment on the BLEnD benchmark~\citep{myung2024blend}, a dataset of 52.6k short-answer questions about everyday cultural knowledge across 16 countries/regions in 13 languages.
+The binary trolley format that SWA-DPBR targets is structurally convenient---logit differences between two decision tokens provide a clean scalar signal for importance sampling---but it does not reflect the open-ended generation settings where LLMs are most commonly deployed. To probe whether the method's cultural steering transfers beyond forced binary choices, we ran a pilot experiment on the BLEnD benchmark~\citep{myung2024blend}, a dataset of 52.6k short-answer questions about everyday cultural knowledge across 16 countries/regions in 13 languages.
 
 We evaluated Phi-4 (14B) in two conditions: vanilla greedy decoding (baseline) and SWA-DPBR with the same hyperparameters as the MultiTP experiments. Because BLEnD questions are open-ended, we adapted the pipeline to operate on next-token logits during generation rather than on a single binary decision token: persona-conditioned forward passes produce per-token logit corrections that are aggregated through the same PT--IS and dual-pass reliability stages. Answers were scored with Soft Exact Match at both the between-country (SEM-B) and within-country (SEM-W) levels, following the BLEnD evaluation protocol.
 
-Table~\ref{tab:blend_results} presents the per-country results. The pattern is striking and instructive: SWA-DPBR improves countries where the baseline is already strong-the United States (+4.55 SEM-B), the United Kingdom (+7.45), and to a lesser extent Indonesia, Mexico, and Spain-but degrades countries where vanilla performance is low, with the sharpest drops in Assam ($-$13.21), Greece ($-$12.39), and Iran ($-$10.30). Overall, SWA-DPBR reduces aggregate SEM-B by 4.40 percentage points (from 48.91\% to 44.51\%).
+Table~\ref{tab:blend_results} presents the per-country results. The pattern is striking and instructive: SWA-DPBR improves countries where the baseline is already strong---the United States (+4.55 SEM-B), the United Kingdom (+7.45), and to a lesser extent Indonesia, Mexico, and Spain---but degrades countries where vanilla performance is low, with the sharpest drops in Assam ($-$13.21), Greece ($-$12.39), and Iran ($-$10.30). Overall, SWA-DPBR reduces aggregate SEM-B by 4.40 percentage points (from 48.91\% to 44.51\%).
 
 \begin{table}[h]\centering\scriptsize
 \caption{BLEnD pilot results (Phi-4 14B). SEM-B/W = Soft Exact Match between/within country (\%). $\Delta$ = change from vanilla baseline. Countries sorted by baseline SEM-B (descending). SWA-DPBR improves high-resource countries but degrades low-resource ones, yielding a net negative overall effect.}
@@ -1698,9 +1699,9 @@ Ethiopia         &  5.30 &  4.56 & $-$4.45       & $-$3.82       \\
 \end{tabular}
 \end{table}
 
-The diagnosis is mechanistic rather than cultural. SWA-DPBR's logit corrections are calibrated for a binary decision surface where two tokens compete; in open-ended generation, the correction is distributed across a much larger vocabulary, and the dual-pass reliability gate-designed to detect agreement between two IS estimates on a scalar-loses discriminative power in the high-dimensional softmax space. For high-resource countries where the baseline already generates fluent, culturally appropriate text, the persona signal provides a mild beneficial nudge. For low-resource countries, the baseline struggles with basic factual recall (SEM-B below 30\%), and the IS correction introduces noise that further degrades generation quality-precisely the regime where the method's binary-format assumptions bind hardest.
+The diagnosis is mechanistic rather than cultural. SWA-DPBR's logit corrections are calibrated for a binary decision surface where two tokens compete; in open-ended generation, the correction is distributed across a much larger vocabulary, and the dual-pass reliability gate---designed to detect agreement between two IS estimates on a scalar---loses discriminative power in the high-dimensional softmax space. For high-resource countries where the baseline already generates fluent, culturally appropriate text, the persona signal provides a mild beneficial nudge. For low-resource countries, the baseline struggles with basic factual recall (SEM-B below 30\%), and the IS correction introduces noise that further degrades generation quality---precisely the regime where the method's binary-format assumptions bind hardest.
 
-Two additional factors compound the degradation. First, WVS persona coverage is sparsest for the lowest-performing countries (Assam, Northern Nigeria, Ethiopia), so the cultural signal itself is weaker and noisier. Second, BLEnD questions test factual everyday knowledge (``what food do people eat for birthdays?''), not moral preferences-the disagreement-as-signal intuition that powers SWA-DPBR on trolley dilemmas does not straightforwardly apply when the target is a factual answer rather than a preference distribution.
+Two additional factors compound the degradation. First, WVS persona coverage is sparsest for the lowest-performing countries (Assam, Northern Nigeria, Ethiopia), so the cultural signal itself is weaker and noisier. Second, BLEnD questions test factual everyday knowledge (``what food do people eat for birthdays?''), not moral preferences---the disagreement-as-signal intuition that powers SWA-DPBR on trolley dilemmas does not straightforwardly apply when the target is a factual answer rather than a preference distribution.
 
 These results empirically confirm the binary-format limitation flagged in \S\ref{sec:discussion} and point toward a concrete extension path: adapting the IS stage to operate on softmax distributions rather than scalar logit gaps, with a vocabulary-aware reliability gate that can distinguish meaningful cultural steering from noise in the high-dimensional token space.
 
