@@ -37,7 +37,7 @@ normalised score ``(val - mid) * direction`` is always interpretable as
 import os
 import csv as _csv
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from src.constants import COUNTRY_FULL_NAMES, COUNTRY_LANG
 from src.persona_i18n import (
@@ -261,7 +261,8 @@ DIM_SENTENCE_TEMPLATES: Dict[str, str] = PERSONA_TEMPLATES_I18N["en"]
 
 def generate_wvs_persona(country_iso: str, age_group: str,
                           profile: Dict[str, float],
-                          country_name: str, lang: str) -> str:
+                          country_name: str, lang: str,
+                          drop_dims: Optional[Set[str]] = None) -> str:
     """Generate a single persona string from a WVS value profile.
 
     The persona has three parts (Greco et al. 2025-style):
@@ -269,7 +270,9 @@ def generate_wvs_persona(country_iso: str, age_group: str,
         2. **Cultural mapping** — one sentence per WVS dimension that has
            data in ``profile``, using the descriptor from
            :func:`describe_value`. Dimensions with no data are silently
-           skipped.
+           skipped. If ``drop_dims`` is given, any dim in that set is also
+           skipped (used by the Round-2 WVS-to-trolley ablation to test
+           which WVS dimensions the AMCE gain actually rides on).
         3. **Closing line** — explicit anchor that the persona reasons
            about moral dilemmas through these values.
 
@@ -283,6 +286,7 @@ def generate_wvs_persona(country_iso: str, age_group: str,
     # to English keeps the function defensive against unknown lang codes.
     scaffold = PERSONA_SCAFFOLD_I18N.get(lang, PERSONA_SCAFFOLD_I18N["en"])
     templates = PERSONA_TEMPLATES_I18N.get(lang, PERSONA_TEMPLATES_I18N["en"])
+    drop_dims = set(drop_dims) if drop_dims else set()
 
     role, age_range = scaffold["ages"].get(age_group, scaffold["ages"]["all"])
 
@@ -298,6 +302,8 @@ def generate_wvs_persona(country_iso: str, age_group: str,
     # Build the cultural-variable mapping in the canonical paper order.
     mapping_lines: List[str] = []
     for dim_name in WVS_DIMS.keys():
+        if dim_name in drop_dims:
+            continue
         val = profile.get(dim_name, 0.0)
         if val <= 0:
             continue
@@ -773,17 +779,43 @@ BASE_PERSONAS: Dict[str, List[str]] = {
 }
 
 
-def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
+def build_country_personas(
+    country_iso: str,
+    wvs_path: str = "",
+    *,
+    drop_dims: Optional[Set[str]] = None,
+    fourth: str = "aggregate",
+) -> List[str]:
     """
     Return 4 personas per country.
 
-    Priority: WVS Wave 7 data (3 age-cohort personas + 1 population-wide
-    aggregate) → BASE_PERSONAS manual fallback. WVS personas are emitted in
-    the country's native language via :data:`PERSONA_SCAFFOLD_I18N` /
-    :data:`PERSONA_DESCRIPTORS_I18N`. The moral-dilemma vignette is
-    localized separately via PROMPT_FRAME_I18N in ``controller.predict()``.
+    Priority: WVS Wave 7 data (3 age-cohort personas + 1 configurable fourth
+    agent) → BASE_PERSONAS manual fallback. WVS personas are emitted in the
+    country's native language via :data:`PERSONA_SCAFFOLD_I18N` /
+    :data:`PERSONA_DESCRIPTORS_I18N`. The moral-dilemma vignette is localized
+    separately via PROMPT_FRAME_I18N in ``controller.predict()``.
+
+    Round-2 additions (backward-compatible via defaults):
+        * ``drop_dims``: WVS dim names to omit from every age-cohort's
+          cultural mapping. Used by the WVS-to-trolley ablation.
+        * ``fourth``: what the 4th persona is:
+              ``"aggregate"`` (default, current behaviour) → population-wide
+                  WVS profile ("all" age cohort).
+              ``"utilitarian"`` → country-invariant translated utilitarian
+                  anchor from :data:`UTILITARIAN_PERSONA_I18N` (matches the
+                  original Figure 1 label).
     """
     country_name = COUNTRY_FULL_NAMES.get(country_iso, country_iso)
+    drop_dims = set(drop_dims) if drop_dims else set()
+
+    # Env-var override so legacy call sites can opt into the dropout without
+    # a code change (for multi-model sweeps). Comma-separated dim names.
+    _env_drop = os.environ.get("SWA_WVS_DROP_DIMS", "").strip()
+    if _env_drop:
+        drop_dims |= {s.strip() for s in _env_drop.split(",") if s.strip()}
+    _env_fourth = os.environ.get("SWA_FOURTH_PERSONA", "").strip().lower()
+    if _env_fourth:
+        fourth = _env_fourth
 
     # Try WVS-based generation. We treat ``religiosity`` as the canary
     # dimension: if it loaded with a positive value, the rest of the
@@ -795,33 +827,41 @@ def build_country_personas(country_iso: str, wvs_path: str = "") -> List[str]:
         if country_profile and country_profile.get("all", {}).get("religiosity", 0) > 0:
             personas = []
             lang = COUNTRY_LANG.get(country_iso, "en")
-            scaffold = PERSONA_SCAFFOLD_I18N.get(lang, PERSONA_SCAFFOLD_I18N["en"])
-            native_country = COUNTRY_NATIVE_NAME.get(country_iso, country_name)
             for ag in ["young", "middle", "older"]:
                 p = country_profile.get(ag, country_profile["all"])
                 if p.get("religiosity", 0) > 0:
                     personas.append(generate_wvs_persona(
                         country_iso, ag, p, country_name,
-                        lang=lang,
+                        lang=lang, drop_dims=drop_dims,
                     ))
-            # 4th persona: population-wide WVS profile ("all" age cohort).
-            # This anchors the agent ensemble with the country's aggregate
-            # cultural values averaged across all respondents, complementing
-            # the three age-stratified personas above.  Unlike the previous
-            # country-invariant utilitarian persona, this agent carries
-            # genuine cultural signal and does not bias the ensemble toward
-            # any particular moral dimension.
-            personas.append(generate_wvs_persona(
-                country_iso, "all", country_profile["all"], country_name,
-                lang=lang,
-            ))
+            # 4th persona — configurable.
+            if fourth == "utilitarian":
+                # Country-invariant utilitarian anchor (matches Figure 1 label).
+                util = UTILITARIAN_PERSONA_I18N.get(
+                    lang, UTILITARIAN_PERSONA_I18N.get("en")
+                )
+                if util:
+                    personas.append(util)
+                else:
+                    # Fall back to aggregate if the language map lacks an entry.
+                    personas.append(generate_wvs_persona(
+                        country_iso, "all", country_profile["all"], country_name,
+                        lang=lang, drop_dims=drop_dims,
+                    ))
+            else:  # "aggregate" (default) or any other value
+                personas.append(generate_wvs_persona(
+                    country_iso, "all", country_profile["all"], country_name,
+                    lang=lang, drop_dims=drop_dims,
+                ))
             # Ensure exactly 4 (defensive: if some age band had no data).
             while len(personas) < 4:
                 personas.append(generate_wvs_persona(
                     country_iso, "all", country_profile["all"], country_name,
-                    lang=lang,
+                    lang=lang, drop_dims=drop_dims,
                 ))
-            print(f"[WVS] Generated {len(personas)} personas for {country_iso} from WVS data")
+            drop_tag = f"drop={sorted(drop_dims)}" if drop_dims else "drop=∅"
+            print(f"[WVS] Generated {len(personas)} personas for {country_iso} "
+                  f"(fourth={fourth}, {drop_tag})")
             return personas[:4]
         else:
             print(f"[WVS] No usable profile for {country_iso} — falling back to BASE_PERSONAS")

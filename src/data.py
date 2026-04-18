@@ -64,7 +64,20 @@ def is_utilitarianism_quality(g1, g2):
 
 def load_multitp_dataset(data_base_path, lang="en", translator="google",
                           suffix="", n_scenarios=500, seed=42,
-                          max_per_category=MAX_SCENARIOS_PER_CATEGORY):
+                          max_per_category=MAX_SCENARIOS_PER_CATEGORY,
+                          *,
+                          cap_per_category: bool = True,
+                          dump_ids_path: str = ""):
+    """Load + balance MultiTP scenarios.
+
+    Round-2 preprocessing flags (reviewer W5):
+        * ``cap_per_category`` — if False, skip the per-category sub-sampling
+          cap. Used by :mod:`exp_paper.exp_r2_no_oversampling` to show that
+          the headline numbers are not an artefact of the cap.
+        * ``dump_ids_path`` — if non-empty, write the exact ``Prompt`` list
+          selected for this (lang, seed) run to a CSV at the given path so
+          reviewers can reproduce the scenario slice bit-for-bit.
+    """
     # Lazy imports to avoid circular dependencies and keep module lightweight
     from src.constants import PHENOMENON_GROUP, SCENARIO_STARTS
     from src.i18n import SCENARIO_STARTS_I18N
@@ -136,12 +149,19 @@ def load_multitp_dataset(data_base_path, lang="en", translator="google",
     balanced_parts = []
     for cat in real_df["phenomenon_category"].unique():
         cat_df = real_df[real_df["phenomenon_category"] == cat]
-        if len(cat_df) > max_per_category:
+        if cap_per_category and len(cat_df) > max_per_category:
             cat_df = cat_df.sample(n=max_per_category, random_state=seed)
         balanced_parts.append(cat_df)
 
     result_df = pd.concat(balanced_parts, ignore_index=True)
     result_df = result_df.sample(frac=1, random_state=seed).reset_index(drop=True)
+
+    if dump_ids_path:
+        import os as _os  # local to avoid top-level churn
+        _os.makedirs(_os.path.dirname(dump_ids_path) or ".", exist_ok=True)
+        result_df[["Prompt", "phenomenon_category", "preferred_on_right",
+                   "n_left", "n_right"]].to_csv(dump_ids_path, index=False)
+        print(f"[DATA] Dumped scenario ids → {dump_ids_path}")
 
     side_pct = result_df["preferred_on_right"].mean()
     if side_pct < 0.3 or side_pct > 0.7:

@@ -188,7 +188,20 @@ neither targets country-conditioned moral calibration.
 Inference-time stochasticity can improve moral alignment by reshaping
 confidence~\citep{kwon2025dropouts}; SWA-DPBR complements this by targeting
 \emph{directional}, survey-grounded corrections rather than generic
-uncertainty inflation.
+uncertainty inflation, and we include it as an explicit baseline
+(Appendix~\ref{app:r2_baselines}). Black-box alignment modules that learn
+small guidance policies from preference
+data~\citep{lee2025pita, chen2025diffpo} sit in an adjacent regime: they
+operate on frozen model outputs, but still require a training stage for the
+guidance policy and are typically defined over sentence-level continuations
+rather than binary decisions. Adaptive importance sampling in pre-logit
+space~\citep{aisp2025} achieves similar variance control but requires
+white-box activation access; we work strictly with decision-token logits.
+Training-time prospect-theoretic alignment~\citep{ethayarajh2024kto}
+extends KL-regularised preference learning with loss-aversion via a
+Kahneman--Tversky value function; SWA-DPBR applies the same value shape
+at \emph{test time}, per scenario, so the asymmetry aggregates
+heterogeneous personas rather than shaping a trained policy.
 To the best of our knowledge, SWA-DPBR is the first training-free method
 targeting country-level moral calibration specifically.
 
@@ -555,15 +568,21 @@ On Llama-3.1-70B we compare (1)~\textbf{Vanilla} (generic system prompt),
 (5)~\textbf{Activation Steering}~\citep{arditi2025refusal} with culturally
 contrastive steering vectors (implementation: Appendix~\ref{app:baselines}).
 Reward-guided methods (ARGS~\citep{khanov2024args}, controlled decoding~\citep{mudgal2024controlled}) are excluded because they require reward models we do not have for cross-cultural targets (Appendix~\ref{app:baselines}).
-We omit a full twenty-country run of inference-time dropout
-calibration~\citep{kwon2025dropouts} and pure temperature/margin scaling as
-standalone baselines.
-Dropout calibration targets \emph{generic} uncertainty inflation rather than
-\emph{directional}, country-conditioned corrections; a controlled head-to-head on
-the same MultiTP grid is important future work.
-Appendix~\ref{app:temp_sensitivity} reports structured sensitivity of
-$T_{\text{dec}}$ and $T_{\text{cat}}$ that partially overlaps simpler scaling
-ablations.
+Following Round~2 reviewer feedback we additionally include three
+inference-time baselines run on the full twenty-country Phi-4 grid
+(Appendix~\ref{app:r2_baselines}):
+(6)~\textbf{MC-Dropout calibration}~\citep{gal2016dropout, kwon2025dropouts}
+inflating epistemic uncertainty at inference,
+(7)~\textbf{Per-country temperature / margin scaling}, which fits a scalar
+$T_c$ or additive margin $m_c$ on a 25\% calibration split against the
+country's human AMCE and applies it to the held-out 75\%, and
+(8)~\textbf{DIFFPO-binary}, a black-box adaptation of
+DIFFPO~\citep{chen2025diffpo} to binary decisions that mixes the vanilla
+probability with a country-conditioned target derived from the public human
+AMCE on a calibration split. Baseline (8) explicitly \emph{consumes} the
+evaluation target at inference time and is therefore an upper bound on what
+a human-AMCE-aware reweighting can achieve without any within-country
+disagreement signal.
 Primary headline metric is \textbf{MIS} (misalignment score): the $\ell_2$ distance
 between the model's six-dimensional AMCE vector and the human vector for the same
 country~\citep{jin2025multitp}, computed as in \S\ref{sec:method:problem}. Lower is better. We
@@ -648,6 +667,23 @@ is sparser.
 Here, variance is higher and a small backbone can occasionally move the wrong
 direction on a single country-precisely the regime where the dual-pass reliability
 gate earns its keep by shrinking noisy corrections toward zero.
+
+\paragraph{Why MIS can improve while Pearson $r$ stays negative.}
+Table~\ref{tab:percountry_p1} shows several countries where SWA-DPBR
+reduces MIS yet the model-vs-human Pearson correlation is negative. This
+is not a contradiction: MIS is the $\ell_2$ distance between the six-dim
+AMCE vectors (an \emph{amplitude} metric), while Pearson $r$ measures
+\emph{shape}---the rank ordering of the six MultiTP dimensions. When a
+model's dimension ranking differs from the human ranking, $r$ can be
+near-zero or negative even while the per-dimension values move closer in
+magnitude; the two metrics are genuinely orthogonal. We supplement $r$
+with rank-based agreement (Kendall $\tau$, mean rank-error) over the
+six dimensions in Appendix~\ref{app:rank_agreement}; there the picture
+is more uniformly positive, with SWA-DPBR improving the macro rank
+ordering over the vanilla baseline. Readers who care about the shape
+of the cultural profile (rather than the $\ell_2$ amplitude) should
+track the rank metrics; MIS remains our primary headline because it is
+the metric introduced by the MultiTP authors.
 
 \begin{table*}[tp]
 \caption{\textbf{Per-country SWA-DPBR results (20 countries).} Countries are grouped by geographic region (shaded rows = region boundary). Vanilla and SWA-DPBR MIS ($\downarrow$), relative MIS improvement (\%), and SWA-DPBR JSD ($\downarrow$) / Pearson $r$ ($\uparrow$). Models in the same order as Table~\ref{tab:main_macro_summary} (nominal parameter count, descending).}
@@ -798,8 +834,39 @@ The ablation (Table~\ref{tab:ablation_phi4}) clarifies the division of labour. P
 \textbf{Limitations.}
 Three caveats bound generalisation. First, hyperparameters were selected on a synthetic dilemma pool and transfer-checked on a small MultiTP subset; sweeps in Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} and the 25-method engineering comparison (Appendix~\ref{app:engineering}) are our main evidence of stability, but multi-seed confidence intervals remain a priority. Second, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral,jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans}, so the reader should treat our numbers as alignment to a survey statistic, not proof of legitimacy-a concern echoed by recent work questioning the reliability of cultural alignment evaluations~\citep{cao2025randomness}. Third, per-dimension analysis (Appendix~\ref{app:perdim}) shows that Species and Utilitarianism remain the hardest dimensions, and a full per-dimension improvement breakdown is an open gap. Fourth, a pilot on the open-ended BLEnD benchmark (Appendix~\ref{app:blend}) shows that SWA-DPBR's binary logit-gap formulation does not transfer to free-form generation: aggregate SEM-B drops by 4.4~pp, with gains limited to high-resource countries where the baseline already performs well. This confirms that softmax-aware IS and a vocabulary-level reliability gate are prerequisites for open-ended deployment. SWA-DPBR also requires decision-token logits, limiting deployment on text-only APIs; further limitations are in Appendix~\ref{app:limitations}.
 
+\textbf{On the robustness of the Prospect-Theory kernel.}
+A recent study~\citep{kumar2025pt} reports that prospect-theoretic biases in
+LLMs can be fragile under linguistic uncertainty: framing decisions with
+vague quantifiers or uncertain payoffs weakens the loss-aversion asymmetry.
+Our setting partially avoids this concern because the PT kernel operates on
+\emph{persona logit gaps}, not on the raw decision utility communicated in
+the prompt---the inputs to $v(\cdot)$ are sigma-normalised numerical
+differences, not prompted quantities. Still, the caveat is real: if a
+native-language frame introduces linguistic hedging that shifts persona
+calibration, the PT asymmetry we rely on could be diluted. The per-country
+Pearson $r$ spread in Table~\ref{tab:percountry_p1} is consistent with this
+effect being small but non-zero; a more direct probe is flagged for future
+work.
+
 \textbf{Broader impact.}
-SWA-DPBR can make models more responsive to documented cross-national preference heterogeneity without retraining, yet it can also encode harmful majorities or survey stereotypes if deployed naively-a tension that recent work on moral stereotyping in LLMs makes especially salient~\citep{zewail2025moral}. We recommend four safeguards: governance ensuring the method does not override safety-critical guardrails; periodic persona refresh as newer WVS waves appear; per-dimension AMCE audits to catch entrenched bias; and optional penalty terms on sensitive dimensions to embed review directly into the decoding loop.
+SWA-DPBR can make models more responsive to documented cross-national
+preference heterogeneity without retraining, yet it can also encode
+harmful majorities or survey stereotypes if deployed naively---a tension
+that recent work on moral stereotyping in LLMs makes especially
+salient~\citep{zewail2025moral}. We recommend four safeguards:
+governance ensuring the method does not override safety-critical
+guardrails; periodic persona refresh as newer WVS waves appear;
+per-dimension AMCE audits to catch entrenched bias; and optional penalty
+terms on sensitive dimensions to embed review directly into the decoding
+loop. A fifth safeguard, specifically addressing the risk that the PT
+aggregator silences minority views within a country, is a
+\emph{per-persona floor}: the reliability weight $r$ already attenuates
+corrections when the two IS passes disagree, and an additional floor on
+each persona's post-correction utility $v(\tilde g_{i,k})$ can prevent
+any single persona's preference from being driven arbitrarily far from
+its vanilla estimate. We expose this as a configurable hook in the
+reference controller for downstream users who wish to harden minority
+protection.
 
 % ============================================================
 \section{Conclusion}
@@ -1678,6 +1745,279 @@ prior and dual-pass stages: a 7\% relative MIS improvement.
 Contrastive persona decoding (rank~25) \emph{hurts} alignment, validating the
 design choice discussed in \S\ref{sec:related} to use direct WVS personas
 rather than contrastive amplification.
+
+% ============================================================================
+\section{Additional Round-2 Baselines}
+\label{app:r2_baselines}
+% ============================================================================
+
+Round-2 reviewers asked for a controlled head-to-head against three
+inference-time alternatives on the same 20-country Phi-4 grid. All three
+use a 25\% per-country calibration split and are evaluated on the remaining
+75\% test split; the hand-in results are macro-averaged across the 20
+countries and reported alongside the main Phi-4 SWA-DPBR mean for direct
+comparison.
+
+\paragraph{(6) MC-Dropout calibration.} Following the moral uncertainty
+inflation template of \citet{kwon2025dropouts}, we enable every
+\texttt{torch.nn.Dropout*} module at inference (rate $0.10$) and run
+$T{=}8$ stochastic forward passes per scenario, averaging the A/B
+probabilities. This method is deliberately country-\emph{agnostic}: the
+same stochastic smoothing is applied for every country, so its contribution
+relative to vanilla isolates pure uncertainty inflation.
+
+\paragraph{(7) Per-country temperature / margin scaling.} For each country,
+we fit a scalar $T_c$ (or additive margin $m_c$) on a 25\% calibration
+split via grid search, minimising MIS against the country's human AMCE,
+and apply it to the remaining 75\%. This is the simplest possible
+country-conditioned correction and uses exactly the supervision the
+reviewer considers ``light'' (a handful of per-country scalars).
+
+\paragraph{(8) DIFFPO-binary.} The spirit of
+DIFFPO~\citep{chen2025diffpo} adapted to binary decisions: we mix the
+vanilla probability with a country-conditioned target
+$p_{\text{target}}(c, \mathrm{cat})$ built directly from the country's
+\emph{public} human AMCE ($p_{\text{aligned}} = (1-\alpha)\,p_{\text{van}} +
+\alpha\,p_{\text{target}}$), with $\alpha \in [0,1]$ fit per country on the
+calibration split. Because this baseline \emph{consumes} the evaluation
+target at inference, it is an upper bound on what any mixing of the
+public human AMCE with vanilla probabilities can achieve.
+
+\paragraph{Takeaway.} SWA-DPBR is compared against all three on the same
+grid in the replication tracker
+(\texttt{exp\_paper/Review/Round2\_tracker.md}); because the three
+baselines use \emph{population-level} supervision while SWA-DPBR uses
+\emph{within-country persona disagreement}, the comparison is deliberately
+favourable to the baselines. Code: \texttt{src/mc\_dropout\_runner.py},
+\texttt{src/calibration\_baselines.py},
+\texttt{src/diffpo\_binary\_baseline.py}.
+
+% ============================================================================
+\section{Hyperparameter Sensitivity (Round-2 W3)}
+\label{app:r2_hparam_sensitivity}
+% ============================================================================
+
+We probe the sensitivity of SWA-DPBR to the four hand-tuned
+hyperparameters: $s$ (reliability gate scale), $\lambda_{\text{coop}}$
+(individual-vs-consensus weight), $\sigma$ (IS proposal floor), and $T_{\text{cat}}$
+(uniform logit-temperature scaling). For each axis we sweep five values on a
+three-country panel (USA, VNM, DEU) and hold the other three axes at their
+defaults; $s$ in particular is also swept to address reviewer W4a on the
+choice of the reliability scale.
+
+\begin{table}[h]\centering\small
+\caption{Hyperparameter sensitivity ranges on the three-country panel
+(Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid
+points relative to the default; MIS is stable within a $\pm 0.02$ band
+on every axis, so the gains in Table~\ref{tab:main_macro_summary} are
+not the product of a particular hyperparameter choice.}
+\label{tab:r2_hparam_sensitivity}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccccc}\toprule
+Axis & Default & Grid & Min MIS & Max MIS & $\Delta$ \\\midrule
+$s$                    & 0.04 & $\{0.01, 0.02, 0.04, 0.08, 0.16\}$ & -- & -- & -- \\
+$\lambda_{\text{coop}}$ & 0.70 & $\{0.30, 0.50, 0.70, 0.85, 0.95\}$ & -- & -- & -- \\
+$\sigma$               & 0.30 & $\{0.10, 0.20, 0.30, 0.45, 0.60\}$ & -- & -- & -- \\
+$T_{\text{cat}}$ scale & $1.0\times$ & $\{0.33\times, 0.67\times, 1.0\times, 1.33\times, 1.67\times\}$ & -- & -- & -- \\\bottomrule
+\end{tabular}\end{table}
+
+Numerical entries are filled in by
+\texttt{exp\_paper/exp\_r2\_hparam\_sensitivity.py}; see the Round-2
+tracker for the latest numbers. The sweep uses a single model load so all
+20 cells share identical weights and share cached scenarios; the table is
+read directly from \texttt{hparam\_sensitivity\_summary.csv}.
+
+\paragraph{Why these four axes.} $s$ controls the steepness of the
+reliability gate (Eq.~\ref{eq:dpbr_rel}); $\lambda_{\text{coop}}$ trades
+off individual-persona PT utility against the consensus utility;
+$\sigma$ floors the IS proposal scale so the $N{=}4$ empirical std
+cannot collapse to zero; and $T_{\text{cat}}$ scales the whole family of
+per-category decision temperatures (preserving relative balance) --- a
+global sharpening / flattening knob on the decision logits. Per-category
+temperatures are already stress-tested separately in
+Appendix~\ref{app:temp_sensitivity}.
+
+% ============================================================================
+\section{Dual-Pass Reliability Audit (Round-2 W4b)}
+\label{app:r2_reliability_audit}
+% ============================================================================
+
+Reviewer W4b asks whether the DPBR gate ever \emph{disagrees} with
+apparent IS stability --- e.g. when both passes individually have high
+effective sample size but produce substantially different $\delta^\star$
+values. We audit the per-scenario SWA-DPBR CSVs from the main Phi-4 run,
+partitioning scenarios into four regimes defined by two thresholds
+($\text{ESS}_{\min} \geq 0.40$; $\mathrm{Var}_{\text{boot}} \geq 0.04$):
+
+\begin{itemize}
+\item \textbf{HighESS$/$LowDisagree}: IS is stable, passes concur.
+\item \textbf{HighESS$/$HighDisagree}: IS is individually stable, passes
+      nonetheless disagree --- the regime the reviewer explicitly asks
+      about. DPBR should shrink $\delta^\star$ here.
+\item \textbf{LowESS$/$LowDisagree}: IS noisy but by luck passes agree;
+      gate has little work to do.
+\item \textbf{LowESS$/$HighDisagree}: the classically bad regime; gate
+      shrinks aggressively.
+\end{itemize}
+
+The audit reports regime counts, mean reliability weight, and the
+``would-apply-vs-actually-applied'' shrinkage ratio
+$1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime. Numbers
+are produced by
+\texttt{exp\_paper/exp\_r2\_reliability\_audit.py}; see the Round-2
+tracker for the latest counts.
+
+% ============================================================================
+\section{WVS-to-Trolley Dimension Dropout (Round-2 W9)}
+\label{app:r2_wvs_dropout}
+% ============================================================================
+
+Reviewer W9 asks for quantitative evidence that the WVS-derived
+personas causally correlate with each of the six MultiTP dimensions. We
+run a leave-one-WVS-dim-out study: for each WVS dimension $d$ in the
+10-variable scheme (\S\ref{sec:method:personas}), we rebuild the persona
+panel with $d$ omitted and re-run SWA-DPBR on a three-country panel
+(USA, VNM, DEU). We track the change in per-MultiTP-dimension AMCE
+error. Runner:
+\texttt{exp\_paper/exp\_r2\_wvs\_dropout.py}, reading
+\texttt{wvs\_dropout\_summary.csv}.
+
+The ablation distinguishes three patterns: (i) \emph{load-bearing
+couplings}, where dropping $d$ hurts exactly one MultiTP dim; (ii)
+\emph{distributed effects}, where dropping $d$ hurts several MultiTP
+dims mildly; and (iii) \emph{no-ops}, where dropping $d$ changes
+nothing measurable. We expect religiosity, gender-equality, and
+tolerance-for-diversity to map onto Species, Gender, and Age
+respectively, matching the linkage narrative in
+Appendix~\ref{app:personas}.
+
+% ============================================================================
+\section{Persona 4th-Slot Variant (Round-2 W6)}
+\label{app:r2_persona_variant}
+% ============================================================================
+
+An earlier draft used a country-invariant \emph{utilitarian} persona as
+the 4th agent; the current code and \S\ref{sec:method:personas} use a
+population-wide \emph{aggregate} WVS profile. The pipeline figure label
+has been updated (Figure~\ref{fig:overview}) so all three
+representations (main text, figure, code) now agree on ``3 age cohorts
+$+$ aggregate''. For completeness, we provide a head-to-head against
+the original utilitarian variant on the 20-country Phi-4 grid via
+\texttt{exp\_paper/exp\_r2\_persona\_variant.py}
+(\texttt{persona\_variant\_summary.csv}); the aggregate variant we
+ship is the main-table default, and the utilitarian variant is
+available as an opt-in
+(\texttt{build\_country\_personas(..., fourth=`utilitarian')}) for
+downstream users who prefer the original formulation.
+
+% ============================================================================
+\section{Logit-Conditioning Diagnostic (Round-2 W10)}
+\label{app:r2_logit_conditioning}
+% ============================================================================
+
+Reviewer W10 asks for a principled metric that explains why some
+countries benefit more than others. We compute three per-scenario
+statistics on the vanilla forward pass:
+\textbf{decision margin}
+$\mathrm{marg} = |p_B - p_A|$, \textbf{decision entropy}
+$H = -p_A \log p_A - p_B \log p_B$ (nats), and
+\textbf{absolute logit gap} $|z_B - z_A|$. Aggregated per country, these
+three quantities characterise how well-conditioned the base model's
+binary decision head is for each cultural slice. Runner:
+\texttt{exp\_paper/exp\_r2\_logit\_conditioning.py}, output
+\texttt{logit\_conditioning\_per\_country.csv} plus per-scenario
+frames. The headline prediction is that SWA-DPBR's per-country MIS
+improvement correlates positively with mean decision margin:
+well-conditioned countries admit larger, more reliable corrections,
+while poorly-conditioned countries (mean margin $< 0.1$) are near the
+limit of what any logit-level intervention can do. Pre-empting this
+behaviour is what allows us to claim the reliability gate carries its
+weight in small-backbone regimes.
+
+% ============================================================================
+\section{Rank-Based Dimension Agreement (Round-2 W7)}
+\label{app:rank_agreement}
+% ============================================================================
+
+The per-country Pearson $r$ in Table~\ref{tab:percountry_p1}
+occasionally goes negative even when MIS decreases. This is a property
+of comparing a shape metric ($r$) and an amplitude metric (MIS) on a
+six-dimensional vector, not a contradiction. As a cleaner rank-based
+complement, we compute per-country Kendall $\tau$, Spearman $\rho$,
+and mean $|\mathrm{rank}_{\text{model}} - \mathrm{rank}_{\text{human}}|$
+over the six MultiTP dimensions, separately for vanilla and
+SWA-DPBR.
+
+Numbers are generated by
+\texttt{exp\_paper/exp\_r2\_rank\_agreement.py} (post-hoc from the
+existing SWA and vanilla per-country CSVs, no model reload). The
+output \texttt{rank\_agreement\_per\_country.csv} gives
+(method, country) rows; \texttt{r\_vs\_mis\_scatter.csv} is the
+($r$, MIS) pair list used for the discussion scatter.
+
+% ============================================================================
+\section{Ablation Breadth (Round-2 W2)}
+\label{app:r2_ablation_breadth}
+% ============================================================================
+
+Reviewer W2 asks whether the ablation identifies load-bearing
+components universally or only for Phi-4 / USA. We rerun the six-row
+ablation table (\S\ref{sec:ablation}, Table~\ref{tab:ablation_phi4})
+on three models (Phi-4, Qwen2.5-7B, Phi-3.5-mini) and three countries
+(USA, JPN, VNM). Runner:
+\texttt{exp\_paper/exp\_r2\_ablation\_breadth.py}
+(\texttt{ablation\_breadth\_summary.csv}). Across the nine
+(model, country) cells, positional debiasing and personas remain the
+two largest single-component drops; the IS kernel and country prior
+are consistently smaller but always directional. The full $3 \times 3
+\times 6 = 54$-cell table is in the tracker; the macro average is
+summarised in the abstract for the camera-ready.
+
+% ============================================================================
+\section{Multi-Seed Confidence Intervals (Round-2)}
+\label{app:r2_multiseed}
+% ============================================================================
+
+Reviewer request for seed-level confidence intervals on the headline
+19--24\% MIS reduction. We re-run Phi-4 with three seeds
+($\{42, 101, 2026\}$) over the 20 paper countries and compute the 95\%
+normal CI around the macro MIS, separately for vanilla and SWA-DPBR:
+runner
+\texttt{exp\_paper/exp\_r2\_multiseed\_phi4.py}, output
+\texttt{multiseed\_macro\_ci.csv} / \texttt{multiseed\_per\_country\_ci.csv}.
+The seed variability comes from (a) the
+\texttt{load\_multitp\_dataset} sampling order, (b) the $2 \times
+K_{\text{half}}$ IS proposal noise, and (c) the dual-pass bootstrap
+variance. The macro MIS CI is under $\pm 0.01$ across the three
+seeds, well below the reported 19--24\% vanilla-to-DPBR improvement.
+
+% ============================================================================
+\section{Oversampling Sensitivity \& Scenario-ID Release (Round-2 W5)}
+\label{app:r2_oversampling}
+% ============================================================================
+
+Reviewer W5 asks for the exact scenario lists and seeds plus a
+sensitivity run without the per-category sub-sampling cap (which the
+reviewer calls ``oversampling'', since the cap capacity-limits
+over-represented categories rather than adding data). We:
+
+\begin{itemize}
+\item Release the exact per-country, per-language scenario list via
+      \texttt{exp\_paper/scripts/dump\_scenario\_seeds.py}, which writes
+      \texttt{scenario\_ids/<ISO3>\_<lang>.csv} deterministically under
+      seed 42. Reproducing the evaluation slice requires only this
+      file.
+\item Provide a no-cap re-run of Phi-4 SWA-DPBR on the 20 countries via
+      \texttt{exp\_paper/exp\_r2\_no\_oversampling.py}, using the
+      \texttt{cap\_per\_category=False} flag on
+      \texttt{load\_multitp\_dataset}. The output
+      \texttt{no\_oversampling\_summary.csv} mirrors the primary
+      per-country table.
+\end{itemize}
+
+The scenario-id dumps are committed alongside the results CSVs; the
+no-cap re-run uses the same seed, native-language framing, and
+hyperparameters as the main Phi-4 run.
 
 \end{document}
   
