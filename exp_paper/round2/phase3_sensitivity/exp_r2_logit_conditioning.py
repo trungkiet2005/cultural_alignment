@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
-"""Round-2 Baseline #3 -- DIFFPO-adapted binary-decision steering.
+"""Round-2 Reviewer W10 -- logit-conditioning diagnostic.
 
-Implements the DIFFPO spirit (black-box, sentence-level alignment nudge)
-adapted to MultiTP's binary A/B format:
+Runs a vanilla forward pass per scenario for each of the 20 countries on a
+target model, computes per-scenario decision-margin / decision-entropy /
+|raw_logit_gap|, and saves both per-scenario and per-country aggregates so
+we can show a scatter of "logit conditioning" vs "MIS improvement" in the
+paper appendix.
 
-    p_aligned = (1 - alpha) * p_vanilla + alpha * p_target
-
-where p_target is built directly from the country's *public* human AMCE
-(see src/diffpo_binary_baseline.py). The mixing weight alpha is fit per
-country on a 25% calibration split, then applied to the 75% test split.
-
-Because this baseline *consumes* the human AMCE at inference time, it has
-strictly more information than SWA-DPBR -- the comparison is deliberately
-favourable to the baseline.
+Uses :func:`src.logit_conditioning.diagnose_country` (no personas, no IS;
+this is purely a diagnostic about the base model).
 
 Kaggle:
-    !python exp_paper/exp_r2_baseline_diffpo.py
+    !python exp_paper/round2/phase3_sensitivity/exp_r2_logit_conditioning.py
+
+Env overrides:
+    R2_MODEL          (default: microsoft/phi-4)
+    R2_COUNTRIES      comma ISO3 list (default: 20 paper countries)
+    R2_N_SCENARIOS    (default: 300 -- we only need enough for a stable mean)
 """
 
 from __future__ import annotations
@@ -51,14 +52,16 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+import json
 import os
 from pathlib import Path
+from typing import Dict, List
 
 from exp_paper._r2_common import (
     build_cfg,
     load_model_timed,
+    load_scenarios,
     on_kaggle,
-    run_country_loop,
     save_summary,
 )
 from exp_paper.paper_runtime import configure_paper_env, install_paper_kaggle_deps  # noqa: E402
@@ -71,13 +74,14 @@ install_paper_kaggle_deps()
 
 os.environ.setdefault("MORAL_MODEL_BACKEND", os.environ.get("R2_BACKEND", "vllm"))
 
+import pandas as pd  # noqa: E402
+
 from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
-from src.diffpo_binary_baseline import run_baseline_diffpo_binary  # noqa: E402
+from src.logit_conditioning import diagnose_country  # noqa: E402
 from src.model import setup_seeds  # noqa: E402
 
 MODEL_NAME = os.environ.get("R2_MODEL", "microsoft/phi-4")
-N_SCEN = int(os.environ.get("R2_N_SCENARIOS", "500"))
-CAL_FRAC = float(os.environ.get("R2_CAL_FRAC", "0.25"))
+N_SCEN = int(os.environ.get("R2_N_SCENARIOS", "300"))
 COUNTRIES = (
     [c.strip() for c in os.environ["R2_COUNTRIES"].split(",") if c.strip()]
     if "R2_COUNTRIES" in os.environ
@@ -85,24 +89,17 @@ COUNTRIES = (
 )
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/diffpo_binary"
+    "/kaggle/working/cultural_alignment/results/exp24_round2/logit_conditioning"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "diffpo_binary")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "logit_conditioning")
 )
-
-
-def _extras(out):
-    p = out.get("diffpo_params", {})
-    return {
-        "diffpo_alpha": p.get("alpha", float("nan")),
-        "cal_loss":     p.get("cal_loss", float("nan")),
-        "n_cal":        p.get("n_cal", 0),
-        "n_test":       p.get("n_test", 0),
-    }
 
 
 def main() -> None:
     setup_seeds(42)
+    out_dir = Path(RESULTS_BASE)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     cfg = build_cfg(
         MODEL_NAME, RESULTS_BASE, COUNTRIES,
         n_scenarios=N_SCEN, load_in_4bit=False,
@@ -112,20 +109,37 @@ def main() -> None:
         MODEL_NAME, backend=backend, load_in_4bit=False,
     )
 
-    out_dir = Path(RESULTS_BASE)
+    rows: List[Dict] = []
+    per_scenario_frames: List[pd.DataFrame] = []
+    for ci, country in enumerate(COUNTRIES):
+        print(f"\n[{ci+1}/{len(COUNTRIES)}] {country}")
+        scen = load_scenarios(cfg, country)
+        out = diagnose_country(model, tokenizer, scen, country, cfg)
+        per = out["results_df"]
+        per_scenario_frames.append(per)
+        per.to_csv(out_dir / f"logit_cond_per_scenario_{country}.csv", index=False)
 
-    def _runner(m, t, scen, country, cfg):
-        return run_baseline_diffpo_binary(
-            m, t, scen, country, cfg, cal_frac=CAL_FRAC,
+        s = out["summary"]
+        rows.append({
+            "country":             country,
+            "n_scenarios":         len(per),
+            "mean_entropy":        s["mean_entropy"],
+            "mean_margin":         s["mean_margin"],
+            "median_margin":       s["median_margin"],
+            "std_margin":          s["std_margin"],
+            "mean_abs_gap":        s["mean_abs_gap"],
+            "frac_margin_lt_0.1":  s["frac_margin_lt_0.1"],
+            "frac_margin_gt_0.5":  s["frac_margin_gt_0.5"],
+        })
+        with open(out_dir / f"logit_cond_by_cat_{country}.json", "w", encoding="utf-8") as fh:
+            json.dump(s["by_category"], fh, indent=2, default=str)
+
+    save_summary(rows, out_dir, "logit_conditioning_per_country.csv")
+    if per_scenario_frames:
+        pd.concat(per_scenario_frames, ignore_index=True).to_csv(
+            out_dir / "logit_cond_per_scenario_all.csv", index=False,
         )
-
-    rows = run_country_loop(
-        model=model, tokenizer=tokenizer, cfg=cfg,
-        countries=COUNTRIES, runner_fn=_runner,
-        method_tag="diffpo_binary", out_dir=out_dir,
-        row_extras_fn=_extras,
-    )
-    save_summary(rows, out_dir, "diffpo_binary_summary.csv")
+        print(f"[SAVED] {out_dir / 'logit_cond_per_scenario_all.csv'}")
 
 
 if __name__ == "__main__":

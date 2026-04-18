@@ -15,7 +15,7 @@ A single model load is shared across all 5×4 = 20 runs. Each run reuses the
 cached scenarios for the country so we pay the I/O only once per country.
 
 Kaggle:
-    !python exp_paper/exp_r2_hparam_sensitivity.py
+    !python exp_paper/round2/phase3_sensitivity/exp_r2_hparam_sensitivity.py
 
 Env overrides:
     R2_MODEL          HF id (default: microsoft/phi-4)

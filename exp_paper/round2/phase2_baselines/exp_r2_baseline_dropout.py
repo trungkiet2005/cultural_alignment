@@ -6,7 +6,7 @@ Runs the :mod:`src.mc_dropout_runner` baseline on Phi-4 (14B) across the
 Table~\ref{tab:main_macro_summary} as an additional baseline row.
 
 Kaggle:
-    !python exp_paper/exp_r2_baseline_dropout.py
+    !python exp_paper/round2/phase2_baselines/exp_r2_baseline_dropout.py
 
 Env overrides:
     R2_MC_T            number of MC passes (default: 8)

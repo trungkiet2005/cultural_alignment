@@ -7,7 +7,7 @@ split, and reports the held-out MIS / r / JSD. Acts as a full standalone
 baseline on the same 20-country grid as SWA-DPBR.
 
 Kaggle:
-    !python exp_paper/exp_r2_baseline_tempmargin.py
+    !python exp_paper/round2/phase2_baselines/exp_r2_baseline_tempmargin.py
 
 Env overrides:
     R2_CALIB_METHOD  temperature | margin  (default: both -- runs two passes)

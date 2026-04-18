@@ -14,9 +14,9 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W1a. Inference-time dropout calibration (MC-Dropout uncertainty inflation) | [src/mc_dropout_runner.py](../../src/mc_dropout_runner.py) | [exp_paper/exp_r2_baseline_dropout.py](../exp_r2_baseline_dropout.py) | §Baselines + §Results |
-| W1b. Per-country temperature / margin scaling (calibration-only) | [src/calibration_baselines.py](../../src/calibration_baselines.py) | [exp_paper/exp_r2_baseline_tempmargin.py](../exp_r2_baseline_tempmargin.py) | §Baselines + §Results |
-| W1c. DIFFPO-adapted binary-decision refinement (black-box persona-rewrite + prob. mixing) | [src/diffpo_binary_baseline.py](../../src/diffpo_binary_baseline.py) | [exp_paper/exp_r2_baseline_diffpo.py](../exp_r2_baseline_diffpo.py) | §Baselines + §Results |
+| W1a. Inference-time dropout calibration (MC-Dropout uncertainty inflation) | [src/mc_dropout_runner.py](../../src/mc_dropout_runner.py) | [exp_paper/round2/phase2_baselines/exp_r2_baseline_dropout.py](../round2/phase2_baselines/exp_r2_baseline_dropout.py) | §Baselines + §Results |
+| W1b. Per-country temperature / margin scaling (calibration-only) | [src/calibration_baselines.py](../../src/calibration_baselines.py) | [exp_paper/round2/phase2_baselines/exp_r2_baseline_tempmargin.py](../round2/phase2_baselines/exp_r2_baseline_tempmargin.py) | §Baselines + §Results |
+| W1c. DIFFPO-adapted binary-decision refinement (black-box persona-rewrite + prob. mixing) | [src/diffpo_binary_baseline.py](../../src/diffpo_binary_baseline.py) | [exp_paper/round2/phase2_baselines/exp_r2_baseline_diffpo.py](../round2/phase2_baselines/exp_r2_baseline_diffpo.py) | §Baselines + §Results |
 
 **Status: CODE** (syntax checked; Kaggle run pending) — all three baselines implemented, Kaggle scripts ready.
 
@@ -26,7 +26,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W2a. Ablation on 3 extra models × 3 countries (Qwen2.5-7B, Llama-3.3-70B, Phi-3.5-mini × USA, JPN, VNM) | — (reuses [exp_paper/exp_paper_ablation_phi4.py](../exp_paper_ablation_phi4.py) pattern) | [exp_paper/exp_r2_ablation_breadth.py](../exp_r2_ablation_breadth.py) | §Ablation + App. Detailed Ablation |
+| W2a. Ablation on 3 extra models × 3 countries (Qwen2.5-7B, Llama-3.3-70B, Phi-3.5-mini × USA, JPN, VNM) | — (reuses [exp_paper/exp_paper_ablation_phi4.py](../exp_paper_ablation_phi4.py) pattern) | [exp_paper/round2/phase4_big_sweeps/exp_r2_ablation_breadth.py](../round2/phase4_big_sweeps/exp_r2_ablation_breadth.py) | §Ablation + App. Detailed Ablation |
 
 **Status: CODE** (syntax checked; Kaggle run pending)
 
@@ -36,7 +36,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W3. 4-axis sweep reporting JSD/MIS/r vs hyperparam value | [exp_paper/exp_r2_hparam_sensitivity.py](../exp_r2_hparam_sensitivity.py) | same | App. Hyperparameter Validation |
+| W3. 4-axis sweep reporting JSD/MIS/r vs hyperparam value | [exp_paper/round2/phase3_sensitivity/exp_r2_hparam_sensitivity.py](../round2/phase3_sensitivity/exp_r2_hparam_sensitivity.py) | same | App. Hyperparameter Validation |
 
 **Status: CODE** (syntax checked; Kaggle run pending) — uses env-var overrides (`EXP24_VAR_SCALE`, `EXP24_LAMBDA_COOP`) + new `EXP24_SIGMA_FLOOR`, `EXP24_TCAT_SCALE`.
 
@@ -46,8 +46,8 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W4a. Sensitivity of r = exp(−(δ₁*−δ₂*)²/s) to s ∈ {0.01, 0.02, 0.04, 0.08, 0.16} | [exp_paper/exp_r2_hparam_sensitivity.py](../exp_r2_hparam_sensitivity.py) (VAR_SCALE axis) | same | App. PT--IS §Why split K into two passes |
-| W4b. Quantify "high-ESS + high-disagreement" regime counts | [src/dpbr_reliability_audit.py](../../src/dpbr_reliability_audit.py) | [exp_paper/exp_r2_reliability_audit.py](../exp_r2_reliability_audit.py) | App. PT--IS |
+| W4a. Sensitivity of r = exp(−(δ₁*−δ₂*)²/s) to s ∈ {0.01, 0.02, 0.04, 0.08, 0.16} | [exp_paper/round2/phase3_sensitivity/exp_r2_hparam_sensitivity.py](../round2/phase3_sensitivity/exp_r2_hparam_sensitivity.py) (VAR_SCALE axis) | same | App. PT--IS §Why split K into two passes |
+| W4b. Quantify "high-ESS + high-disagreement" regime counts | [src/dpbr_reliability_audit.py](../../src/dpbr_reliability_audit.py) | [exp_paper/round2/phase1_posthoc/exp_r2_reliability_audit.py](../round2/phase1_posthoc/exp_r2_reliability_audit.py) | App. PT--IS |
 
 **Status: CODE** (syntax checked; Kaggle run pending)
 
@@ -57,8 +57,8 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W5a. Publish exact scenario ids + seeds per country | [scripts/dump_scenario_seeds.py](../scripts/dump_scenario_seeds.py) | — | App. Dataset Preprocessing |
-| W5b. No-oversampling variant (drop countries under minimum; no per-country capping) | [src/data.py](../../src/data.py) (new `oversample=False` flag) | [exp_paper/exp_r2_no_oversampling.py](../exp_r2_no_oversampling.py) | App. Dataset Preprocessing |
+| W5a. Publish exact scenario ids + seeds per country | [scripts/dump_scenario_seeds.py](../round2/phase1_posthoc/dump_scenario_seeds.py) | — | App. Dataset Preprocessing |
+| W5b. No-oversampling variant (drop countries under minimum; no per-country capping) | [src/data.py](../../src/data.py) (new `oversample=False` flag) | [exp_paper/round2/phase3_sensitivity/exp_r2_no_oversampling.py](../round2/phase3_sensitivity/exp_r2_no_oversampling.py) | App. Dataset Preprocessing |
 
 **Status: CODE** (syntax checked; Kaggle run pending)
 
@@ -68,7 +68,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W6a. Resolve "3 cohorts + aggregate" vs "3 cohorts + utilitarian" | [src/personas.py](../../src/personas.py) (expose `build_country_personas(..., fourth="aggregate"\|"utilitarian")`) | [exp_paper/exp_r2_persona_variant.py](../exp_r2_persona_variant.py) | §Method + fig_pipeline.tex |
+| W6a. Resolve "3 cohorts + aggregate" vs "3 cohorts + utilitarian" | [src/personas.py](../../src/personas.py) (expose `build_country_personas(..., fourth="aggregate"\|"utilitarian")`) | [exp_paper/round2/phase3_sensitivity/exp_r2_persona_variant.py](../round2/phase3_sensitivity/exp_r2_persona_variant.py) | §Method + fig_pipeline.tex |
 | W6b. Run head-to-head on 20-country slice with both variants | — | same | §Method |
 
 **Status: CODE** (syntax checked; Kaggle run pending) — code defaults stay unchanged (aggregate); experiment produces a head-to-head table. Paper caption is updated to match code reality (`aggregate`).
@@ -79,7 +79,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W7. Add rank-based per-dimension agreement + r-vs-MIS scatter | [src/amce.py](../../src/amce.py) (new `per_dim_rank_agreement()`) | [exp_paper/exp_r2_rank_agreement.py](../exp_r2_rank_agreement.py) | App. Per-Dimension Error Analysis |
+| W7. Add rank-based per-dimension agreement + r-vs-MIS scatter | [src/amce.py](../../src/amce.py) (new `per_dim_rank_agreement()`) | [exp_paper/round2/phase1_posthoc/exp_r2_rank_agreement.py](../round2/phase1_posthoc/exp_r2_rank_agreement.py) | App. Per-Dimension Error Analysis |
 
 **Status: CODE** (syntax checked; Kaggle run pending) — computed post-hoc from existing per-country CSVs; no new model runs needed.
 
@@ -101,7 +101,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W9. Drop one WVS dim at a time from persona → track dim-wise AMCE error | [src/personas.py](../../src/personas.py) (WVS_DIMS drop flag via env) | [exp_paper/exp_r2_wvs_dropout.py](../exp_r2_wvs_dropout.py) | App. WVS-to-Trolley Dimension Linkage |
+| W9. Drop one WVS dim at a time from persona → track dim-wise AMCE error | [src/personas.py](../../src/personas.py) (WVS_DIMS drop flag via env) | [exp_paper/round2/phase3_sensitivity/exp_r2_wvs_dropout.py](../round2/phase3_sensitivity/exp_r2_wvs_dropout.py) | App. WVS-to-Trolley Dimension Linkage |
 
 **Status: CODE** (syntax checked; Kaggle run pending)
 
@@ -111,7 +111,7 @@ tex updated.
 
 | Item | File | Script | Paper section |
 |---|---|---|---|
-| W10. Decision-gap entropy / margin statistics + scatter vs MIS-improvement | [src/logit_conditioning.py](../../src/logit_conditioning.py) | [exp_paper/exp_r2_logit_conditioning.py](../exp_r2_logit_conditioning.py) | App. Logit Conditioning Diagnostic |
+| W10. Decision-gap entropy / margin statistics + scatter vs MIS-improvement | [src/logit_conditioning.py](../../src/logit_conditioning.py) | [exp_paper/round2/phase3_sensitivity/exp_r2_logit_conditioning.py](../round2/phase3_sensitivity/exp_r2_logit_conditioning.py) | App. Logit Conditioning Diagnostic |
 
 **Status: CODE** (syntax checked; Kaggle run pending)
 
@@ -121,7 +121,7 @@ tex updated.
 
 | Item | File | Script | Status |
 |---|---|---|---|
-| Multi-seed CI for Phi-4 (3 seeds on 20 countries → 95% CI around MIS) | [exp_paper/exp_r2_multiseed_phi4.py](../exp_r2_multiseed_phi4.py) | same | CODE |
+| Multi-seed CI for Phi-4 (3 seeds on 20 countries → 95% CI around MIS) | [exp_paper/round2/phase4_big_sweeps/exp_r2_multiseed_phi4.py](../round2/phase4_big_sweeps/exp_r2_multiseed_phi4.py) | same | CODE |
 
 ---
 

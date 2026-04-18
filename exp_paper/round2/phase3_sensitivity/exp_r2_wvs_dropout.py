@@ -9,7 +9,7 @@ Output per (dropped_dim, country): MIS, JSD, per-MultiTP-dim |model-human|.
 Cross-tabbed in post-processing to identify causally-implicated pairs.
 
 Kaggle:
-    !python exp_paper/exp_r2_wvs_dropout.py
+    !python exp_paper/round2/phase3_sensitivity/exp_r2_wvs_dropout.py
 
 Env overrides:
     R2_MODEL          (default: microsoft/phi-4)

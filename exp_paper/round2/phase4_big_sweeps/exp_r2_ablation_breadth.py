@@ -14,7 +14,7 @@ This is 3 × 3 × 6 = 54 runs. We stream partial CSV after each cell so a
 mid-session crash keeps the results we already have.
 
 Kaggle:
-    !python exp_paper/exp_r2_ablation_breadth.py
+    !python exp_paper/round2/phase4_big_sweeps/exp_r2_ablation_breadth.py
 """
 
 from __future__ import annotations
