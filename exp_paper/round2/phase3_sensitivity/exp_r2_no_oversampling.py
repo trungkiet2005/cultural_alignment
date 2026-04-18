@@ -49,6 +49,10 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+
+# Set backend BEFORE paper_runtime is imported so install_paper_kaggle_deps()
+# picks the correct pip branch (vLLM vs Unsloth).
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R2_BACKEND", "vllm"))
 import gc
 import os
 import time
@@ -68,9 +72,6 @@ from src.hf_env import apply_hf_credentials  # noqa: E402
 
 apply_hf_credentials()
 install_paper_kaggle_deps()
-
-os.environ.setdefault("MORAL_MODEL_BACKEND", os.environ.get("R2_BACKEND", "vllm"))
-
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 

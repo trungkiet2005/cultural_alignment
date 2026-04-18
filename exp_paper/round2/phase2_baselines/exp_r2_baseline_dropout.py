@@ -50,6 +50,10 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+
+# Set backend BEFORE paper_runtime is imported so install_paper_kaggle_deps()
+# picks the correct pip branch (vLLM vs Unsloth).
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R2_BACKEND", "hf_native"))
 import os
 from pathlib import Path
 
@@ -70,8 +74,6 @@ install_paper_kaggle_deps()
 
 # MC-Dropout needs Python dropout hooks, which vLLM does not expose. Force
 # HF-native unless the user explicitly asks for another backend.
-os.environ.setdefault("MORAL_MODEL_BACKEND", os.environ.get("R2_BACKEND", "hf_native"))
-
 from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 from src.mc_dropout_runner import run_baseline_mc_dropout  # noqa: E402
 from src.model import setup_seeds  # noqa: E402

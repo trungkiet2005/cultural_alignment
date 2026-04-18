@@ -51,6 +51,10 @@ def _r2_bootstrap() -> str:
 
 _r2_bootstrap()
 
+
+# Set backend BEFORE paper_runtime is imported so install_paper_kaggle_deps()
+# picks the correct pip branch (vLLM vs Unsloth).
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R2_BACKEND", "vllm"))
 import os
 from pathlib import Path
 
@@ -68,9 +72,6 @@ from src.hf_env import apply_hf_credentials  # noqa: E402
 
 apply_hf_credentials()
 install_paper_kaggle_deps()
-
-os.environ.setdefault("MORAL_MODEL_BACKEND", os.environ.get("R2_BACKEND", "vllm"))
-
 from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 from src.calibration_baselines import run_baseline_calibration_scaling  # noqa: E402
 from src.model import setup_seeds  # noqa: E402

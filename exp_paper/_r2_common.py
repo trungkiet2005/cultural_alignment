@@ -110,6 +110,36 @@ class _LoadTimeout(Exception):
     pass
 
 
+def _ensure_vllm_installed() -> None:
+    """Safety net: install vLLM on the fly if the user asked for it but the
+    paper_runtime install step didn't run (or ran with the wrong backend
+    because MORAL_MODEL_BACKEND was set too late). Triggered only when
+    ``import vllm`` fails.
+    """
+    import importlib
+    try:
+        importlib.import_module("vllm")
+        return
+    except ImportError:
+        pass
+    print("[R2] vllm not importable — installing on the fly (one-time).")
+    os.environ["MORAL_MODEL_BACKEND"] = "vllm"
+    try:
+        from exp_paper.paper_runtime import install_paper_kaggle_deps
+        install_paper_kaggle_deps()
+    except Exception as exc:
+        print(f"[R2] paper_runtime install failed ({exc}); pip-installing vllm directly.")
+        subprocess.run("pip install -q vllm", shell=True, check=False)
+    # Last-chance smoke-test
+    try:
+        importlib.import_module("vllm")
+    except ImportError as exc:
+        raise ImportError(
+            "Failed to install vLLM even after the on-the-fly fix. "
+            "Set R2_BACKEND=hf_native or install vllm manually."
+        ) from exc
+
+
 def load_model_timed(
     model_name: str,
     *,
@@ -122,11 +152,14 @@ def load_model_timed(
 
     ``backend`` ∈ {"vllm", "hf_native", "unsloth"}. ``MORAL_MODEL_BACKEND`` is
     respected by the internal loaders; we also export it here so downstream
-    wrappers pick the same branch.
+    wrappers pick the same branch. If the vLLM wheel is missing when backend
+    == "vllm", this function triggers a one-time install before loading.
     """
     from src.model import load_model, load_model_hf_native  # deferred
 
     os.environ["MORAL_MODEL_BACKEND"] = backend
+    if backend == "vllm":
+        _ensure_vllm_installed()
 
     def _do_load():
         if backend == "vllm":
