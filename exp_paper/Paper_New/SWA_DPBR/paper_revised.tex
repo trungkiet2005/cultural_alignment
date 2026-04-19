@@ -961,6 +961,20 @@ LLMs need not be retrained to respect moral diversity. SWA-DPBR shows that surve
 \newpage
 \appendix
 
+% Override appendix-section numbering to support >26 sections.
+% Default \Alph runs out at Z; we have ~32 appendix sections so use
+% A-Z then continue AA, AB, ... via an alphalph-style helper.
+\makeatletter
+\def\@AlphAlph#1{%
+  \ifnum#1>26
+    A\@Alph{\numexpr#1-26\relax}%
+  \else
+    \@Alph{#1}%
+  \fi
+}
+\renewcommand{\thesection}{\@AlphAlph{\value{section}}}
+\makeatother
+
 % ============================================================
 % APPENDIX GROUP 1: THEORY
 % ============================================================
@@ -2159,6 +2173,341 @@ These metrics are obtained post-hoc from the existing per-country CSVs
 \texttt{rank\_agreement\_per\_country.csv} with (method, country) rows,
 and \texttt{r\_vs\_mis\_scatter.csv} for the orthogonality scatter
 referenced in the main text.
+
+% ============================================================================
+\section{$K$-Budget Scaling Curve}
+\label{app:r2_k_budget}
+% ============================================================================
+
+The dual-pass IS budget is $K{=}2K_{\text{half}}$ with default
+$K_{\text{half}}{=}64$ (total~128 proposals per scenario). Two natural
+questions: \emph{where does macro MIS plateau as $K$ grows}, and \emph{at
+what $K$ does the reliability weight stabilise}? The companion runner
+\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_k\_budget\_scaling.py}
+sweeps $K_{\text{half}} \in \{8, 16, 32, 64, 128, 192\}$ on the
+3-country panel (USA, VNM, DEU) and writes the curve to
+\texttt{k\_budget\_summary.csv} and \texttt{k\_budget\_macro.csv}; a
+paper-ready LaTeX table is emitted to \texttt{k\_budget\_table.tex} with
+the schema below.
+
+\begin{table}[h]\centering\small
+\caption{$K$-budget scaling curve for the dual-pass IS estimator
+(Phi-4, 3-country panel). $K_{\text{half}}$ is the per-pass sample
+count; total IS budget per scenario is $2K_{\text{half}}$. Filled by
+the companion runner; the released default is $K_{\text{half}}{=}64$.}
+\label{tab:r2_k_budget}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{rrcccc}\toprule
+$K_\text{half}$ & $K_\text{total}$ & Macro MIS $\downarrow$ & Flip rate &
+$\overline{r}$ (gate) & sec/scen \\\midrule
+8   & 16  & --- & --- & --- & --- \\
+16  & 32  & --- & --- & --- & --- \\
+32  & 64  & --- & --- & --- & --- \\
+\textbf{64}  & \textbf{128} & --- & --- & --- & --- \\
+128 & 256 & --- & --- & --- & --- \\
+192 & 384 & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The expected pattern (consistent with the latency benchmark in
+Appendix~\ref{app:trigger}): macro MIS plateaus near $K_{\text{half}}{=}64$
+because the PT utility surface is one-dimensional at the decision
+horizon, and the reliability weight $\overline r$ approaches a stable
+value as the two passes' Monte-Carlo variance contracts. We expose
+$K_{\text{half}}$ via the \texttt{EXP24\_K\_HALF} environment variable
+for downstream users who want to trade compute against estimator
+variance.
+
+% ============================================================================
+\section{Cross-Model Per-Dimension MIS Reduction}
+\label{app:r2_per_dim_cross_model}
+% ============================================================================
+
+The per-dimension worst-error analysis in Appendix~\ref{app:perdim}
+shows \emph{which} dimension dominates each model's residual error.
+A complementary question is \emph{where SWA-DPBR's gains come from}:
+which dimensions does the correction actually move, and is the pattern
+backbone-dependent? The companion runner
+\texttt{exp\_paper/round2/phase7\_oral/exp\_r2\_per\_dim\_cross\_model.py}
+post-processes the per-country result CSVs from the six paper models
+and writes a 6-models~$\times$~6-dimensions macro matrix
+(\texttt{per\_dim\_cross\_model.csv}) plus a paper-ready heatmap
+(\texttt{per\_dim\_cross\_model\_heatmap.tex}) with the schema below.
+
+\begin{table}[h]\centering\scriptsize
+\caption{\textbf{Cross-model per-dimension MIS reduction (\%).} Each
+cell is the macro-mean relative reduction in absolute AMCE error on
+that dimension, averaged across the 20-country panel. Positive (green)
+= SWA-DPBR helped; negative (red) = SWA-DPBR hurt. Filled by the
+companion runner; the schema mirrors the per-dim Phi-4 heatmap
+(see also Appendix~\ref{app:perdim} for the per-dim worst-error analysis).}
+\label{tab:per_dim_cross_model}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrr}\toprule
+Model & Species & Gender & Age & Fitness & SocVal & Util & Mean \\\midrule
+Llama-3.3-70B            & --- & --- & --- & --- & --- & --- & --- \\
+Magistral-Sml (24B)      & --- & --- & --- & --- & --- & --- & --- \\
+Phi-4 (14B)              & --- & --- & --- & --- & --- & --- & --- \\
+Qwen3-VL-8B              & --- & --- & --- & --- & --- & --- & --- \\
+Qwen2.5-7B               & --- & --- & --- & --- & --- & --- & --- \\
+Phi-3.5-mini             & --- & --- & --- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The hypothesis this matrix tests is the bottleneck-shift pattern
+documented in the discussion: weaker models gain on
+\emph{Utilitarianism} (their dominant residual error) while
+better-calibrated models gain on \emph{SocialValue} and \emph{Age}
+(their respective dominant residuals). Negative cells, when they
+appear, identify dimensions where the persona ensemble pulls in the
+wrong direction for a particular backbone.
+
+% ============================================================================
+\section{Cross-Model Logit-Conditioning Correlation}
+\label{app:r2_logit_cond_cross_model}
+% ============================================================================
+
+Appendix~\ref{app:r2_logit_conditioning} reported a per-country
+correlation of $r{=}{+}0.627$ ($p{=}0.003$) between vanilla decision
+margin and SWA-DPBR's relative MIS gain on Phi-4 ($N{=}20$ countries).
+The architectural-failure-mode claim from \S\ref{sec:discussion}
+generalises this to all six paper backbones: when a backbone's decision
+logits are well-conditioned, SWA-DPBR's IS perturbations have an
+informative gradient to follow; when they are not, no inference-time
+intervention can manufacture one.
+
+The companion runner
+\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_logit\_conditioning\_cross\_model.py}
+runs vanilla forward passes on all six backbones (or aggregates from
+the existing per-model logit-conditioning CSVs in
+\texttt{--aggregate-only} mode), joins against the per-country MIS gains
+in each model's \texttt{comparison.csv}, and emits per-model + pooled
+correlations to \texttt{logit\_cond\_cross\_model\_correlations.csv}
+plus the paper-ready table below.
+
+\begin{table}[h]\centering\small
+\caption{Cross-model correlation between vanilla mean decision margin
+and SWA-DPBR's relative MIS gain. Per-model rows test the
+architectural-failure-mode prediction within a single backbone
+($N{=}20$ countries each); the POOLED row tests it across all 120
+(model, country) cells. Filled by the companion runner.
+$^{*}$ marks $p < 0.05$.}
+\label{tab:r2_logit_cond_cross_model}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lrrr}\toprule
+Model & $N$ & Pearson $r$ & Spearman $\rho$ \\\midrule
+Llama-3.3-70B            & 20 & --- & --- \\
+Magistral-Sml (24B)      & 20 & --- & --- \\
+Phi-4 (14B)              & 20 & $+0.627^{*}$ & $+0.521^{*}$ \\
+Qwen3-VL-8B              & 20 & --- & --- \\
+Qwen2.5-7B               & 20 & --- & --- \\
+Phi-3.5-mini             & 20 & --- & --- \\
+\midrule
+POOLED ($6 \times 20$)   & 120 & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Phi-4 row is reproduced from
+Appendix~\ref{app:r2_logit_conditioning} so the table is self-contained
+even before the companion runner is executed on the remaining five
+backbones.
+
+% ============================================================================
+\section{SWAI-Style Static Logit-Bias Baseline}
+\label{app:r2_swai}
+% ============================================================================
+
+To isolate the contribution of \emph{within-country persona
+disagreement} from \emph{any static, corpus-informed logit shift}, we
+implement a binary-decision adaptation of SWAI~\citep{an2026logit}:
+estimate a per-country bias on the A and B decision-token logits from
+a small WVS profile corpus (the same descriptors that feed the
+SWA-DPBR persona panel), then add the bias at inference. The
+correction is \emph{constant per country}---the strict contrast to
+SWA-DPBR's per-scenario, persona-disagreement signal.
+
+For each country $c$, we (i)~build $\sim$10 single-attribute corpus
+sentences of the form ``\emph{In [country], the typical adult is
+[descriptor]}'' from the country's WVS quartile-mapped descriptors;
+(ii)~run a single forward pass per sentence and record the A/B
+log-probabilities; (iii)~set
+$b_a(c) = \overline{\log p(A)} - \tfrac{1}{2}(\overline{\log p(A)} +
+\overline{\log p(B)})$ (centered to zero-mean), and analogously for
+$b_b(c)$. At inference, the binary baseline applies
+$z'_a = z_a + b_a(c)$, $z'_b = z_b + b_b(c)$ before the decision-temperature
+softmax. Implementation: \texttt{src/swai\_baseline.py}; runner:
+\texttt{exp\_paper/round2/phase2\_baselines/exp\_r2\_baseline\_swai.py}.
+
+\begin{table}[h]\centering\small
+\caption{SWAI-style static logit-bias baseline on the 20-country Phi-4
+grid. The bias is estimated once per country from the WVS profile
+corpus (the same source SWA-DPBR uses for personas) and is added
+constantly to every scenario's decision logits. Filled by the
+companion runner.}
+\label{tab:r2_swai}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lccc}\toprule
+Method & Macro MIS $\downarrow$ & vs.\ vanilla & Per-scenario adaptation? \\\midrule
+Vanilla                  & 0.454           & ---  & --- \\
+SWAI (binary, ours)      & ---             & ---  & no (constant per country) \\
+\textbf{SWA-DPBR (ours)} & \textbf{0.346}  & \textbf{\gain{$+23.7\%$}} & yes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The expected pattern: SWAI captures \emph{some} of the cultural offset
+(it has access to the same WVS information SWA-DPBR consumes), but the
+gap to SWA-DPBR isolates the value of per-scenario persona disagreement.
+A constant-per-country bias cannot, by construction, distinguish
+scenarios where the cultural correction should be large from those
+where it should be near zero---which is exactly the role the dual-pass
+reliability gate plays in SWA-DPBR.
+
+% ============================================================================
+\section{Persona-Count Ablation}
+\label{app:r2_persona_count}
+% ============================================================================
+
+The released configuration uses $N{=}4$ personas (three age cohorts
+$+$ population aggregate). To validate that this is the right operating
+point---rather than an arbitrary choice---we sweep
+$N \in \{2, 3, 4, 5, 6\}$ on the 3-country panel (USA, VNM, DEU). The
+$N$-variants slice or extend the default panel as follows:
+$N{=}2$ keeps endpoint cohorts only (young + older);
+$N{=}3$ drops the population aggregate (three age cohorts);
+$N{=}4$ is the default;
+$N{=}5$ adds a country-invariant utilitarian anchor;
+$N{=}6$ adds both a utilitarian and a deontological anchor.
+Implementation:
+\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_persona\_count.py}.
+
+\begin{table}[h]\centering\small
+\caption{Persona-count ablation on the 3-country panel
+(Phi-4, $n{=}250$/country). Bold row marks the released default
+($N{=}4$). Filled by the companion runner.}
+\label{tab:r2_persona_count}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{rcccc}\toprule
+$N$ & Macro MIS $\downarrow$ & Std (across countries) & Flip rate & sec/scenario \\\midrule
+2 & --- & --- & --- & --- \\
+3 & --- & --- & --- & --- \\
+\textbf{4} & \textbf{---} & --- & --- & --- \\
+5 & --- & --- & --- & --- \\
+6 & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The expected pattern (consistent with the design rationale in
+Appendix~\ref{app:design_rationale}): MIS plateaus at $N{=}4$ because
+the demographic axis WVS resolves reliably is age, and the population
+aggregate provides the anchor that protects against single-cohort
+outliers. Adding non-WVS-grounded anchors ($N{=}5, 6$) does not
+materially shift macro MIS but increases per-scenario flip rate as the
+extra personas inject orthogonal signal that the dual-pass gate must
+attenuate.
+
+% ============================================================================
+\section{Single Global \texorpdfstring{$T_\text{cat}$}{T\_cat} Ablation}
+\label{app:r2_global_tcat}
+% ============================================================================
+
+The per-category temperature schedule
+($T_\text{cat}{=}4.0$ for Species, $3.5$ for Gender, $1.5$ for Age /
+Fitness / SocialValue / Utilitarianism) reflects empirical logit-magnitude
+distributions but raises a fair concern: would a single tuned scalar
+approximate the per-category schedule? We sweep
+$T_\text{cat} \in \{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$ uniformly across
+all six dimensions, on the same 3-country panel as the per-category
+sensitivity study (Appendix~\ref{app:temp_sensitivity}). Implementation:
+\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_global\_tcat.py}.
+
+\begin{table}[h]\centering\small
+\caption{Single global $T_\text{cat}$ vs.\ per-category schedule
+(Phi-4, 3-country panel). The released default applies different
+temperatures per dimension; the global rows force a single value.
+Filled by the companion runner.}
+\label{tab:r2_global_tcat}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{lccc}\toprule
+$T_\text{cat}$ schedule & Macro MIS $\downarrow$ & Std (countries) & Flip rate \\\midrule
+\textbf{per-category default ($4.0$ / $3.5$ / $1.5$)} & \textbf{---} & --- & --- \\
+\midrule
+global $T_\text{cat} = 1.0$ & --- & --- & --- \\
+global $T_\text{cat} = 1.5$ & --- & --- & --- \\
+global $T_\text{cat} = 2.0$ & --- & --- & --- \\
+global $T_\text{cat} = 2.5$ & --- & --- & --- \\
+global $T_\text{cat} = 3.0$ & --- & --- & --- \\
+global $T_\text{cat} = 3.5$ & --- & --- & --- \\
+global $T_\text{cat} = 4.0$ & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The expected pattern, given the per-category sensitivity already shown
+in Appendix~\ref{app:temp_sensitivity}: a moderate global $T_\text{cat}$
+(around $2.0$--$3.0$) recovers most of the per-category schedule's
+performance, since the dimension-specific values primarily compensate
+for systematic differences in logit-gap magnitude across categories
+rather than encoding fundamentally different correction strategies. The
+per-category schedule remains the released default because it
+removes a tuning knob (no need to pick a single $T_\text{cat}$) at no
+implementation cost.
+
+% ============================================================================
+\section{Pre-Run Triage Diagnostic}
+\label{app:r2_triage}
+% ============================================================================
+
+The architectural-failure prediction (vanilla decision-margin correlates
+with SWA-DPBR's MIS gain; Appendices~\ref{app:r2_logit_conditioning}--\ref{app:r2_logit_cond_cross_model})
+suggests an actionable deployment rule: \emph{run the IS stage only when
+the base model's vanilla margin exceeds a cutoff $\tau$}. This appendix
+quantifies $\tau$ post-hoc on the existing
+(model, country) cells.
+
+The companion script
+\texttt{exp\_paper/round2/phase1\_posthoc/exp\_r2\_pre\_run\_triage.py}
+joins the per-country logit-conditioning CSVs against the per-country
+(vanilla, SWA-DPBR) MIS pairs, sweeps $\tau$ over $[0, 0.5]$, and at each
+$\tau$ reports the deployment decision's recall (fraction of
+high-gain cells correctly deployed), precision (fraction of deployed
+cells that were genuinely high-gain), and compute saved
+(percentage of cells skipped under the rule). The Pareto-optimal
+recommendation is the largest $\tau$ that keeps recall $\geq 0.9$ on
+high-gain cells (gain $> 5\%$).
+
+\begin{table}[h]\centering\small
+\caption{Pre-run triage cutoff sweep. Each row is a candidate
+deployment threshold $\tau$ on vanilla mean decision margin.
+$^{\star}$ marks the recommended Pareto-optimal cutoff (largest $\tau$
+keeping recall $\geq 0.9$ on high-gain cells). Filled by the companion
+post-hoc script.}
+\label{tab:r2_triage}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{rrrrrr}\toprule
+$\tau$ (margin) & deploy/skip & recall (gain$>$5\%) & precision &
+compute saved (\%) & MIS regret \\\midrule
+0.000 & ---/--- & --- & --- & --- & --- \\
+0.075 & ---/--- & --- & --- & --- & --- \\
+0.150 & ---/--- & --- & --- & --- & --- \\
+0.225 & ---/--- & --- & --- & --- & --- \\
+0.300 & ---/--- & --- & --- & --- & --- \\
+0.375 & ---/--- & --- & --- & --- & --- \\
+0.450 & ---/--- & --- & --- & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A practical reading: at the Pareto-optimal $\tau^\star$, downstream
+deployments can skip the SWA-DPBR forward-pass overhead on country
+slices where the base model is already near-uniform over A/B (no
+information for IS to recover) without losing material MIS gain. This
+turns the architectural-failure-mode finding from a passive caveat into
+an actionable deployment rule.
 
 % ============================================================================
 % ============================================================
