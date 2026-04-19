@@ -20,7 +20,7 @@ Expected finding: PRISM prompting gives modest MIS reduction (2-5%) while
 SWA-DPBR achieves 19-24%, confirming the necessity of the IS correction.
 
 Kaggle (~2–3 h on H100 for Phi-4 × 20 countries × 300 scenarios):
-    !python exp_paper/round2/phase7_oral/exp_r2_prism_baseline.py
+    !python exp_paper/round3/baselines/exp_r3_baseline_prism.py
 
 Env overrides:
     R2_MODEL           HF id (default: microsoft/phi-4)
@@ -112,7 +112,7 @@ COUNTRIES  = (
 STRENGTH = os.environ.get("R2_PRISM_STRENGTH", "short")
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/prism_baseline"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/prism_baseline"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "prism_baseline")
 )
@@ -193,7 +193,14 @@ def _run_prism_country(
     records = []
     t0 = time.time()
     for _, row in scen_df.iterrows():
-        scenario_text = row.get("scenario_text", row.get("verbalized_scenario", ""))
+        # Column convention from src/data.py is "Prompt" (capital P);
+        # earlier drafts of this script looked up scenario_text /
+        # verbalized_scenario which silently returned "" and dropped every row.
+        scenario_text = row.get(
+            "Prompt",
+            row.get("prompt",
+                    row.get("scenario_text",
+                            row.get("verbalized_scenario", ""))))
         if not scenario_text:
             continue
         pref_right = int(row.get("preferred_on_right", 0))
@@ -279,7 +286,7 @@ def main() -> None:
             torch.cuda.empty_cache()
 
     save_summary(rows, out_dir, "prism_summary.csv")
-    _zip_outputs(out_dir, "round2_phase7_prism_baseline")
+    _zip_outputs(out_dir, "round3_baselines_prism")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:
