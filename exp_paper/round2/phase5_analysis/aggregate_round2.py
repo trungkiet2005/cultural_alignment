@@ -39,7 +39,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError("Not on Kaggle and not inside the repo root.")
     if not _os.path.isdir(_REPO_DIR_KAGGLE):
         _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
@@ -60,7 +60,7 @@ import pandas as pd
 R2_BASE = Path(os.environ.get(
     "R2_RESULTS_BASE",
     "/kaggle/working/cultural_alignment/results/exp24_round2"
-    if os.path.isdir("/kaggle/working")
+    if os.path.isdir("/kaggle/input")
     else "results/exp24_round2",
 ))
 OUT_DIR = Path(os.environ.get("R2_OUT_DIR", str(R2_BASE / "phase5_analysis")))
@@ -223,7 +223,13 @@ def _build_persona_variant_table() -> None:
     df = _load_csv(R2_BASE / "persona_variant" / "persona_variant_summary.csv")
     if df is None:
         return
-    piv = df.pivot(index="country", columns="variant", values="align_mis")
+    # The persona_variant runner writes the bare ``mis`` column; older
+    # baselines wrote ``align_mis``. Accept either.
+    mis_col = "align_mis" if "align_mis" in df.columns else "mis"
+    if mis_col not in df.columns:
+        print(f"[SKIP] persona_variant: no MIS column found (have {df.columns.tolist()})")
+        return
+    piv = df.pivot(index="country", columns="variant", values=mis_col)
     if "aggregate" not in piv.columns or "utilitarian" not in piv.columns:
         print(f"[WARN] persona_variant: expected both variants, got {piv.columns.tolist()}")
         return
@@ -287,12 +293,14 @@ def _build_summary_numbers() -> None:
     # Persona variant delta
     pv = _load_csv(R2_BASE / "persona_variant" / "persona_variant_summary.csv")
     if pv is not None:
-        piv = pv.pivot(index="country", columns="variant", values="align_mis")
-        if {"aggregate", "utilitarian"}.issubset(piv.columns):
-            delta = (piv["utilitarian"] - piv["aggregate"]).mean()
-            lines.append(
-                f"persona utilitarian - aggregate macro MIS shift = {delta:+.4f}"
-            )
+        mis_col = "align_mis" if "align_mis" in pv.columns else "mis"
+        if mis_col in pv.columns:
+            piv = pv.pivot(index="country", columns="variant", values=mis_col)
+            if {"aggregate", "utilitarian"}.issubset(piv.columns):
+                delta = (piv["utilitarian"] - piv["aggregate"]).mean()
+                lines.append(
+                    f"persona utilitarian - aggregate macro MIS shift = {delta:+.4f}"
+                )
 
     path = OUT_DIR / "summary_numbers.txt"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -310,7 +318,7 @@ def _zip_outputs(out_dir: Path, label: str) -> None:
     import shutil
     dest_base = (
         Path("/kaggle/working")
-        if os.path.isdir("/kaggle/working")
+        if os.path.isdir("/kaggle/input")
         else out_dir.parent.parent / "download"
     )
     dest_base.mkdir(parents=True, exist_ok=True)

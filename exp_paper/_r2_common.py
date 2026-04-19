@@ -29,7 +29,7 @@ REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
 
 
 def on_kaggle() -> bool:
-    return os.path.isdir("/kaggle/working")
+    return os.path.isdir("/kaggle/input")
 
 
 def ensure_repo() -> str:

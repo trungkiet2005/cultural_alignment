@@ -1,0 +1,12 @@
+\begin{table}[h]\centering\scriptsize
+\caption{Wall-time overhead of SWA-DPBR relative to vanilla decoding on Phi-4 (14B, BF16) for a single forward pass per scenario. Timings are averaged over 3 countries $\times$ 100 scenarios on a single H100 80GB GPU. $\times$overhead = SWA / vanilla wall time per scenario.}
+\label{tab:latency_overhead}
+\begin{tabular}{lcccc}\toprule
+Method & $K$ (IS samples) & sec/scenario & overhead & GPU peak (GB) \\\midrule
+swa_dpbr & 64 & 0.086 & 3.72$\times$ & 0.0 \\
+swa_dpbr & 128 & 0.083 & 3.59$\times$ & 0.0 \\
+swa_dpbr & 256 & 0.083 & 3.57$\times$ & 0.0 \\
+vanilla & -- & 0.023 & 1.00$\times$ & 0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}

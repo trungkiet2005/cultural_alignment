@@ -31,7 +31,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError(
             "Not on Kaggle and not inside the repo root. "
             "Either cd into the cultural_alignment repo first, or run on Kaggle."
@@ -61,7 +61,7 @@ N_SCEN = int(os.environ.get("R2_N_SCENARIOS", "500"))
 SEED = int(os.environ.get("R2_SEED", "42"))
 _DEFAULT_OUT = (
     "/kaggle/working/cultural_alignment/results/exp24_round2/scenario_ids"
-    if os.path.isdir("/kaggle/working")
+    if os.path.isdir("/kaggle/input")
     else "results/exp24_round2/scenario_ids"
 )
 OUT_DIR = Path(os.environ.get("R2_OUT_DIR", _DEFAULT_OUT))

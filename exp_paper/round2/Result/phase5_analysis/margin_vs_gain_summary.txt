@@ -1,0 +1,12 @@
+W10 logit-conditioning correlation analysis
+------------------------------------------------------
+n_countries = 20
+
+    mean_margin vs mis_gain      Pearson r = +0.559 (p=0.010)  Spearman rho = +0.521 (p=0.019)  slope = +16.4083
+    mean_margin vs mis_gain_pct  Pearson r = +0.627 (p=0.003)  Spearman rho = +0.521 (p=0.019)  slope = +4373.1015
+  median_margin vs mis_gain      Pearson r = +nan (p=nan)  Spearman rho = +nan (p=nan)  slope = +0.0121
+  median_margin vs mis_gain_pct  Pearson r = +nan (p=nan)  Spearman rho = +nan (p=nan)  slope = +2.1821
+   mean_entropy vs mis_gain      Pearson r = -0.556 (p=0.011)  Spearman rho = -0.521 (p=0.019)  slope = -20.5463
+   mean_entropy vs mis_gain_pct  Pearson r = -0.624 (p=0.003)  Spearman rho = -0.521 (p=0.019)  slope = -5481.2782
+   mean_abs_gap vs mis_gain      Pearson r = -0.124 (p=0.604)  Spearman rho = -0.298 (p=0.202)  slope = -0.0056
+   mean_abs_gap vs mis_gain_pct  Pearson r = -0.173 (p=0.465)  Spearman rho = -0.355 (p=0.125)  slope = -1.8550

@@ -35,7 +35,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError("Not on Kaggle and not inside the repo root.")
     if not _os.path.isdir(_REPO_DIR_KAGGLE):
         _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
@@ -57,7 +57,7 @@ import pandas as pd
 R2_BASE = Path(os.environ.get(
     "R2_RESULTS_BASE",
     "/kaggle/working/cultural_alignment/results/exp24_round2"
-    if os.path.isdir("/kaggle/working")
+    if os.path.isdir("/kaggle/input")
     else "results/exp24_round2",
 ))
 OUT_DIR = R2_BASE / "phase5_analysis"
@@ -192,7 +192,7 @@ def _zip_outputs(out_dir: Path, label: str) -> None:
     import shutil
     dest_base = (
         Path("/kaggle/working")
-        if os.path.isdir("/kaggle/working")
+        if os.path.isdir("/kaggle/input")
         else out_dir.parent.parent / "download"
     )
     dest_base.mkdir(parents=True, exist_ok=True)

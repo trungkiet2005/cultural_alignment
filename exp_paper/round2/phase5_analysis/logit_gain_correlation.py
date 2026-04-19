@@ -35,7 +35,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError("Not on Kaggle and not inside the repo root.")
     if not _os.path.isdir(_REPO_DIR_KAGGLE):
         _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
@@ -58,7 +58,7 @@ from scipy.stats import pearsonr, spearmanr
 R2_BASE = Path(os.environ.get(
     "R2_RESULTS_BASE",
     "/kaggle/working/cultural_alignment/results/exp24_round2"
-    if os.path.isdir("/kaggle/working")
+    if os.path.isdir("/kaggle/input")
     else "results/exp24_round2",
 ))
 OUT_DIR = R2_BASE / "phase5_analysis"
@@ -112,34 +112,50 @@ def main() -> None:
     cond = pd.read_csv(cond_path)
 
     cmp_path = _find_first("comparison.csv", override_env="R2_MAIN_COMPARISON")
-    if cmp_path is None:
-        msg = [
-            "Missing: comparison.csv (main Phi-4 paper run)",
-            "",
-            "Searched these roots (recursive):",
-            *[f"  - {r}" for r in _search_roots()],
-            "",
-            "Fix one of these:",
-            "  1) Run the main Phi-4 experiment first in this session:",
-            "       !python exp_paper/exp_paper_phi_4.py",
-            "  2) Attach a Kaggle Input dataset that contains the previous",
-            "     `results/exp24_paper_20c/phi_4/compare/comparison.csv`.",
-            "  3) Set R2_MAIN_COMPARISON to the absolute file path.",
-        ]
-        raise SystemExit("\n".join(msg))
-    print(f"[USING] cmp  = {cmp_path}")
-    cmp = pd.read_csv(cmp_path)
+    if cmp_path is not None:
+        print(f"[USING] cmp  = {cmp_path}")
+        cmp = pd.read_csv(cmp_path)
+        van = cmp[cmp["method"] == "baseline_vanilla"][["country", "align_mis"]].rename(
+            columns={"align_mis": "mis_vanilla"},
+        )
+        swa = cmp[cmp["method"].str.contains("dual_pass", na=False)][
+            ["country", "align_mis"]].rename(columns={"align_mis": "mis_swa"})
+    else:
+        # Fallback: use multi-seed Phi-4 per-country CIs (mean MIS over seeds).
+        # That CSV has the same per-country (vanilla, swa_dpbr) MIS values, with
+        # the bonus that they're seed-averaged.
+        ms_path = _find_first(
+            "multiseed_per_country_ci.csv",
+            override_env="R2_MULTISEED_PER_COUNTRY",
+        )
+        if ms_path is None:
+            msg = [
+                "Missing: comparison.csv AND multiseed_per_country_ci.csv",
+                "",
+                "Searched these roots (recursive):",
+                *[f"  - {r}" for r in _search_roots()],
+                "",
+                "Fix one of these:",
+                "  1) Run the main Phi-4 experiment first in this session:",
+                "       !python exp_paper/exp_paper_phi_4.py",
+                "  2) Attach a Kaggle Input dataset that contains the previous",
+                "     `results/exp24_paper_20c/phi_4/compare/comparison.csv`,",
+                "     OR `results/exp24_round2/multiseed_phi4/multiseed_per_country_ci.csv`.",
+                "  3) Set R2_MAIN_COMPARISON or R2_MULTISEED_PER_COUNTRY to a file path.",
+            ]
+            raise SystemExit("\n".join(msg))
+        print(f"[USING] cmp (fallback, multi-seed) = {ms_path}")
+        ms = pd.read_csv(ms_path)
+        van = ms[ms["method"] == "vanilla"][["country", "mean_mis"]].rename(
+            columns={"mean_mis": "mis_vanilla"},
+        )
+        swa = ms[ms["method"].str.contains("swa", case=False, na=False)][
+            ["country", "mean_mis"]].rename(columns={"mean_mis": "mis_swa"})
 
-    # Extract per-country (vanilla MIS, SWA-DPBR MIS).
-    van = cmp[cmp["method"] == "baseline_vanilla"][["country", "align_mis"]].rename(
-        columns={"align_mis": "mis_vanilla"},
-    )
-    swa = cmp[cmp["method"].str.contains("dual_pass", na=False)][
-        ["country", "align_mis"]].rename(columns={"align_mis": "mis_swa"})
     if van.empty or swa.empty:
         raise SystemExit(
-            "Main comparison CSV missing vanilla or SWA rows. "
-            "Re-check the `method` column."
+            "Comparison source missing vanilla or SWA rows. "
+            f"Vanilla rows: {len(van)}, SWA rows: {len(swa)}"
         )
 
     m = (cond[["country", "mean_margin", "median_margin",
@@ -197,7 +213,7 @@ def _zip_outputs(out_dir: Path, label: str) -> None:
     import shutil
     dest_base = (
         Path("/kaggle/working")
-        if os.path.isdir("/kaggle/working")
+        if os.path.isdir("/kaggle/input")
         else out_dir.parent.parent / "download"
     )
     dest_base.mkdir(parents=True, exist_ok=True)

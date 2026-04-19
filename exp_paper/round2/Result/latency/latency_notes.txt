@@ -1,0 +1,12 @@
+Latency benchmark notes
+==================================================
+Model:       microsoft/phi-4
+Backend:     vllm
+Countries:   ['USA', 'VNM', 'DEU']
+N scenarios: 100 per country
+K grid:      [64, 128, 256]
+
+Overhead summary (wall time per scenario):
+  K=64    0.086s  overhead=3.72×
+  K=128   0.083s  overhead=3.59×
+  K=256   0.083s  overhead=3.57×

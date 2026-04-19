@@ -25,7 +25,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError("Not on Kaggle and not inside the repo root.")
     if not _os.path.isdir(_REPO_DIR_KAGGLE):
         _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
@@ -37,11 +37,19 @@ def _r2_bootstrap() -> str:
 _r2_bootstrap()
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
 import numpy as np
 import pandas as pd
+
+# Windows consoles default to cp1252; rebind stdout to UTF-8 so the
+# summary text (which uses ², →, en-dash) prints without UnicodeEncodeError.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 from exp_paper._r2_common import on_kaggle
 
@@ -128,8 +136,15 @@ def _section_prism() -> None:
     prism = _load(R2_BASE / "prism_baseline" / "prism_summary.csv")
     if prism is None:
         return
-    valid = prism[prism["mis"].notna() & prism["mis"].apply(np.isfinite)]
+    if "mis" not in prism.columns:
+        print(f"[SKIP] prism_summary.csv has no 'mis' column")
+        return
+    # ``mis`` may be all-NaN if the PRISM run aborted before any scenario
+    # produced metrics. In that case skip the macro section gracefully.
+    mis_numeric = pd.to_numeric(prism["mis"], errors="coerce")
+    valid = prism[mis_numeric.notna() & np.isfinite(mis_numeric)]
     if valid.empty:
+        print(f"[SKIP] prism_summary.csv has no valid MIS rows (all NaN — re-run prism_baseline)")
         return
     mean_mis  = float(valid["mis"].mean())
     mean_r    = float(valid["pearson_r"].mean(skipna=True))
@@ -210,7 +225,7 @@ def _zip_outputs(out_dir: Path, label: str) -> None:
     import shutil
     dest_base = (
         Path("/kaggle/working")
-        if os.path.isdir("/kaggle/working")
+        if os.path.isdir("/kaggle/input")
         else out_dir.parent.parent / "download"
     )
     dest_base.mkdir(parents=True, exist_ok=True)

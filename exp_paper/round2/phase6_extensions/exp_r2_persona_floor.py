@@ -46,7 +46,7 @@ def _r2_bootstrap() -> str:
         if here not in _sys.path:
             _sys.path.insert(0, here)
         return here
-    if not _os.path.isdir("/kaggle/working"):
+    if not _os.path.isdir("/kaggle/input"):
         raise RuntimeError(
             "Not on Kaggle and not inside the repo root. "
             "Either cd into the cultural_alignment repo first, or run on Kaggle."
@@ -222,7 +222,7 @@ def _zip_outputs(out_dir: Path, label: str) -> None:
     import shutil
     dest_base = (
         Path("/kaggle/working")
-        if os.path.isdir("/kaggle/working")
+        if os.path.isdir("/kaggle/input")
         else out_dir.parent.parent / "download"
     )
     dest_base.mkdir(parents=True, exist_ok=True)
