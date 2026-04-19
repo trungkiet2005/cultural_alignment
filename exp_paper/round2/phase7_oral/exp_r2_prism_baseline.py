@@ -193,7 +193,14 @@ def _run_prism_country(
     records = []
     t0 = time.time()
     for _, row in scen_df.iterrows():
-        scenario_text = row.get("scenario_text", row.get("verbalized_scenario", ""))
+        # Column convention from src/data.py is "Prompt" (capital P);
+        # earlier drafts of this script looked up scenario_text /
+        # verbalized_scenario which silently returned "" and dropped every row.
+        scenario_text = row.get(
+            "Prompt",
+            row.get("prompt",
+                    row.get("scenario_text",
+                            row.get("verbalized_scenario", ""))))
         if not scenario_text:
             continue
         pref_right = int(row.get("preferred_on_right", 0))
