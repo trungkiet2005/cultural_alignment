@@ -11,7 +11,7 @@ Python forward hooks). Script forces ``MORAL_MODEL_BACKEND=hf_native``
 unless the user overrides.
 
 Kaggle (Phi-4 14B × 20 countries × 500 scenarios ≈ 1.5–2 h on H100):
-    !python exp_paper/round2/phase2_baselines/exp_r2_baseline_activation_steering.py
+    !python exp_paper/round3/baselines/exp_r3_baseline_activation_steering.py
 
 Env overrides:
     R2_MODEL           HF id (default: microsoft/phi-4)
@@ -93,7 +93,7 @@ COUNTRIES = (
 )
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/activation_steering"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/activation_steering"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "activation_steering")
 )
@@ -153,7 +153,7 @@ def main() -> None:
             torch.cuda.empty_cache()
 
     save_summary(rows, out_dir, "activation_steering_summary.csv")
-    _zip_outputs(out_dir, "round2_phase2_activation_steering")
+    _zip_outputs(out_dir, "round3_baselines_activation_steering")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:

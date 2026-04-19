@@ -15,8 +15,13 @@ Outputs land in `results/exp24_round3/<experiment>/` and are zipped to
 
 ```
 round3/
-├── baselines/          # New comparator baselines (Round-3 reviewer asks)
-│   └── exp_r3_baseline_swai.py
+├── baselines/          # New comparator baselines (Round-3 reviewer asks
+│   │                   #  + scripts migrated from round2 that hadn't
+│   │                   #  produced usable output yet)
+│   ├── exp_r3_baseline_swai.py
+│   ├── exp_r3_baseline_prompts.py             # B1/B2/B3-short/B3-long/B4
+│   ├── exp_r3_baseline_activation_steering.py # white-box, hf_native
+│   └── exp_r3_baseline_prism.py               # PRISM-style, post-bugfix
 ├── sensitivity/        # Method-internal hyperparameter / panel sweeps
 │   ├── exp_r3_k_budget_scaling.py
 │   ├── exp_r3_persona_count.py
@@ -27,17 +32,20 @@ round3/
     └── exp_r3_pre_run_triage.py
 ```
 
-## Experiment ↔ paper-section ↔ reviewer-Q map
+## Experiment ↔ paper-section ↔ origin
 
-| Script | Paper appendix | Reviewer Q (Round 3) |
+| Script | Paper appendix | Origin |
 |---|---|---|
-| `baselines/exp_r3_baseline_swai.py` | `app:r2_swai` | "missing SWAI comparator" |
-| `sensitivity/exp_r3_k_budget_scaling.py` | `app:r2_k_budget` | (paper-impact, no specific Q) |
-| `sensitivity/exp_r3_persona_count.py` | `app:r2_persona_count` | Q3 ("N=3 / N=6 robustness") |
-| `sensitivity/exp_r3_global_tcat.py` | `app:r2_global_tcat` | Q4 ("single global T_cat") |
-| `posthoc/exp_r3_per_dim_cross_model.py` | `app:r2_per_dim_cross_model` | (paper-impact, no specific Q) |
-| `posthoc/exp_r3_logit_conditioning_cross_model.py` | `app:r2_logit_cond_cross_model` | (paper-impact, extends architectural-failure claim) |
-| `posthoc/exp_r3_pre_run_triage.py` | `app:r2_triage` | Q9 ("pre-run criterion to predict low-gain regimes") |
+| `baselines/exp_r3_baseline_swai.py` | `app:r2_swai` | Round-3 reviewer ask ("missing SWAI comparator") |
+| `baselines/exp_r3_baseline_prompts.py` | `app:r2_baselines` | Migrated from round2; first run failed (`logit_fallback_p_spare` kwarg bug, fixed in commit be02dd0) |
+| `baselines/exp_r3_baseline_activation_steering.py` | `app:r2_baselines` | Migrated from round2; same kwarg bug, fixed in be02dd0 |
+| `baselines/exp_r3_baseline_prism.py` | (referenced in §4.3) | Migrated from round2; first run produced n_scenarios=0 (`Prompt`-column lookup bug, fixed in 27d11b5) |
+| `sensitivity/exp_r3_k_budget_scaling.py` | `app:r2_k_budget` | Paper-impact (no specific reviewer Q) |
+| `sensitivity/exp_r3_persona_count.py` | `app:r2_persona_count` | Round-3 Q3 ("N=3 / N=6 robustness") |
+| `sensitivity/exp_r3_global_tcat.py` | `app:r2_global_tcat` | Round-3 Q4 ("single global T_cat") |
+| `posthoc/exp_r3_per_dim_cross_model.py` | `app:r2_per_dim_cross_model` | Paper-impact |
+| `posthoc/exp_r3_logit_conditioning_cross_model.py` | `app:r2_logit_cond_cross_model` | Paper-impact (extends architectural-failure claim) |
+| `posthoc/exp_r3_pre_run_triage.py` | `app:r2_triage` | Round-3 Q9 ("pre-run criterion to predict low-gain regimes") |
 
 ## Compute budget
 

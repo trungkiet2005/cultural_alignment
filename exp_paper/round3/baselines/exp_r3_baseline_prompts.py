@@ -17,7 +17,7 @@ ask the model to speak as country X without ever supplying the
 within-country disagreement signal that SWA-DPBR exploits.
 
 Kaggle:
-    !python exp_paper/round2/phase2_baselines/exp_r2_baseline_prompts.py
+    !python exp_paper/round3/baselines/exp_r3_baseline_prompts.py
 
 Env overrides:
     R2_BASELINES       comma list (default: B1,B2,B3_short,B3_long,B4)
@@ -102,7 +102,7 @@ COUNTRIES = (
 )
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/prompt_baselines"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/prompt_baselines"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "prompt_baselines")
 )
@@ -166,7 +166,7 @@ def main() -> None:
                 torch.cuda.empty_cache()
 
     save_summary(rows, out_dir, "prompt_baselines_summary.csv")
-    _zip_outputs(out_dir, "round2_phase2_prompt_baselines")
+    _zip_outputs(out_dir, "round3_baselines_prompts")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:

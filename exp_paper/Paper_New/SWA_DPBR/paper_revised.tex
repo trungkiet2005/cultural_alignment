@@ -1536,7 +1536,7 @@ probabilities can achieve.
 \paragraph{Prompt-only baselines (B1--B4).}
 Implementation: \texttt{src/prompt\_baselines.py} +
 \texttt{src/prompt\_baseline\_runner.py}; runner:
-\texttt{exp\_paper/round2/phase2\_baselines/exp\_r2\_baseline\_prompts.py}.
+\texttt{exp\_paper/round3/baselines/exp\_r3\_baseline\_prompts.py}.
 Each variant prepends a cultural-framing prefix to the standard MultiTP
 scenario prompt and then reuses the vanilla A/B logit-gap pipeline. B1
 asks the model to "choose as a typical adult in $\langle$country$\rangle$
@@ -1549,7 +1549,7 @@ prompt-only baseline).
 
 \paragraph{Activation steering (white-box).}
 Implementation: \texttt{src/activation\_steering.py}; runner:
-\texttt{exp\_paper/round2/phase2\_baselines/exp\_r2\_baseline\_activation\_steering.py}.
+\texttt{exp\_paper/round3/baselines/exp\_r3\_baseline\_activation\_steering.py}.
 For each country we compute a steering vector
 $v_{\text{steer}}(c) = \mathrm{mean}(h^{(\text{pos})}_l) -
 \mathrm{mean}(h^{(\text{neg})}_l)$
