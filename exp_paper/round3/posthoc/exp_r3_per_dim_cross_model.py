@@ -17,7 +17,7 @@ written by ``exp_paper/exp_paper_<model>.py`` and computes, for each
 No GPU required -- pure post-hoc over existing CSVs.
 
 Kaggle:
-    !python exp_paper/round2/phase7_oral/exp_r2_per_dim_cross_model.py
+    !python exp_paper/round3/posthoc/exp_r3_per_dim_cross_model.py
 
 Env overrides:
     R2_RESULTS_BASE   root of results/exp24_paper_20c/   (Kaggle default auto-set)
@@ -107,9 +107,9 @@ COUNTRIES = (
 )
 
 OUT_DIR = Path(
-    "/kaggle/working/cultural_alignment/results/exp24_round2/per_dim_cross_model"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/per_dim_cross_model"
     if on_kaggle()
-    else "results/exp24_round2/per_dim_cross_model"
+    else "results/exp24_round3/per_dim_cross_model"
 )
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -301,7 +301,7 @@ def main() -> None:
     (OUT_DIR / "per_dim_cross_model_summary.txt").write_text(summary, encoding="utf-8")
     print(f"\n{summary}")
 
-    _zip_outputs(OUT_DIR, "round2_phase7_per_dim_cross_model")
+    _zip_outputs(OUT_DIR, "round3_posthoc_per_dim_cross_model")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:

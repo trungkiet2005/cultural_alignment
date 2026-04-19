@@ -9,7 +9,7 @@ is ``K_half=64`` (total 128). This experiment answers the question
 plateaus and where the variance of the reliability gate stabilises.
 
 Kaggle (~1-1.5h on H100):
-    !python exp_paper/round2/phase3_sensitivity/exp_r2_k_budget_scaling.py
+    !python exp_paper/round3/sensitivity/exp_r3_k_budget_scaling.py
 
 Env overrides:
     R2_MODEL          HF id (default: microsoft/phi-4)
@@ -86,7 +86,7 @@ COUNTRIES = [c.strip() for c in os.environ.get("R2_COUNTRIES", "USA,VNM,DEU").sp
 K_GRID = [int(s.strip()) for s in os.environ.get("R2_K_GRID", "8,16,32,64,128,192").split(",") if s.strip()]
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/k_budget_scaling"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/k_budget_scaling"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "k_budget_scaling")
 )
@@ -177,7 +177,7 @@ def main() -> None:
 
     save_summary(rows, out_dir, "k_budget_summary.csv")
     _build_curve_table(rows, out_dir)
-    _zip_outputs(out_dir, "round2_phase3_k_budget_scaling")
+    _zip_outputs(out_dir, "round3_sensitivity_k_budget_scaling")
 
 
 def _build_curve_table(rows: List[Dict], out_dir: Path) -> None:

@@ -10,7 +10,7 @@ disagreement information.
 See ``src/swai_baseline.py`` for the implementation.
 
 Kaggle (~1-1.5h on H100 for Phi-4 x 20 countries):
-    !python exp_paper/round2/phase2_baselines/exp_r2_baseline_swai.py
+    !python exp_paper/round3/baselines/exp_r3_baseline_swai.py
 
 Env overrides:
     R2_MODEL          HF id (default: microsoft/phi-4)
@@ -82,7 +82,7 @@ COUNTRIES = (
 )
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/swai"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/swai"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "swai")
 )
@@ -139,7 +139,7 @@ def main() -> None:
             torch.cuda.empty_cache()
 
     save_summary(rows, out_dir, "swai_summary.csv")
-    _zip_outputs(out_dir, "round2_phase2_swai")
+    _zip_outputs(out_dir, "round3_baselines_swai")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:

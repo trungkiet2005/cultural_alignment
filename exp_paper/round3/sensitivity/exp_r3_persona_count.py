@@ -17,7 +17,7 @@ country, used purely to test "do more personas help, even if they are
 not WVS-grounded?".
 
 Kaggle (Phi-4 14B x 3 countries x 5 N values ~ 1.5h on H100):
-    !python exp_paper/round2/phase3_sensitivity/exp_r2_persona_count.py
+    !python exp_paper/round3/sensitivity/exp_r3_persona_count.py
 
 Env overrides:
     R2_MODEL          HF id (default: microsoft/phi-4)
@@ -94,7 +94,7 @@ COUNTRIES = [c.strip() for c in os.environ.get("R2_COUNTRIES", "USA,VNM,DEU").sp
 N_GRID = [int(s.strip()) for s in os.environ.get("R2_N_GRID", "2,3,4,5,6").split(",") if s.strip()]
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/persona_count"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/persona_count"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "persona_count")
 )
@@ -205,7 +205,7 @@ def main() -> None:
 
     save_summary(rows, out_dir, "persona_count_summary.csv")
     _build_curve(rows, out_dir)
-    _zip_outputs(out_dir, "round2_phase3_persona_count")
+    _zip_outputs(out_dir, "round3_sensitivity_persona_count")
 
 
 def _build_curve(rows: List[Dict], out_dir: Path) -> None:

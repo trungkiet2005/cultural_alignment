@@ -2183,7 +2183,7 @@ The dual-pass IS budget is $K{=}2K_{\text{half}}$ with default
 $K_{\text{half}}{=}64$ (total~128 proposals per scenario). Two natural
 questions: \emph{where does macro MIS plateau as $K$ grows}, and \emph{at
 what $K$ does the reliability weight stabilise}? The companion runner
-\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_k\_budget\_scaling.py}
+\texttt{exp\_paper/round3/sensitivity/exp\_r3\_k\_budget\_scaling.py}
 sweeps $K_{\text{half}} \in \{8, 16, 32, 64, 128, 192\}$ on the
 3-country panel (USA, VNM, DEU) and writes the curve to
 \texttt{k\_budget\_summary.csv} and \texttt{k\_budget\_macro.csv}; a
@@ -2229,7 +2229,7 @@ shows \emph{which} dimension dominates each model's residual error.
 A complementary question is \emph{where SWA-DPBR's gains come from}:
 which dimensions does the correction actually move, and is the pattern
 backbone-dependent? The companion runner
-\texttt{exp\_paper/round2/phase7\_oral/exp\_r2\_per\_dim\_cross\_model.py}
+\texttt{exp\_paper/round3/posthoc/exp\_r3\_per\_dim\_cross\_model.py}
 post-processes the per-country result CSVs from the six paper models
 and writes a 6-models~$\times$~6-dimensions macro matrix
 (\texttt{per\_dim\_cross\_model.csv}) plus a paper-ready heatmap
@@ -2279,7 +2279,7 @@ informative gradient to follow; when they are not, no inference-time
 intervention can manufacture one.
 
 The companion runner
-\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_logit\_conditioning\_cross\_model.py}
+\texttt{exp\_paper/round3/posthoc/exp\_r3\_logit\_conditioning\_cross\_model.py}
 runs vanilla forward passes on all six backbones (or aggregates from
 the existing per-model logit-conditioning CSVs in
 \texttt{--aggregate-only} mode), joins against the per-country MIS gains
@@ -2339,7 +2339,7 @@ $b_a(c) = \overline{\log p(A)} - \tfrac{1}{2}(\overline{\log p(A)} +
 $b_b(c)$. At inference, the binary baseline applies
 $z'_a = z_a + b_a(c)$, $z'_b = z_b + b_b(c)$ before the decision-temperature
 softmax. Implementation: \texttt{src/swai\_baseline.py}; runner:
-\texttt{exp\_paper/round2/phase2\_baselines/exp\_r2\_baseline\_swai.py}.
+\texttt{exp\_paper/round3/baselines/exp\_r3\_baseline\_swai.py}.
 
 \begin{table}[h]\centering\small
 \caption{SWAI-style static logit-bias baseline on the 20-country Phi-4
@@ -2382,7 +2382,7 @@ $N{=}4$ is the default;
 $N{=}5$ adds a country-invariant utilitarian anchor;
 $N{=}6$ adds both a utilitarian and a deontological anchor.
 Implementation:
-\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_persona\_count.py}.
+\texttt{exp\_paper/round3/sensitivity/exp\_r3\_persona\_count.py}.
 
 \begin{table}[h]\centering\small
 \caption{Persona-count ablation on the 3-country panel
@@ -2423,7 +2423,7 @@ approximate the per-category schedule? We sweep
 $T_\text{cat} \in \{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$ uniformly across
 all six dimensions, on the same 3-country panel as the per-category
 sensitivity study (Appendix~\ref{app:temp_sensitivity}). Implementation:
-\texttt{exp\_paper/round2/phase3\_sensitivity/exp\_r2\_global\_tcat.py}.
+\texttt{exp\_paper/round3/sensitivity/exp\_r3\_global\_tcat.py}.
 
 \begin{table}[h]\centering\small
 \caption{Single global $T_\text{cat}$ vs.\ per-category schedule
@@ -2470,7 +2470,7 @@ quantifies $\tau$ post-hoc on the existing
 (model, country) cells.
 
 The companion script
-\texttt{exp\_paper/round2/phase1\_posthoc/exp\_r2\_pre\_run\_triage.py}
+\texttt{exp\_paper/round3/posthoc/exp\_r3\_pre\_run\_triage.py}
 joins the per-country logit-conditioning CSVs against the per-country
 (vanilla, SWA-DPBR) MIS pairs, sweeps $\tau$ over $[0, 0.5]$, and at each
 $\tau$ reports the deployment decision's recall (fraction of

@@ -19,11 +19,11 @@ panel.
 Two-step run (each step is independent):
 
   Step 1 (GPU, ~30 min on H100 per model): vanilla logit-conditioning
-    !python exp_paper/round2/phase3_sensitivity/exp_r2_logit_conditioning_cross_model.py
+    !python exp_paper/round3/posthoc/exp_r3_logit_conditioning_cross_model.py
   This walks every model and writes ``logit_cond_<model>.csv``.
 
   Step 2 (CPU, post-hoc): aggregate against SWA-DPBR per-country MIS gains
-    !python exp_paper/round2/phase3_sensitivity/exp_r2_logit_conditioning_cross_model.py --aggregate-only
+    !python exp_paper/round3/posthoc/exp_r3_logit_conditioning_cross_model.py --aggregate-only
   Reads the step-1 CSVs + the existing per-model swa/baseline summaries,
   produces the cross-model correlation table.
 
@@ -118,9 +118,9 @@ COUNTRIES = (
 )
 
 OUT_DIR = Path(
-    "/kaggle/working/cultural_alignment/results/exp24_round2/logit_conditioning_cross_model"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/logit_conditioning_cross_model"
     if on_kaggle()
-    else "results/exp24_round2/logit_conditioning_cross_model"
+    else "results/exp24_round3/logit_conditioning_cross_model"
 )
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -281,7 +281,7 @@ def _aggregate() -> None:
     (OUT_DIR / "logit_cond_cross_model_table.tex").write_text("\n".join(lines), encoding="utf-8")
     print(f"[saved] {OUT_DIR / 'logit_cond_cross_model_table.tex'}")
 
-    _zip_outputs(OUT_DIR, "round2_phase3_logit_cond_cross_model")
+    _zip_outputs(OUT_DIR, "round3_posthoc_logit_cond_cross_model")
 
 
 def _zip_outputs(out_dir: Path, label: str) -> None:

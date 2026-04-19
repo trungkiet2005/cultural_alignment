@@ -8,7 +8,7 @@ T_cat in {1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0} and re-runs SWA-DPBR on a
 buys vs.\ a single tuned scalar.
 
 Kaggle (Phi-4 14B x 3 countries x 7 T_cat values ~ 1.5h on H100):
-    !python exp_paper/round2/phase3_sensitivity/exp_r2_global_tcat.py
+    !python exp_paper/round3/sensitivity/exp_r3_global_tcat.py
 
 Env overrides:
     R2_MODEL          HF id (default: microsoft/phi-4)
@@ -88,7 +88,7 @@ TCAT_GRID = [
 ]
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round2/global_tcat"
+    "/kaggle/working/cultural_alignment/results/exp24_round3/global_tcat"
     if on_kaggle()
     else str(Path(__file__).parent.parent / "results" / "exp24_round2" / "global_tcat")
 )
@@ -221,7 +221,7 @@ def main() -> None:
 
     save_summary(rows, out_dir, "global_tcat_summary.csv")
     _build_curve(rows, out_dir)
-    _zip_outputs(out_dir, "round2_phase3_global_tcat")
+    _zip_outputs(out_dir, "round3_sensitivity_global_tcat")
 
 
 def _build_curve(rows: List[Dict], out_dir: Path) -> None:

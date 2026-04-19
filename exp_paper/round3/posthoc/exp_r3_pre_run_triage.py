@@ -24,7 +24,7 @@ It then reports:
 
 No GPU required.
 
-    !python exp_paper/round2/phase1_posthoc/exp_r2_pre_run_triage.py
+    !python exp_paper/round3/posthoc/exp_r3_pre_run_triage.py
 """
 
 from __future__ import annotations
@@ -74,7 +74,7 @@ PAPER_BASE = Path(
     else "results/exp24_paper_20c"
 )
 
-OUT_DIR = R2_BASE / "pre_run_triage"
+OUT_DIR = (R2_BASE.parent / "exp24_round3" / "pre_run_triage")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # Default cutoff sweep over mean decision margin in [0.0, 0.5].
