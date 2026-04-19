@@ -1,10 +1,7 @@
 ---
 name: venue-templates
 description: Access comprehensive LaTeX templates, formatting requirements, and submission guidelines for major scientific publication venues (Nature, Science, PLOS, IEEE, ACM), academic conferences (NeurIPS, ICML, CVPR, CHI), research posters, and grant proposals (NSF, NIH, DOE, DARPA). This skill should be used when preparing manuscripts for journal submission, conference papers, research posters, or grant proposals and need venue-specific formatting requirements and templates.
-allowed-tools: Read Write Edit Bash
-license: MIT license
-metadata:
-    skill-author: K-Dense Inc.
+allowed-tools: [Read, Write, Edit, Bash]
 ---
 
 # Venue Templates
@@ -657,6 +654,7 @@ ISMB poster specifications:
 - Include: QR code for paper/supplementary materials
 Available templates:
 - assets/posters/beamerposter_academic.tex
+- assets/posters/tikzposter_research.tex
 ```
 
 ## Updates and Maintenance
@@ -678,10 +676,11 @@ The venue-templates skill provides comprehensive access to:
 
 1. **50+ publication venue templates** across disciplines
 2. **Detailed formatting requirements** for journals, conferences, posters, grants
-3. **Helper scripts** for template discovery, customization, and validation
-4. **Integration** with other scientific writing skills
-5. **Best practices** for successful academic submissions
+3. **Writing style guides** capturing tone, voice, and conventions for each venue type
+4. **Concrete examples** of abstracts, introductions, and other sections by venue
+5. **Reviewer expectations** explaining what evaluators look for at different venues
+6. **Helper scripts** for template discovery, customization, and validation
+7. **Integration** with other scientific writing skills
 
-Use this skill whenever you need venue-specific formatting guidance or templates for academic publishing.
-
+Use this skill whenever you need venue-specific formatting guidance, writing style conventions, or templates for academic publishing.
 

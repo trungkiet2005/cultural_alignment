@@ -740,19 +740,60 @@ title = {Study of H\textsubscript{2}O}  % H₂O
 % Or use UTF-8 with proper LaTeX packages
 ```
 
-### Issue 3: Incomplete Extraction
+### Issue 3: Incomplete Extraction (REQUIRES WEB SEARCH)
 
-**Problem**: Extracted metadata missing fields.
+**Problem**: Extracted metadata missing fields (volume, pages, DOI, issue number).
 
 **Cause**:
-- Source doesn't provide all metadata
+- Source API doesn't provide all metadata
 - Extraction error
-- Incomplete record
+- Incomplete database record
+- Online-first publication without final pagination
 
-**Solution**:
-1. Check original article
-2. Manually add missing fields
-3. Use alternative source (PubMed vs CrossRef)
+**Solution — MANDATORY web search to fill gaps**:
+
+1. **Identify the missing fields** by scanning the BibTeX entry for empty or absent `volume`, `pages`, `number`, `doi` fields.
+
+2. **Search for the missing metadata using web search**:
+   ```bash
+   # Search by author + title to find complete citation info
+   python scripts/parallel_web.py search \
+     "AUTHOR_NAME PAPER_TITLE JOURNAL volume pages DOI" \
+     -o sources/search_YYYYMMDD_HHMMSS_citation_CITATIONKEY.md
+   ```
+
+3. **If DOI is known, extract from DOI resolver page**:
+   ```bash
+   python scripts/parallel_web.py extract \
+     "https://doi.org/DOI_HERE" \
+     --objective "extract volume, issue number, page range, publication date" \
+     -o sources/extract_YYYYMMDD_HHMMSS_doi_CITATIONKEY.md
+   ```
+
+4. **If DOI is unknown, search for it**:
+   ```bash
+   python scripts/parallel_web.py search \
+     "AUTHOR_NAME PAPER_TITLE JOURNAL_NAME DOI" \
+     -o sources/search_YYYYMMDD_HHMMSS_find_doi_CITATIONKEY.md
+   ```
+
+5. **Try alternative metadata sources**:
+   - CrossRef API (via DOI): Most reliable for volume/pages
+   - PubMed (via PMID): Good for biomedical papers
+   - Google Scholar: Fallback for hard-to-find papers
+   - Publisher website: Last resort
+
+6. **Update the BibTeX entry** with the found metadata and log:
+   ```
+   [HH:MM:SS] METADATA ENRICHED: [CitationKey] - added volume, pages, doi ✅
+   ```
+
+7. **If truly unfindable** (rare), add a note field:
+   ```bibtex
+   note = {Complete pagination not yet assigned — online-first publication}
+   ```
+
+**CRITICAL**: Never leave an `@article` entry without `volume`, `pages`, and `doi` unless you have exhausted all search options and documented the reason.
 
 ### Issue 4: Cannot Find Duplicate
 
