@@ -234,12 +234,11 @@ def run_activation_steering_country(
             try:
                 query_ids = chat_helper.encode_query_suffix(user_content, device)
                 full_ids = torch.cat([base_ids, query_ids], dim=1)
-                p_b = float(logit_fallback_p_spare(
-                    model, full_ids, a_id, b_id,
-                    preferred_on_right=True,
+                # logit_fallback_p_spare uses positional pref_right (bool).
+                p_spare = float(logit_fallback_p_spare(
+                    model, full_ids, a_id, b_id, bool(pref_right),
                     temperature=decision_temp,
                 ))
-                p_spare = p_b if pref_right == 1 else (1.0 - p_b)
             except Exception as exc:
                 print(f"  [warn] {country} row {row.name}: {exc}")
                 p_spare = 0.5

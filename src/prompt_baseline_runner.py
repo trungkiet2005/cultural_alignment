@@ -33,8 +33,14 @@ from src.prompt_baselines import wrap_scenario, load_wvs_vector
 
 def _run_one_scenario(model, tokenizer, chat_helper, base_ids, a_id, b_id,
                       country: str, baseline: str, wvs_vec: Optional[Dict[str, float]],
-                      scenario_prompt: str, decision_temp: float) -> float:
-    """Return p(spare-preferred) for one scenario under the chosen baseline."""
+                      scenario_prompt: str, decision_temp: float,
+                      pref_right: bool) -> float:
+    """Return p(spare-preferred) for one scenario under the chosen baseline.
+
+    ``pref_right`` is forwarded to ``logit_fallback_p_spare`` so the
+    A/B-to-spare flip happens inside the same shared helper the vanilla
+    runner uses (no double-flip in the caller).
+    """
     user_content = wrap_scenario(scenario_prompt, country, baseline, wvs_vec=wvs_vec)
     device = next(model.parameters()).device
     query_ids = chat_helper.encode_query_suffix(user_content, device)
@@ -43,8 +49,7 @@ def _run_one_scenario(model, tokenizer, chat_helper, base_ids, a_id, b_id,
         # Reuse the same logit_fallback the vanilla runner uses so we share
         # numerical conventions (NaN guard, decision temperature).
         p_spare = logit_fallback_p_spare(
-            model, full_ids, a_id, b_id,
-            preferred_on_right=True,  # caller corrects below
+            model, full_ids, a_id, b_id, bool(pref_right),
             temperature=decision_temp,
         )
     return float(p_spare)
@@ -86,11 +91,11 @@ def run_prompt_baseline_country(
             continue
         pref_right = int(row.get("preferred_on_right", 1))
         try:
-            p_b = _run_one_scenario(
+            p_spare = _run_one_scenario(
                 model, tokenizer, chat_helper, base_ids, a_id, b_id,
                 country, baseline, wvs_vec, prompt, decision_temp,
+                pref_right=pref_right,
             )
-            p_spare = p_b if pref_right == 1 else (1.0 - p_b)
         except Exception as exc:
             print(f"  [warn] {country} row {row.name}: {exc}")
             p_spare = 0.5
