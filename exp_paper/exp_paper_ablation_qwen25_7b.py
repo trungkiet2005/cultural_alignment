@@ -302,6 +302,11 @@ def _set_active_replay_cache(cache: Optional[Dict[Tuple[str, str, str], Dict[str
     _ACTIVE_REPLAY_CACHE = cache
 
 
+def _tensor_to_numpy_float32(x: torch.Tensor) -> np.ndarray:
+    """Convert tensor to CPU numpy float32 safely (handles bfloat16)."""
+    return x.detach().to(dtype=torch.float32).cpu().numpy()
+
+
 @torch.no_grad()
 def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, lang: str):
     """Patched extractor: replay from cache when available, fallback otherwise."""
@@ -316,7 +321,7 @@ def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, 
     if _ACTIVE_REPLAY_CACHE is not None:
         _ACTIVE_REPLAY_CACHE[key] = {
             "db": float(db.item()),
-            "da": da.detach().cpu().numpy().astype(np.float32),
+            "da": _tensor_to_numpy_float32(da),
             "logit_temp": float(logit_temp),
         }
     return db, da, logit_temp
@@ -373,7 +378,7 @@ def _build_country_logit_replay_cache(
             db1, da1, lt1 = _ORIG_EXTRACT_GAPS(controller, prompt, cat, lang)
             cache[k1] = {
                 "db": float(db1.item()),
-                "da": da1.detach().cpu().numpy().astype(np.float32),
+                "da": _tensor_to_numpy_float32(da1),
                 "logit_temp": float(lt1),
             }
 
@@ -384,7 +389,7 @@ def _build_country_logit_replay_cache(
                 db2, da2, lt2 = _ORIG_EXTRACT_GAPS(controller, swapped_prompt, cat, lang)
                 cache[k2] = {
                     "db": float(db2.item()),
-                    "da": da2.detach().cpu().numpy().astype(np.float32),
+                    "da": _tensor_to_numpy_float32(da2),
                     "logit_temp": float(lt2),
                 }
 
