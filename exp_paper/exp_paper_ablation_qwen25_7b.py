@@ -23,6 +23,7 @@ Env overrides:
     ABLATION_COUNTRIES      comma-separated ISO3  (default: USA,JPN,VNM)
     ABLATION_N_SCENARIOS    int                   (default: 500)
     ABLATION_SEED           int                   (default: 42)
+    ABLATION_SEEDS          comma-separated ints  (optional; e.g., 11,22,33)
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -284,8 +285,228 @@ from src.personas import SUPPORTED_COUNTRIES, build_country_personas  # noqa: E4
 from src.swa_runner import run_country_experiment  # noqa: E402
 
 
+PRIMARY_METRICS = ["jsd", "pearson_r", "spearman_rho", "mae", "rmse", "mis"]
+USE_REPLAY_LOGITS = os.environ.get("ABLATION_REPLAY_LOGITS", "1").strip() != "0"
+
+# Cache key: (prompt_text, phenomenon_category, lang)
+_ACTIVE_REPLAY_CACHE: Optional[Dict[Tuple[str, str, str], Dict[str, Any]]] = None
+_ORIG_EXTRACT_GAPS = _abl.Exp24DualPassController._extract_logit_gaps
+
+
+def _cache_key(user_query: str, phenomenon_category: str, lang: str) -> Tuple[str, str, str]:
+    return (str(user_query), str(phenomenon_category), str(lang))
+
+
+def _set_active_replay_cache(cache: Optional[Dict[Tuple[str, str, str], Dict[str, Any]]]) -> None:
+    global _ACTIVE_REPLAY_CACHE
+    _ACTIVE_REPLAY_CACHE = cache
+
+
+@torch.no_grad()
+def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, lang: str):
+    """Patched extractor: replay from cache when available, fallback otherwise."""
+    key = _cache_key(user_query, phenomenon_category, lang)
+    if _ACTIVE_REPLAY_CACHE is not None and key in _ACTIVE_REPLAY_CACHE:
+        rec = _ACTIVE_REPLAY_CACHE[key]
+        db = torch.tensor(float(rec["db"]), device=self.device, dtype=torch.float32)
+        da = torch.tensor(rec["da"], device=self.device, dtype=torch.float32)
+        return db, da, float(rec["logit_temp"])
+
+    db, da, logit_temp = _ORIG_EXTRACT_GAPS(self, user_query, phenomenon_category, lang)
+    if _ACTIVE_REPLAY_CACHE is not None:
+        _ACTIVE_REPLAY_CACHE[key] = {
+            "db": float(db.item()),
+            "da": da.detach().cpu().numpy().astype(np.float32),
+            "logit_temp": float(logit_temp),
+        }
+    return db, da, logit_temp
+
+
+def _install_replay_patch() -> None:
+    """Monkey-patch base controller so all ablations can replay cached logits."""
+    _abl.Exp24DualPassController._extract_logit_gaps = _extract_logit_gaps_replay
+
+
+def _build_country_logit_replay_cache(
+    model,
+    tokenizer,
+    cfg: SWAConfig,
+    country: str,
+    personas: List[str],
+    scenario_df: pd.DataFrame,
+) -> Dict[Tuple[str, str, str], Dict[str, Any]]:
+    """
+    Build one shared cache for all ablations:
+    - base extraction on original prompt
+    - base extraction on swapped prompt (for debiasing path)
+    """
+    lang = COUNTRY_LANG.get(country, "en")
+    cache: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    controller = _abl.Exp24DualPassController(
+        model=model,
+        tokenizer=tokenizer,
+        personas=personas,
+        lambda_coop=cfg.lambda_coop,
+        alpha_ctl=cfg.alpha_ctl,
+        K_samples=cfg.K_samples,
+        noise_std=cfg.noise_std,
+        temperature=cfg.temperature,
+        logit_temperature=cfg.logit_temperature,
+        category_logit_temperatures=cfg.category_logit_temperatures,
+        pt_alpha=cfg.pt_alpha,
+        pt_beta=cfg.pt_beta,
+        pt_kappa=cfg.pt_kappa,
+        decision_temperature=cfg.decision_temperature,
+        assistant_lang=lang,
+        country_iso=country,
+    )
+
+    print(f"[REPLAY] Building logit cache for {country} ({len(scenario_df)} scenarios)...")
+    for _, row in scenario_df.iterrows():
+        prompt = row.get("Prompt", row.get("prompt", ""))
+        if not prompt:
+            continue
+        cat = str(row.get("phenomenon_category", "default"))
+
+        k1 = _cache_key(prompt, cat, lang)
+        if k1 not in cache:
+            db1, da1, lt1 = _ORIG_EXTRACT_GAPS(controller, prompt, cat, lang)
+            cache[k1] = {
+                "db": float(db1.item()),
+                "da": da1.detach().cpu().numpy().astype(np.float32),
+                "logit_temp": float(lt1),
+            }
+
+        swapped_prompt, swap_changed = controller._swap_positional_labels(prompt, lang)
+        if swap_changed:
+            k2 = _cache_key(swapped_prompt, cat, lang)
+            if k2 not in cache:
+                db2, da2, lt2 = _ORIG_EXTRACT_GAPS(controller, swapped_prompt, cat, lang)
+                cache[k2] = {
+                    "db": float(db2.item()),
+                    "da": da2.detach().cpu().numpy().astype(np.float32),
+                    "logit_temp": float(lt2),
+                }
+
+    print(f"[REPLAY] Cache ready for {country}: {len(cache)} prompt entries")
+    del controller
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return cache
+
+
+def _parse_seeds() -> List[int]:
+    """Parse ABLATION_SEEDS (comma list) or fallback to ABLATION_SEED."""
+    raw = os.environ.get("ABLATION_SEEDS", "").strip()
+    if raw:
+        seeds: List[int] = []
+        for tok in raw.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            seeds.append(int(tok))
+        if seeds:
+            return seeds
+    return [int(os.environ.get("ABLATION_SEED", "42"))]
+
+
+def _build_multi_seed_summary(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Aggregate per-(country,ablation) metrics across seeds.
+    Returns one row per country × ablation with mean/std columns.
+    """
+    if summary_df.empty:
+        return pd.DataFrame()
+
+    agg_cols = [
+        "jsd", "pearson_r", "spearman_rho", "mae", "rmse", "mis",
+        "flip_rate", "mean_reliability_r", "elapsed_sec",
+    ]
+    grouped = (
+        summary_df.groupby(["country", "ablation"], as_index=False)[agg_cols]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    grouped.columns = [
+        "_".join(c).strip("_") if isinstance(c, tuple) else c
+        for c in grouped.columns
+    ]
+    return grouped
+
+
+def _build_delta_vs_full(summary_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Per-seed deltas vs Full SWA-DPBR, then aggregate across seeds.
+    Useful for reporting stability of each ablation effect.
+    """
+    if summary_df.empty or "seed" not in summary_df.columns:
+        return pd.DataFrame()
+
+    key_cols = ["seed", "country"]
+    full = summary_df.loc[summary_df["ablation"] == "Full SWA-DPBR", key_cols + PRIMARY_METRICS]
+    if full.empty:
+        return pd.DataFrame()
+
+    merged = summary_df.merge(
+        full,
+        on=key_cols,
+        how="left",
+        suffixes=("", "_full"),
+    )
+    for m in PRIMARY_METRICS:
+        merged[f"delta_{m}_vs_full"] = merged[m] - merged[f"{m}_full"]
+
+    delta_cols = [f"delta_{m}_vs_full" for m in PRIMARY_METRICS]
+    out = (
+        merged.groupby(["country", "ablation"], as_index=False)[delta_cols]
+        .agg(["mean", "std"])
+        .reset_index()
+    )
+    out.columns = [
+        "_".join(c).strip("_") if isinstance(c, tuple) else c
+        for c in out.columns
+    ]
+
+    jsd_wins = (
+        merged.assign(jsd_win=lambda d: d["delta_jsd_vs_full"] < 0.0)
+        .groupby(["country", "ablation"], as_index=False)
+        .agg(jsd_wins=("jsd_win", "sum"), n_seeds=("jsd_win", "count"))
+    )
+    out = out.merge(jsd_wins, on=["country", "ablation"], how="left")
+    return out
+
+
+def _print_multi_seed_snapshot(stability_df: pd.DataFrame) -> None:
+    """Compact console view: mean±std of ΔJSD and ΔMIS vs Full."""
+    if stability_df.empty:
+        return
+    print(f"\n{'=' * 80}")
+    print("  Multi-seed stability vs Full SWA-DPBR")
+    print("=" * 80)
+    print(
+        f"  {'Country':<8} {'Ablation':<30} "
+        f"{'ΔJSD mean±std':>18} {'ΔMIS mean±std':>18} {'JSD wins':>10}"
+    )
+    print("  " + "-" * 76)
+    for _, row in stability_df.iterrows():
+        if row["ablation"] == "Full SWA-DPBR":
+            continue
+        djsd_m = row.get("delta_jsd_vs_full_mean", float("nan"))
+        djsd_s = row.get("delta_jsd_vs_full_std", float("nan"))
+        dmis_m = row.get("delta_mis_vs_full_mean", float("nan"))
+        dmis_s = row.get("delta_mis_vs_full_std", float("nan"))
+        wins = int(row.get("jsd_wins", 0))
+        n_seeds = int(row.get("n_seeds", 0))
+        print(
+            f"  {str(row.get('country','')):<8} {str(row.get('ablation','')):<30} "
+            f"{djsd_m:+.4f}±{djsd_s:.4f} {dmis_m:+.4f}±{dmis_s:.4f} "
+            f"{wins:>2}/{n_seeds:<2}"
+        )
+
+
 def main() -> None:
-    seed = int(os.environ.get("ABLATION_SEED", "42"))
+    seeds = _parse_seeds()
     n_scenarios = int(os.environ.get("ABLATION_N_SCENARIOS", "500"))
     countries = [
         c.strip()
@@ -293,14 +514,14 @@ def main() -> None:
         if c.strip()
     ]
 
-    setup_seeds(seed)
-
     print(f"\n{'#' * 80}")
     print(f"  EXP-24 Ablation — Qwen2.5-7B-Instruct (bf16, HF native)")
     print(f"  Countries : {countries}")
-    print(f"  Scenarios : {n_scenarios}  |  Seed: {seed}")
+    print(f"  Scenarios : {n_scenarios}")
+    print(f"  Seeds     : {seeds}")
     print(f"  DPBR      : K_HALF={K_HALF}×2={K_HALF*2}  VAR_SCALE={VAR_SCALE}")
     print(f"  Ablations : {len(_abl.ABLATION_SPECS)} configurations")
+    print(f"  Replay    : {'ON' if USE_REPLAY_LOGITS else 'OFF'} (ABLATION_REPLAY_LOGITS)")
     print(f"  Output    : {_abl.RESULTS_BASE}")
     print(f"{'#' * 80}\n")
 
@@ -318,116 +539,149 @@ def main() -> None:
     cfg = _abl._build_cfg(countries, load_in_4bit=False)
     all_rows: List[Dict] = []
     logit_cache = LogitCache()
+    country_assets: Dict[str, Dict[str, Any]] = {}
 
-    # ── Per-country loop ──────────────────────────────────────────────────────
+    # ── Load country data once and prebuild replay caches ─────────────────────
     for country in countries:
         if country not in SUPPORTED_COUNTRIES:
             print(f"[SKIP] {country}: not in SUPPORTED_COUNTRIES")
             continue
-
-        print(f"\n{'=' * 80}")
-        print(f"  Country: {country}")
-        print("=" * 80)
-
         scenario_df = _abl._load_scenarios(cfg, country)
         personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
         human_amce = load_human_amce(HUMAN_AMCE_PATH, country)
-
-        print(f"  {len(scenario_df)} scenarios | {len(personas)} personas"
-              f" | {len(human_amce)} AMCE dims")
-
-        # ── Per-ablation inner loop ───────────────────────────────────────────
-        for spec_idx, spec in enumerate(_abl.ABLATION_SPECS):
-            print(f"\n  {'─' * 70}")
-            print(f"  [{spec_idx}/{len(_abl.ABLATION_SPECS)-1}]"
-                  f"  {spec.row_label}  —  {spec.description}")
-            print(f"  {'─' * 70}")
-
-            _abl._reset_prior_state(country)
-            torch.cuda.empty_cache()
-            gc.collect()
-
-            t0 = time.time()
-
-            # Try loading pre-computed Full SWA-DPBR results
-            precomp = (
-                _abl._find_full_swa_csv(country)
-                if spec.row_label == "Full SWA-DPBR"
-                else None
+        asset: Dict[str, Any] = {
+            "scenario_df": scenario_df,
+            "personas": personas,
+            "human_amce_n": len(human_amce),
+            "replay_cache": None,
+        }
+        if USE_REPLAY_LOGITS:
+            asset["replay_cache"] = _build_country_logit_replay_cache(
+                model, tokenizer, cfg, country, personas, scenario_df
             )
-            if precomp is not None:
-                print(f"  [FULL] Pre-computed: {precomp}")
-                results_df = pd.read_csv(precomp)
-                summary = _abl._reconstruct_summary(results_df, country, cfg)
-            else:
-                results_df, summary = _abl._run_ablation_country(
-                    spec, model, tokenizer, country, personas, scenario_df, cfg
+        country_assets[country] = asset
+
+    if USE_REPLAY_LOGITS:
+        _install_replay_patch()
+
+    # ── Per-seed × country loop ───────────────────────────────────────────────
+    for seed in seeds:
+        setup_seeds(seed)
+        print(f"\n{'#' * 80}")
+        print(f"  Seed run: {seed}")
+        print(f"{'#' * 80}")
+
+        for country in countries:
+            if country not in country_assets:
+                continue
+
+            print(f"\n{'=' * 80}")
+            print(f"  Country: {country} | Seed: {seed}")
+            print("=" * 80)
+
+            scenario_df = country_assets[country]["scenario_df"]
+            personas = country_assets[country]["personas"]
+            human_amce_n = int(country_assets[country]["human_amce_n"])
+            _set_active_replay_cache(country_assets[country]["replay_cache"])
+
+            print(f"  {len(scenario_df)} scenarios | {len(personas)} personas"
+                  f" | {human_amce_n} AMCE dims")
+
+            # ── Per-ablation inner loop ───────────────────────────────────────
+            for spec_idx, spec in enumerate(_abl.ABLATION_SPECS):
+                print(f"\n  {'─' * 70}")
+                print(f"  [{spec_idx}/{len(_abl.ABLATION_SPECS)-1}]"
+                      f"  {spec.row_label}  —  {spec.description}")
+                print(f"  {'─' * 70}")
+
+                _abl._reset_prior_state(country)
+                torch.cuda.empty_cache()
+                gc.collect()
+
+                t0 = time.time()
+
+                # For multi-seed reproducibility, re-run Full row instead of
+                # reusing one precomputed CSV shared across seeds.
+                can_use_precomp_full = len(seeds) == 1
+                precomp = (
+                    _abl._find_full_swa_csv(country)
+                    if (spec.row_label == "Full SWA-DPBR" and can_use_precomp_full)
+                    else None
+                )
+                if precomp is not None:
+                    print(f"  [FULL] Pre-computed: {precomp}")
+                    results_df = pd.read_csv(precomp)
+                    summary = _abl._reconstruct_summary(results_df, country, cfg)
+                else:
+                    results_df, summary = _abl._run_ablation_country(
+                        spec, model, tokenizer, country, personas, scenario_df, cfg
+                    )
+
+                elapsed = time.time() - t0
+
+                # ── Save per-ablation CSV ─────────────────────────────────────
+                safe_tag = (
+                    spec.row_label.lower()
+                    .replace(" ", "_").replace("(", "").replace(")", "")
+                    .replace("=", "eq").replace(",", "").replace("α", "a")
+                    .replace("/", "_")
+                )
+                results_df.to_csv(
+                    out_dir / f"seed{seed}_{country}_{safe_tag}_results.csv", index=False
                 )
 
-            elapsed = time.time() - t0
+                # ── Logit caching ─────────────────────────────────────────────
+                logit_cache.clear()
+                for idx, row_data in results_df.iterrows():
+                    entry = {
+                        "delta_consensus": row_data.get("delta_consensus", float("nan")),
+                        "delta_opt_micro": row_data.get("delta_opt_micro", float("nan")),
+                        "delta_opt": row_data.get("delta_opt", float("nan")),
+                        "delta_star_1": row_data.get("delta_star_1", float("nan")),
+                        "delta_star_2": row_data.get("delta_star_2", float("nan")),
+                        "bootstrap_var": row_data.get("bootstrap_var", float("nan")),
+                        "reliability_r": row_data.get("reliability_r", float("nan")),
+                        "ess_pass1": row_data.get("ess_pass1", float("nan")),
+                        "ess_pass2": row_data.get("ess_pass2", float("nan")),
+                        "ess_anchor_alpha": row_data.get("ess_anchor_alpha", float("nan")),
+                        "positional_bias": row_data.get("positional_bias", float("nan")),
+                        "sigma_used": row_data.get("sigma_used", float("nan")),
+                        "logit_temp_used": row_data.get("logit_temp_used", float("nan")),
+                        "p_spare_preferred": row_data.get("p_spare_preferred", float("nan")),
+                        "mppi_flipped": bool(row_data.get("mppi_flipped", False)),
+                        "n_personas": int(row_data.get("n_personas", 0)),
+                        "agent_decision_gaps": [],
+                    }
+                    # Parse agent_decision_gaps from CSV string repr
+                    raw_gaps = row_data.get("agent_decision_gaps", "")
+                    if isinstance(raw_gaps, str) and raw_gaps.startswith("["):
+                        try:
+                            import ast
+                            entry["agent_decision_gaps"] = ast.literal_eval(raw_gaps)
+                        except Exception:
+                            pass
+                    elif isinstance(raw_gaps, (list, np.ndarray)):
+                        entry["agent_decision_gaps"] = list(raw_gaps)
+                    logit_cache.record(
+                        int(idx),
+                        entry,
+                        category=str(row_data.get("phenomenon_category", "")),
+                    )
+                logit_cache.save(str(logit_dir / f"seed{seed}_{country}_{safe_tag}_logits.npz"))
 
-            # ── Save per-ablation CSV ─────────────────────────────────────────
-            safe_tag = (
-                spec.row_label.lower()
-                .replace(" ", "_").replace("(", "").replace(")", "")
-                .replace("=", "eq").replace(",", "").replace("α", "a")
-                .replace("/", "_")
-            )
-            results_df.to_csv(
-                out_dir / f"{country}_{safe_tag}_results.csv", index=False
-            )
+                # ── Collect metrics row ───────────────────────────────────────
+                row = _abl._collect_row(spec, country, results_df, summary, elapsed)
+                row["seed"] = seed
+                all_rows.append(row)
 
-            # ── Logit caching ─────────────────────────────────────────────────
-            logit_cache.clear()
-            for idx, row_data in results_df.iterrows():
-                entry = {
-                    "delta_consensus": row_data.get("delta_consensus", float("nan")),
-                    "delta_opt_micro": row_data.get("delta_opt_micro", float("nan")),
-                    "delta_opt": row_data.get("delta_opt", float("nan")),
-                    "delta_star_1": row_data.get("delta_star_1", float("nan")),
-                    "delta_star_2": row_data.get("delta_star_2", float("nan")),
-                    "bootstrap_var": row_data.get("bootstrap_var", float("nan")),
-                    "reliability_r": row_data.get("reliability_r", float("nan")),
-                    "ess_pass1": row_data.get("ess_pass1", float("nan")),
-                    "ess_pass2": row_data.get("ess_pass2", float("nan")),
-                    "ess_anchor_alpha": row_data.get("ess_anchor_alpha", float("nan")),
-                    "positional_bias": row_data.get("positional_bias", float("nan")),
-                    "sigma_used": row_data.get("sigma_used", float("nan")),
-                    "logit_temp_used": row_data.get("logit_temp_used", float("nan")),
-                    "p_spare_preferred": row_data.get("p_spare_preferred", float("nan")),
-                    "mppi_flipped": bool(row_data.get("mppi_flipped", False)),
-                    "n_personas": int(row_data.get("n_personas", 0)),
-                    "agent_decision_gaps": [],
-                }
-                # Parse agent_decision_gaps from CSV string repr
-                raw_gaps = row_data.get("agent_decision_gaps", "")
-                if isinstance(raw_gaps, str) and raw_gaps.startswith("["):
-                    try:
-                        import ast
-                        entry["agent_decision_gaps"] = ast.literal_eval(raw_gaps)
-                    except Exception:
-                        pass
-                elif isinstance(raw_gaps, (list, np.ndarray)):
-                    entry["agent_decision_gaps"] = list(raw_gaps)
-                logit_cache.record(
-                    int(idx),
-                    entry,
-                    category=str(row_data.get("phenomenon_category", "")),
+                a = summary.get("alignment", {})
+                print(
+                    f"\n  ✓  {spec.row_label} | {country} | seed={seed}"
+                    f"  JSD={a.get('jsd',float('nan')):.4f}"
+                    f"  r={a.get('pearson_r',float('nan')):+.3f}"
+                    f"  MIS={a.get('mis',float('nan')):.4f}"
+                    f"  ({elapsed:.0f}s)"
                 )
-            logit_cache.save(str(logit_dir / f"{country}_{safe_tag}_logits.npz"))
-
-            # ── Collect metrics row ───────────────────────────────────────────
-            row = _abl._collect_row(spec, country, results_df, summary, elapsed)
-            all_rows.append(row)
-
-            a = summary.get("alignment", {})
-            print(
-                f"\n  ✓  {spec.row_label} | {country}"
-                f"  JSD={a.get('jsd',float('nan')):.4f}"
-                f"  r={a.get('pearson_r',float('nan')):+.3f}"
-                f"  MIS={a.get('mis',float('nan')):.4f}"
-                f"  ({elapsed:.0f}s)"
-            )
 
     # ── Cleanup ───────────────────────────────────────────────────────────────
     del model, tokenizer
@@ -437,26 +691,49 @@ def main() -> None:
 
     # ── Save summary ──────────────────────────────────────────────────────────
     summary_df = pd.DataFrame(all_rows)
-    summary_csv = out_dir / "ablation_summary.csv"
+    summary_csv = out_dir / "ablation_summary_all_seeds.csv"
     summary_df.to_csv(summary_csv, index=False)
     print(f"\n[SAVED] {summary_csv}")
 
+    # Backward compatibility: single-seed default filename
+    if len(seeds) == 1:
+        compat_csv = out_dir / "ablation_summary.csv"
+        summary_df.to_csv(compat_csv, index=False)
+        print(f"[SAVED] {compat_csv}")
+
+    multi_seed_df = _build_multi_seed_summary(summary_df)
+    if not multi_seed_df.empty:
+        multi_seed_csv = out_dir / "ablation_summary_seed_agg.csv"
+        multi_seed_df.to_csv(multi_seed_csv, index=False)
+        print(f"[SAVED] {multi_seed_csv}")
+
+    stability_df = _build_delta_vs_full(summary_df)
+    if not stability_df.empty:
+        stability_csv = out_dir / "ablation_delta_vs_full_seed_agg.csv"
+        stability_df.to_csv(stability_csv, index=False)
+        print(f"[SAVED] {stability_csv}")
+        _print_multi_seed_snapshot(stability_df)
+
     # ── Print reports ─────────────────────────────────────────────────────────
+    # For detailed per-country report, use the first seed as representative.
+    report_seed = seeds[0]
+    report_rows = [r for r in all_rows if int(r.get("seed", report_seed)) == report_seed]
+    report_df = pd.DataFrame(report_rows)
     for country in countries:
         print(f"\n\n{'#' * 80}")
-        print(f"  FINAL REPORT — {country}")
+        print(f"  FINAL REPORT — {country} (seed={report_seed})")
         print(f"{'#' * 80}")
-        _abl.print_ablation_table(all_rows, country)
-        _abl.print_per_dim_table(all_rows, country)
-        _abl.print_per_dim_signed(all_rows, country)
-        _abl.print_dpbr_diagnostics(all_rows, country)
-        _abl.print_util_slopes(all_rows, country)
+        _abl.print_ablation_table(report_rows, country)
+        _abl.print_per_dim_table(report_rows, country)
+        _abl.print_per_dim_signed(report_rows, country)
+        _abl.print_dpbr_diagnostics(report_rows, country)
+        _abl.print_util_slopes(report_rows, country)
 
     if len(countries) > 1:
-        _abl.print_cross_country_summary(summary_df)
+        _abl.print_cross_country_summary(report_df)
 
-    # LaTeX for first country
-    _abl._print_latex_table(all_rows, countries[0])
+    # LaTeX table for first country from representative seed
+    _abl._print_latex_table(report_rows, countries[0])
 
     print(f"\n{'#' * 80}")
     print(f"  Ablation COMPLETE — Qwen2.5-7B-Instruct")

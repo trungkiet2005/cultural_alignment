@@ -338,6 +338,10 @@ def load_model_hf_native(
     del max_seq_length  # reserved for parity with Unsloth API; HF uses tokenizer/model config limits
 
     print(f"[MODEL] Loading {model_name} via Hugging Face transformers (native, no Unsloth)...")
+    try:
+        torch.set_float32_matmul_precision("high")
+    except Exception:
+        pass
 
     _tok_kw = _hf_from_pretrained_token_kw()
     hub_override = os.environ.get("MORAL_TOKENIZER_HUB_ID", "").strip()
@@ -380,7 +384,7 @@ def load_model_hf_native(
     attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
     common_kw: dict = {
         "trust_remote_code": True,
-        "device_map": "auto",
+        "device_map": "cuda",
         **_tok_kw,
     }
     if attn_impl:

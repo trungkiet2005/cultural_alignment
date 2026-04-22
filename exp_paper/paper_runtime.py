@@ -53,6 +53,10 @@ def install_paper_kaggle_deps() -> None:
             # vLLM install is handled separately below (version-pinned to PyTorch)
             'pip install --quiet "datasets>=3.4.1,<4.4.0"',
         ]
+    elif paper_backend() == "hf_native":
+        cmds = [
+            "pip install -q --no-deps --no-index scipy tqdm sentencepiece protobuf 2>/dev/null || true",
+        ]
     else:
         cmds = [
             "pip install -q bitsandbytes scipy tqdm matplotlib seaborn",
