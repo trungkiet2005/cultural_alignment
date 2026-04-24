@@ -84,8 +84,13 @@ from src.hf_env import apply_hf_credentials  # noqa: E402
 apply_hf_credentials()
 
 # Six paper models. (display_name, HF id, dir_short, slug).
+#
+# Llama-3.3-70B uses the Unsloth bnb-4bit weights (~40 GB) because the BF16
+# checkpoint (~140 GB) cannot fit Kaggle's ~20 GB working disk. All other
+# models comfortably fit as BF16 via vLLM. Per-model backend/dtype overrides
+# are applied below in ``_run_one_model``.
 DEFAULT_MODELS: List[Tuple[str, str, str, str]] = [
-    ("Llama-3.3-70B",        "meta-llama/Llama-3.3-70B-Instruct",
+    ("Llama-3.3-70B",        "unsloth/Llama-3.3-70B-Instruct-bnb-4bit",
      "llama_3_3_70b",        "meta-llama-3.3-70b-instruct"),
     ("Magistral-Small-2509", "mistralai/Magistral-Small-2509",
      "magistral_small_2509", "magistral-small-2509"),
@@ -98,6 +103,56 @@ DEFAULT_MODELS: List[Tuple[str, str, str, str]] = [
     ("Phi-3.5-mini",         "microsoft/Phi-3.5-mini-instruct",
      "phi_3_5_mini",         "phi-3.5-mini-instruct"),
 ]
+
+# Models that must use Unsloth 4-bit (too large for Kaggle disk as BF16).
+_UNSLOTH_4BIT_MODELS = {"unsloth/Llama-3.3-70B-Instruct-bnb-4bit"}
+
+# Rough on-disk size estimate per HF id, in GB. Used only for the pre-flight
+# disk check; being off by 20% is fine. BF16 ≈ 2 bytes/param, 4-bit ≈ 0.55
+# bytes/param (nf4 + absmax scales + tokenizer/config).
+_MODEL_DISK_GB: Dict[str, float] = {
+    "unsloth/Llama-3.3-70B-Instruct-bnb-4bit": 42.0,
+    "mistralai/Magistral-Small-2509":           48.0,
+    "microsoft/phi-4":                          28.0,
+    "Qwen/Qwen3-VL-8B-Instruct":                17.0,
+    "Qwen/Qwen2.5-7B-Instruct":                 15.0,
+    "microsoft/Phi-3.5-mini-instruct":          8.0,
+}
+
+# Disk-headroom margin on top of the estimated checkpoint size (GB). Accounts
+# for HF's 2x footprint during the .incomplete → final rename.
+_DISK_SAFETY_GB = 4.0
+
+
+def _free_disk_gb(path: str = "/") -> float:
+    import shutil
+    try:
+        return shutil.disk_usage(path).free / (1024 ** 3)
+    except Exception:
+        return float("inf")
+
+
+def _purge_all_hf_cache() -> None:
+    """Nuke every HF hub cache root. Last-resort disk reclaim."""
+    import shutil
+    roots = [
+        os.environ.get("HF_HOME"),
+        os.environ.get("HUGGINGFACE_HUB_CACHE"),
+        os.path.expanduser("~/.cache/huggingface"),
+        "/root/.cache/huggingface",
+        "/kaggle/working/.cache/huggingface",
+    ]
+    for root in roots:
+        if not root:
+            continue
+        hub = os.path.join(root, "hub")
+        for target in (hub, root):
+            if os.path.isdir(target):
+                try:
+                    shutil.rmtree(target, ignore_errors=True)
+                    print(f"  [cache] swept {target}")
+                except Exception:
+                    pass
 
 if "R2_MODELS" in os.environ:
     MODELS = []
@@ -134,15 +189,56 @@ PAPER_RESULTS_BASE = (
 # ─── per-model logit-conditioning sweep ──────────────────────────────────────
 def _run_one_model(display_name: str, hf_id: str, dir_short: str) -> None:
     """Vanilla forward pass + per-scenario margin/entropy across countries."""
-    install_paper_kaggle_deps()
+    # NOTE: we do NOT call install_paper_kaggle_deps() here. It's called once
+    # at the top of main() for the initial backend (vLLM). Re-calling it per
+    # model with a different backend installs unsloth/transformers 5.x which
+    # breaks the already-imported pyarrow ABI (IpcReadOptions size mismatch)
+    # and kills every subsequent model load.
     from src.logit_conditioning import diagnose_country  # noqa: E402
     from src.model import setup_seeds  # noqa: E402
 
     setup_seeds(42)
-    backend = os.environ.get("MORAL_MODEL_BACKEND", "vllm").strip().lower()
+    # Per-model backend override: models that are too large for Kaggle disk
+    # as BF16 fall back to Unsloth 4-bit; everything else uses vLLM BF16.
+    if hf_id in _UNSLOTH_4BIT_MODELS:
+        # Unsloth path requires the unsloth package. If it isn't available
+        # in this process, skip rather than poison the env by pip-installing
+        # unsloth mid-run (which drags in transformers 5.x and breaks
+        # pyarrow for every later vLLM model).
+        try:
+            import unsloth  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                f"Skipping {hf_id}: unsloth not installed and installing it "
+                f"mid-run would break pyarrow/transformers for the other "
+                f"models. Run this model in a separate Kaggle notebook with "
+                f"MORAL_MODEL_BACKEND=unsloth set BEFORE the first import."
+            ) from exc
+        backend, use_4bit = "unsloth", True
+        print(f"  [backend] forcing unsloth 4-bit for {hf_id} (disk headroom)")
+    else:
+        backend = "vllm"
+        use_4bit = False
+
+    # Pre-flight disk check. If free disk < est model size + safety margin,
+    # first try a global cache sweep; if still short, raise so main() logs
+    # and moves on.
+    need = _MODEL_DISK_GB.get(hf_id, 20.0) + _DISK_SAFETY_GB
+    free = _free_disk_gb("/")
+    if free < need:
+        print(f"  [disk] free={free:.1f} GB < need≈{need:.1f} GB — sweeping HF cache")
+        _purge_all_hf_cache()
+        free = _free_disk_gb("/")
+    if free < need:
+        raise RuntimeError(
+            f"Insufficient disk: free={free:.1f} GB, need≈{need:.1f} GB for {hf_id}. "
+            f"Skipping (run this model in its own session, or enable Kaggle persistent disk)."
+        )
+    print(f"  [disk] free={free:.1f} GB OK for {hf_id} (need≈{need:.1f} GB)")
+
     cfg = build_cfg(hf_id, str(OUT_DIR), COUNTRIES,
-                    n_scenarios=N_SCEN, load_in_4bit=False)
-    model, tokenizer = load_model_timed(hf_id, backend=backend, load_in_4bit=False)
+                    n_scenarios=N_SCEN, load_in_4bit=use_4bit)
+    model, tokenizer = load_model_timed(hf_id, backend=backend, load_in_4bit=use_4bit)
 
     rows: List[Dict] = []
     for country in COUNTRIES:
@@ -166,7 +262,9 @@ def _run_one_model(display_name: str, hf_id: str, dir_short: str) -> None:
     pd.DataFrame(rows).to_csv(out_path, index=False)
     print(f"[saved] {out_path}")
 
-    # cleanup
+    # cleanup: free GPU/RAM, then wipe HF cache for this model so the next
+    # model has disk headroom (Kaggle /root is ~20GB, a single 70B BF16
+    # checkpoint is ~140GB — we must evict between models).
     del model, tokenizer
     gc.collect()
     try:
@@ -175,6 +273,32 @@ def _run_one_model(display_name: str, hf_id: str, dir_short: str) -> None:
             torch.cuda.empty_cache()
     except ImportError:
         pass
+    _purge_hf_cache(hf_id)
+
+
+def _purge_hf_cache(hf_id: str) -> None:
+    """Delete the HF hub cache entry for ``hf_id`` to reclaim disk."""
+    import shutil
+    cache_roots = [
+        os.environ.get("HF_HOME"),
+        os.environ.get("HUGGINGFACE_HUB_CACHE"),
+        os.path.expanduser("~/.cache/huggingface"),
+        "/root/.cache/huggingface",
+        "/kaggle/working/.cache/huggingface",
+    ]
+    # HF converts "org/name" -> "models--org--name" on disk.
+    dir_name = "models--" + hf_id.replace("/", "--")
+    for root in cache_roots:
+        if not root:
+            continue
+        for sub in ("hub", ""):
+            cand = os.path.join(root, sub, dir_name) if sub else os.path.join(root, dir_name)
+            if os.path.isdir(cand):
+                try:
+                    shutil.rmtree(cand, ignore_errors=True)
+                    print(f"  [cache] purged {cand}")
+                except Exception as exc:
+                    print(f"  [cache] failed to purge {cand}: {exc}")
 
 
 # ─── post-hoc aggregation against SWA-DPBR per-country MIS gains ─────────────
@@ -304,15 +428,52 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--aggregate-only", action="store_true",
                         help="Skip GPU sweep, only aggregate existing logit_cond_*.csv")
-    args = parser.parse_args()
+    # Use parse_known_args so Jupyter/Colab kernel args (e.g. -f <json>) don't
+    # abort the run. Also allow env-var override for notebook usage.
+    args, _unknown = parser.parse_known_args()
+    if os.environ.get("R2_AGGREGATE_ONLY", "").strip().lower() in {"1", "true", "yes"}:
+        args.aggregate_only = True
 
     if not args.aggregate_only:
-        for (display_name, hf_id, dir_short, _) in MODELS:
+        # Install deps ONCE for the initial backend (vLLM). Never re-install
+        # per model — switching to unsloth mid-run upgrades transformers/
+        # pyarrow and breaks ABI for every later load.
+        install_paper_kaggle_deps()
+
+        # Optional: run only a single model this session (R2_MODEL_INDEX=0..5)
+        # or a subset (R2_MODEL_INDEX=0,2,4). Useful on Kaggle where the
+        # 20 GB working disk can't hold multiple >30 GB BF16 checkpoints
+        # even with cache purging between them. Default = all models.
+        idx_env = os.environ.get("R2_MODEL_INDEX", "").strip()
+        if idx_env:
+            keep = {int(x) for x in idx_env.split(",") if x.strip().isdigit()}
+            run_list = [m for i, m in enumerate(MODELS) if i in keep]
+            print(f"[R2_MODEL_INDEX={idx_env}] running {[m[0] for m in run_list]}")
+        else:
+            run_list = list(MODELS)
+
+        for (display_name, hf_id, dir_short, _) in run_list:
             print(f"\n{'#' * 72}\n# {display_name}  ({hf_id})\n{'#' * 72}")
+            print(f"  [disk] free before load: {_free_disk_gb('/'):.1f} GB")
             try:
                 _run_one_model(display_name, hf_id, dir_short)
             except Exception as exc:
                 print(f"[error] {display_name}: {exc}")
+                # Aggressive cleanup so a failed model doesn't starve the next:
+                # drop any loaded weights from GPU, purge this model's HF cache,
+                # and if disk is still tight, sweep the whole hub cache.
+                gc.collect()
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except ImportError:
+                    pass
+                _purge_hf_cache(hf_id)
+                if _free_disk_gb("/") < 10.0:
+                    print("  [disk] <10 GB free after per-model purge — full sweep")
+                    _purge_all_hf_cache()
+                print(f"  [disk] free after cleanup: {_free_disk_gb('/'):.1f} GB")
 
     print(f"\n{'=' * 72}\nAggregating cross-model correlations\n{'=' * 72}")
     _aggregate()
