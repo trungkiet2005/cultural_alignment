@@ -1,0 +1,31 @@
+\begin{table}[h]\centering\scriptsize
+\caption{Phi-4 (14B) head-to-head: additional inference-time baselines vs.\ SWA-DPBR on the 20-country grid. Each column is held-out MIS $\downarrow$ on the 75\% test split. Numbers produced by the phase-2 runners.}
+\label{tab:r2_baselines_filled}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccc}\toprule
+Country & MC-Dropout & $T_c$ scale & Margin $m_c$ & DiffPO-binary \\\midrule
+ARG & 0.412 & 0.471 & 0.453 & 0.000 \\
+BGD & 0.379 & 0.535 & 0.535 & 0.000 \\
+BRA & 0.306 & 0.354 & 0.298 & 0.000 \\
+CHN & 0.367 & 0.528 & 0.528 & 0.000 \\
+COL & 0.389 & 0.501 & 0.469 & 0.000 \\
+DEU & 0.376 & 0.580 & 0.580 & 0.000 \\
+ETH & 0.526 & 0.655 & 0.655 & 0.000 \\
+GBR & 0.407 & 0.576 & 0.576 & 0.000 \\
+IDN & 0.452 & 0.542 & 0.542 & 0.000 \\
+IRN & 0.538 & 0.382 & 0.353 & 0.000 \\
+JPN & 0.371 & 0.327 & 0.327 & 0.000 \\
+KGZ & 0.361 & 0.538 & 0.538 & 0.000 \\
+MEX & 0.445 & 0.509 & 0.506 & 0.000 \\
+MMR & 0.382 & 0.523 & 0.523 & 0.000 \\
+MYS & 0.363 & 0.497 & 0.497 & 0.000 \\
+ROU & 0.398 & 0.564 & 0.564 & 0.000 \\
+SRB & 0.410 & 0.563 & 0.563 & 0.000 \\
+THA & 0.342 & 0.494 & 0.494 & 0.000 \\
+USA & 0.369 & 0.564 & 0.564 & 0.000 \\
+VNM & 0.473 & 0.561 & 0.561 & 0.000 \\
+\midrule
+\textbf{Mean} & \textbf{0.403} & \textbf{0.513} & \textbf{0.506} & \textbf{0.000} \\
+\bottomrule
+\end{tabular}
+\end{table}
