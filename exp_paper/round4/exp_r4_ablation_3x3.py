@@ -12,13 +12,13 @@ Outputs (in RESULTS_BASE/):
   table_ablation_3x3.tex         — LaTeX ready-to-paste extended Table 5
 
 Env overrides:
-  R3_MODELS       comma HF ids (default: 3-model subset — phi-4, qwen2.5-7b, phi-mini)
-  R3_COUNTRIES    comma ISO3 (default: USA,JPN,VNM)
-  R3_N_SCENARIOS  per-country per-model (default: 250)
-  R3_BACKEND      vllm (default) | hf_native
+  R4_MODELS       comma HF ids (default: 3-model subset — phi-4, qwen2.5-7b, phi-mini)
+  R4_COUNTRIES    comma ISO3 (default: USA,JPN,VNM)
+  R4_N_SCENARIOS  per-country per-model (default: 250)
+  R4_BACKEND      vllm (default) | hf_native
 
 Kaggle (3 models × 3 countries × 5 variants ~ 2-4h on H100):
-    !python exp_paper/round3/posthoc/exp_r3_ablation_3x3.py
+    !python exp_paper/round4/exp_r4_ablation_3x3.py
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ def _bootstrap() -> str:
 
 
 _bootstrap()
-_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R3_BACKEND", "vllm"))
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R4_BACKEND", "vllm"))
 
 import gc
 import time
@@ -82,18 +82,18 @@ DEFAULT_MODELS: List[Tuple[str, str]] = [
     ("Qwen2.5-7B",   "Qwen/Qwen2.5-7B-Instruct"),
     ("Phi-3.5-mini", "microsoft/Phi-3.5-mini-instruct"),
 ]
-_model_override = _os.environ.get("R3_MODELS", "").strip()
+_model_override = _os.environ.get("R4_MODELS", "").strip()
 if _model_override:
     _wanted = {m.strip() for m in _model_override.split(",") if m.strip()}
     DEFAULT_MODELS = [(d, h) for d, h in DEFAULT_MODELS if h in _wanted]
 
-COUNTRIES = [c.strip() for c in _os.environ.get("R3_COUNTRIES", "USA,JPN,VNM").split(",") if c.strip()]
-N_SCEN = int(_os.environ.get("R3_N_SCENARIOS", "250"))
+COUNTRIES = [c.strip() for c in _os.environ.get("R4_COUNTRIES", "USA,JPN,VNM").split(",") if c.strip()]
+N_SCEN = int(_os.environ.get("R4_N_SCENARIOS", "250"))
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round3/ablation_3x3"
+    "/kaggle/working/cultural_alignment/results/exp24_round4/ablation_3x3"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round3" / "ablation_3x3")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round4" / "ablation_3x3")
 )
 WVS_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 

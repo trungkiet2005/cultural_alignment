@@ -13,13 +13,13 @@ Outputs (in RESULTS_BASE/):
   figure2_scenario_correlation.pdf / .png
 
 Env overrides:
-  R3_MODEL        HF id (default: microsoft/phi-4)
-  R3_COUNTRIES    comma ISO3 list (default: USA,JPN,DEU,VNM,ETH)
-  R3_N_SCENARIOS  per-country (default: 500)
-  R3_BACKEND      vllm (default) | hf_native
+  R4_MODEL        HF id (default: microsoft/phi-4)
+  R4_COUNTRIES    comma ISO3 list (default: USA,JPN,DEU,VNM,ETH)
+  R4_N_SCENARIOS  per-country (default: 500)
+  R4_BACKEND      vllm (default) | hf_native
 
 Kaggle:
-    !python exp_paper/round3/posthoc/exp_r3_scenario_logging.py
+    !python exp_paper/round4/exp_r4_scenario_logging.py
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _bootstrap() -> str:
 
 
 _bootstrap()
-_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R3_BACKEND", "vllm"))
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R4_BACKEND", "vllm"))
 
 import time
 from pathlib import Path
@@ -72,18 +72,18 @@ from src.model import setup_seeds
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas
 from src.swa_runner import run_country_experiment
 
-MODEL_NAME = _os.environ.get("R3_MODEL", "microsoft/phi-4")
-N_SCEN = int(_os.environ.get("R3_N_SCENARIOS", "500"))
+MODEL_NAME = _os.environ.get("R4_MODEL", "microsoft/phi-4")
+N_SCEN = int(_os.environ.get("R4_N_SCENARIOS", "500"))
 COUNTRIES = [
     c.strip()
-    for c in _os.environ.get("R3_COUNTRIES", "USA,JPN,DEU,VNM,ETH").split(",")
+    for c in _os.environ.get("R4_COUNTRIES", "USA,JPN,DEU,VNM,ETH").split(",")
     if c.strip()
 ]
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round3/scenario_logging"
+    "/kaggle/working/cultural_alignment/results/exp24_round4/scenario_logging"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round3" / "scenario_logging")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round4" / "scenario_logging")
 )
 WVS_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 

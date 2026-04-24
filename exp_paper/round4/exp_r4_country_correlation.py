@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Experiment 2 (playbook) — Country-Level Correlation (Figure 3).
 
-Aggregates per-scenario data (from exp_r3_scenario_logging.py extended to all
+Aggregates per-scenario data (from exp_r4_scenario_logging.py extended to all
 20 paper countries) to the country level, then plots:
   x-axis: mean inter-persona variance per country
   y-axis: MIS improvement (vanilla_mis - disca_mis) per country
@@ -10,9 +10,9 @@ Can be run in two modes:
   1. Standalone post-hoc (recommended): load scenario_analysis_all_countries.csv
      and main_results.csv from previous runs.
   2. Full rerun: re-runs DISCA on all 20 countries to collect fresh per-scenario
-     variance data (set R3_RERUN=1).
+     variance data (set R4_RERUN=1).
 
-Inputs (auto-detected in RESULTS_BASE or R3_SCENARIO_CSV / R3_RESULTS_CSV):
+Inputs (auto-detected in RESULTS_BASE or R4_SCENARIO_CSV / R4_RESULTS_CSV):
   scenario_analysis_all_countries.csv   — per-scenario rows (from scenario_logging)
   main_results_phi4.csv                 — per-country vanilla_mis + disca_mis columns
 
@@ -21,15 +21,15 @@ Outputs (in RESULTS_BASE/):
   country_level_analysis.csv
 
 Env overrides:
-  R3_MODEL            HF id for rerun (default: microsoft/phi-4)
-  R3_N_SCENARIOS      per-country for rerun (default: 500)
-  R3_BACKEND          vllm (default) | hf_native
-  R3_RERUN            1 = re-collect per-scenario data; 0 = post-hoc only (default: 0)
-  R3_SCENARIO_CSV     path to existing scenario_analysis CSV (skips rerun)
-  R3_RESULTS_CSV      path to existing main_results CSV (mis per country)
+  R4_MODEL            HF id for rerun (default: microsoft/phi-4)
+  R4_N_SCENARIOS      per-country for rerun (default: 500)
+  R4_BACKEND          vllm (default) | hf_native
+  R4_RERUN            1 = re-collect per-scenario data; 0 = post-hoc only (default: 0)
+  R4_SCENARIO_CSV     path to existing scenario_analysis CSV (skips rerun)
+  R4_RESULTS_CSV      path to existing main_results CSV (mis per country)
 
 Kaggle:
-    !python exp_paper/round3/posthoc/exp_r3_country_correlation.py
+    !python exp_paper/round4/exp_r4_country_correlation.py
 """
 
 from __future__ import annotations
@@ -56,7 +56,7 @@ def _bootstrap() -> str:
 
 
 _bootstrap()
-_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R3_BACKEND", "vllm"))
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R4_BACKEND", "vllm"))
 
 import time
 from pathlib import Path
@@ -84,14 +84,14 @@ from src.swa_runner import run_country_experiment
 from src.baseline_runner import run_baseline_vanilla
 from exp_paper.paper_countries import PAPER_20_COUNTRIES
 
-MODEL_NAME = _os.environ.get("R3_MODEL", "microsoft/phi-4")
-N_SCEN = int(_os.environ.get("R3_N_SCENARIOS", "500"))
-DO_RERUN = _os.environ.get("R3_RERUN", "0").strip() == "1"
+MODEL_NAME = _os.environ.get("R4_MODEL", "microsoft/phi-4")
+N_SCEN = int(_os.environ.get("R4_N_SCENARIOS", "500"))
+DO_RERUN = _os.environ.get("R4_RERUN", "0").strip() == "1"
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round3/country_correlation"
+    "/kaggle/working/cultural_alignment/results/exp24_round4/country_correlation"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round3" / "country_correlation")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round4" / "country_correlation")
 )
 WVS_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 
@@ -213,14 +213,14 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # ── Mode 1: load from existing CSVs ───────────────────────────────────────
-    scenario_csv = _os.environ.get("R3_SCENARIO_CSV", "")
-    results_csv  = _os.environ.get("R3_RESULTS_CSV", "")
+    scenario_csv = _os.environ.get("R4_SCENARIO_CSV", "")
+    results_csv  = _os.environ.get("R4_RESULTS_CSV", "")
 
     if not DO_RERUN and scenario_csv and results_csv:
         print(f"Post-hoc mode: loading from\n  {scenario_csv}\n  {results_csv}")
         country_df = _load_from_csvs(scenario_csv, results_csv)
     elif not DO_RERUN:
-        # Try auto-detect from round3/scenario_logging output
+        # Try auto-detect from round4/scenario_logging output
         candidate_scen = (
             out_dir.parent / "scenario_logging" / "scenario_analysis.csv"
         )

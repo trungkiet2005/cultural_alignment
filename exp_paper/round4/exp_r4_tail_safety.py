@@ -15,16 +15,16 @@ Outputs (in RESULTS_BASE/):
   table_tail_safety.tex        — LaTeX ready-to-paste table
 
 Env overrides:
-  R3_MODELS        comma-separated HF ids (default: 6-model main panel)
-  R3_COUNTRIES     comma ISO3 (default: 20 paper countries)
-  R3_N_SCENARIOS   per-country per-model (default: 250 to keep runtime tractable)
-  R3_BACKEND       vllm (default) | hf_native
-  R3_SKIP_FULL     1 = skip full-DISCA run (load from R3_FULL_CSV); 0 = run all (default: 0)
-  R3_FULL_CSV      path to existing full-DISCA results CSV
-  R3_CONSENSUS_CSV path to existing consensus results CSV
+  R4_MODELS        comma-separated HF ids (default: 6-model main panel)
+  R4_COUNTRIES     comma ISO3 (default: 20 paper countries)
+  R4_N_SCENARIOS   per-country per-model (default: 250 to keep runtime tractable)
+  R4_BACKEND       vllm (default) | hf_native
+  R4_SKIP_FULL     1 = skip full-DISCA run (load from R4_FULL_CSV); 0 = run all (default: 0)
+  R4_FULL_CSV      path to existing full-DISCA results CSV
+  R4_CONSENSUS_CSV path to existing consensus results CSV
 
 Kaggle (sequential, ~6-8h on H100 for all 6 models):
-    !python exp_paper/round3/posthoc/exp_r3_tail_safety.py
+    !python exp_paper/round4/exp_r4_tail_safety.py
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def _bootstrap() -> str:
 
 
 _bootstrap()
-_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R3_BACKEND", "vllm"))
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R4_BACKEND", "vllm"))
 
 import gc
 import time
@@ -90,23 +90,23 @@ DEFAULT_MODELS: List[Tuple[str, str, str, str]] = [
     ("Qwen2.5-7B",            "Qwen/Qwen2.5-7B-Instruct",                "qwen2_5_7b",           "qwen2.5-7b-instruct"),
     ("Phi-3.5-mini",          "microsoft/Phi-3.5-mini-instruct",          "phi_3_5_mini",         "phi-3.5-mini-instruct"),
 ]
-# Parse R3_MODELS env override (comma-separated HF ids)
-_model_override = _os.environ.get("R3_MODELS", "").strip()
+# Parse R4_MODELS env override (comma-separated HF ids)
+_model_override = _os.environ.get("R4_MODELS", "").strip()
 if _model_override:
     _wanted = {m.strip() for m in _model_override.split(",") if m.strip()}
     DEFAULT_MODELS = [m for m in DEFAULT_MODELS if m[1] in _wanted]
 
-N_SCEN = int(_os.environ.get("R3_N_SCENARIOS", "250"))
+N_SCEN = int(_os.environ.get("R4_N_SCENARIOS", "250"))
 COUNTRIES = [
     c.strip()
-    for c in _os.environ.get("R3_COUNTRIES", ",".join(PAPER_20_COUNTRIES)).split(",")
+    for c in _os.environ.get("R4_COUNTRIES", ",".join(PAPER_20_COUNTRIES)).split(",")
     if c.strip()
 ]
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round3/tail_safety"
+    "/kaggle/working/cultural_alignment/results/exp24_round4/tail_safety"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round3" / "tail_safety")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round4" / "tail_safety")
 )
 WVS_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 
@@ -288,12 +288,12 @@ def main() -> None:
     out_dir = Path(RESULTS_BASE)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    skip_full = _os.environ.get("R3_SKIP_FULL", "0").strip() == "1"
+    skip_full = _os.environ.get("R4_SKIP_FULL", "0").strip() == "1"
     existing_full = None
     existing_cons = None
 
-    full_csv_path = _os.environ.get("R3_FULL_CSV", str(out_dir / "tail_safety_full.csv"))
-    cons_csv_path = _os.environ.get("R3_CONSENSUS_CSV", str(out_dir / "tail_safety_consensus.csv"))
+    full_csv_path = _os.environ.get("R4_FULL_CSV", str(out_dir / "tail_safety_full.csv"))
+    cons_csv_path = _os.environ.get("R4_CONSENSUS_CSV", str(out_dir / "tail_safety_consensus.csv"))
 
     if skip_full and Path(full_csv_path).exists():
         existing_full = pd.read_csv(full_csv_path)

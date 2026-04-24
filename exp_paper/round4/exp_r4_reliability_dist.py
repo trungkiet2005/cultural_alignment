@@ -2,7 +2,7 @@
 """Experiment 10 (playbook) — Reliability Weight Distribution (Appendix figure).
 
 Loads per-scenario reliability weights (r) from existing results CSVs produced
-by exp_r3_scenario_logging.py or any DISCA run that emits `reliability_r`.
+by exp_r4_scenario_logging.py or any DISCA run that emits `reliability_r`.
 If no pre-existing CSVs are found, optionally re-runs DISCA on 5 countries with
 Phi-4 to collect the weights fresh.
 
@@ -11,15 +11,15 @@ Outputs (in RESULTS_BASE/):
   figure_reliability_distribution.pdf / .png
 
 Env overrides:
-  R3_MODEL          HF id for fresh run (default: microsoft/phi-4)
-  R3_COUNTRIES      comma ISO3 (default: USA,JPN,DEU,VNM,ETH)
-  R3_N_SCENARIOS    per-country for fresh run (default: 500)
-  R3_BACKEND        vllm (default) | hf_native
-  R3_INPUT_DIR      directory to scan for existing results CSVs (auto-detects swa_results_*.csv)
-  R3_RERUN          1 = always re-run; 0 = use existing if found (default: 0)
+  R4_MODEL          HF id for fresh run (default: microsoft/phi-4)
+  R4_COUNTRIES      comma ISO3 (default: USA,JPN,DEU,VNM,ETH)
+  R4_N_SCENARIOS    per-country for fresh run (default: 500)
+  R4_BACKEND        vllm (default) | hf_native
+  R4_INPUT_DIR      directory to scan for existing results CSVs (auto-detects swa_results_*.csv)
+  R4_RERUN          1 = always re-run; 0 = use existing if found (default: 0)
 
 Kaggle:
-    !python exp_paper/round3/posthoc/exp_r3_reliability_dist.py
+    !python exp_paper/round4/exp_r4_reliability_dist.py
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ def _bootstrap() -> str:
 
 
 _bootstrap()
-_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R3_BACKEND", "vllm"))
+_os.environ.setdefault("MORAL_MODEL_BACKEND", _os.environ.get("R4_BACKEND", "vllm"))
 
 import time
 from pathlib import Path
@@ -72,15 +72,15 @@ from src.model import setup_seeds
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas
 from src.swa_runner import run_country_experiment
 
-MODEL_NAME = _os.environ.get("R3_MODEL", "microsoft/phi-4")
-N_SCEN = int(_os.environ.get("R3_N_SCENARIOS", "500"))
-COUNTRIES = [c.strip() for c in _os.environ.get("R3_COUNTRIES", "USA,JPN,DEU,VNM,ETH").split(",") if c.strip()]
-DO_RERUN = _os.environ.get("R3_RERUN", "0").strip() == "1"
+MODEL_NAME = _os.environ.get("R4_MODEL", "microsoft/phi-4")
+N_SCEN = int(_os.environ.get("R4_N_SCENARIOS", "500"))
+COUNTRIES = [c.strip() for c in _os.environ.get("R4_COUNTRIES", "USA,JPN,DEU,VNM,ETH").split(",") if c.strip()]
+DO_RERUN = _os.environ.get("R4_RERUN", "0").strip() == "1"
 
 RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_round3/reliability_dist"
+    "/kaggle/working/cultural_alignment/results/exp24_round4/reliability_dist"
     if on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_round3" / "reliability_dist")
+    else str(Path(__file__).parent.parent / "results" / "exp24_round4" / "reliability_dist")
 )
 WVS_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 
@@ -111,7 +111,7 @@ def _scan_existing_csvs(search_dir: Optional[str] = None) -> Optional[pd.DataFra
                     frames.append(sub)
             except Exception:
                 pass
-        # Also check scenario_analysis.csv from exp_r3_scenario_logging
+        # Also check scenario_analysis.csv from exp_r4_scenario_logging
         for csv_path in root.rglob("scenario_analysis*.csv"):
             try:
                 df = pd.read_csv(csv_path)
@@ -220,7 +220,7 @@ def main() -> None:
     out_dir = Path(RESULTS_BASE)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    input_dir = _os.environ.get("R3_INPUT_DIR", "")
+    input_dir = _os.environ.get("R4_INPUT_DIR", "")
     rel_df: Optional[pd.DataFrame] = None
 
     if not DO_RERUN:
@@ -239,7 +239,7 @@ def main() -> None:
 
     if rel_df is None or len(rel_df) == 0:
         print("ERROR: No reliability_r data available. "
-              "Run a DISCA experiment first, or set R3_RERUN=1.")
+              "Run a DISCA experiment first, or set R4_RERUN=1.")
         return
 
     csv_path = out_dir / "reliability_weights.csv"
