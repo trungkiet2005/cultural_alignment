@@ -7,7 +7,7 @@ Kaggle OFFLINE version — no Internet, no git clone, no pip install.
 Reuses all ablation controllers, metrics collection, and reporting from
 ``exp_paper_ablation_phi4.py``, patching only model path + Kaggle env.
 
-Six ablation configs × 3 countries (USA, JPN, VNM) = 18 runs total.
+Six ablation configs × 20 countries (paper set).
 Adds logit caching to .npz for CPU post-hoc analysis.
 
 Setup (same as exp_paper_kaggle_qwen25_7b.py):
@@ -20,7 +20,7 @@ Usage:
     !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_ablation_qwen25_7b.py
 
 Env overrides:
-    ABLATION_COUNTRIES      comma-separated ISO3  (default: USA,JPN,VNM)
+    ABLATION_COUNTRIES      comma-separated ISO3  (default: paper 20-country set)
     ABLATION_N_SCENARIOS    int                   (default: 500)
     ABLATION_SEED           int                   (default: 42)
     ABLATION_SEEDS          comma-separated ints  (optional; e.g., 11,22,33)
@@ -29,6 +29,7 @@ Env overrides:
 from __future__ import annotations
 
 import gc
+import itertools
 import os
 import shutil
 import subprocess
@@ -43,7 +44,8 @@ import numpy as np
 # ║  1. KAGGLE OFFLINE BOOTSTRAP                                               ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
-PROJECT_DATASET_DIR = "/kaggle/input/datasets/kit567/cultural-alignment"
+PROJECT_DATASET_DIR = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
+PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
 MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
@@ -62,8 +64,6 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ.setdefault("MORAL_MODEL_BACKEND", "hf_native")
 # ESS anchor regularisation ON (matches paper §4.2)
 os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
-# Ablation countries: USA, JPN, VNM for cross-model breadth (Appendix R)
-os.environ.setdefault("ABLATION_COUNTRIES", "USA,JPN,VNM")
 
 
 def _on_kaggle() -> bool:
@@ -73,17 +73,23 @@ def _on_kaggle() -> bool:
 def _setup_project() -> str:
     """Copy project from read-only input to writable working dir."""
     if _on_kaggle():
+        project_src = None
+        for cand in (PROJECT_DATASET_DIR, PROJECT_DATASET_DIR_ALT):
+            if os.path.isdir(cand):
+                project_src = cand
+                break
         if os.path.isdir(WORK_DIR) and os.path.isfile(
             os.path.join(WORK_DIR, "src", "controller.py")
         ):
             print(f"[SETUP] Working dir exists: {WORK_DIR}")
         else:
-            if not os.path.isdir(PROJECT_DATASET_DIR):
+            if project_src is None:
                 raise RuntimeError(
-                    f"Project dataset not found at {PROJECT_DATASET_DIR}"
+                    "Project dataset not found. Checked: "
+                    f"{PROJECT_DATASET_DIR} and {PROJECT_DATASET_DIR_ALT}"
                 )
-            print(f"[SETUP] Copying project → {WORK_DIR} ...")
-            shutil.copytree(PROJECT_DATASET_DIR, WORK_DIR, dirs_exist_ok=True)
+            print(f"[SETUP] Copying project from {project_src} → {WORK_DIR} ...")
+            shutil.copytree(project_src, WORK_DIR, dirs_exist_ok=True)
         os.chdir(WORK_DIR)
         sys.path.insert(0, WORK_DIR)
         return WORK_DIR
@@ -179,6 +185,67 @@ print(f"  MODEL  : {_abl.MODEL_NAME}")
 print(f"  OUTPUT : {_abl.RESULTS_BASE}")
 print(f"  FULL   : {_abl.FULL_SWA_BASE}")
 print(f"  MULTITP: {MULTITP_DATA_PATH}")
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  2b. COMBINATORIAL ABLATION REGISTRY                                       ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+def _enable_combinational_ablations() -> None:
+    """
+    Replace _abl.ABLATION_SPECS with Full + all non-empty component combinations.
+
+    Components are composed via multiple inheritance so each ablation behavior
+    keeps the same implementation as in exp_paper_ablation_phi4.py.
+    Set ABLATION_COMBINATIONS=0 to keep the original fixed 6-spec registry.
+    """
+    if os.environ.get("ABLATION_COMBINATIONS", "1").strip() == "0":
+        print("[ABL] Combination mode OFF (ABLATION_COMBINATIONS=0)")
+        return
+
+    component_defs = [
+        ("No-IS (consensus only)", _abl.NoISController, "importance sampling disabled"),
+        ("Always-on PT-IS", _abl.AlwaysOnISController, "reliability weight bypassed"),
+        ("No debiasing", _abl.NoDebiasController, "positional swap debiasing disabled"),
+        ("Without persona", _abl.NoPersonaController, "persona ensemble removed"),
+        ("No country prior (a_h=0)", _abl.NoPriorController, "country prior disabled"),
+    ]
+
+    specs: List[_abl.AblationSpec] = [
+        _abl.AblationSpec(
+            row_label="Full SWA-DPBR",
+            controller_cls=_abl.Exp24DualPassController,
+            description="All components enabled  [reference]",
+        )
+    ]
+
+    for r in range(1, len(component_defs) + 1):
+        for combo in itertools.combinations(component_defs, r):
+            labels = [c[0] for c in combo]
+            classes = [c[1] for c in combo]
+            descs = [c[2] for c in combo]
+
+            class_name = "ComboController_" + "_".join(
+                "".join(ch for ch in lbl if ch.isalnum()) for lbl in labels
+            )
+            combo_cls = type(
+                class_name,
+                tuple(classes) + (_abl.Exp24DualPassController,),
+                {},
+            )
+            specs.append(
+                _abl.AblationSpec(
+                    row_label=" + ".join(labels),
+                    controller_cls=combo_cls,
+                    description="; ".join(descs),
+                )
+            )
+
+    _abl.ABLATION_SPECS = specs
+    print(f"[ABL] Combination mode ON: {len(_abl.ABLATION_SPECS)} configurations")
+
+
+_enable_combinational_ablations()
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -283,6 +350,7 @@ from src.data import load_multitp_dataset  # noqa: E402
 from src.model import load_model_hf_native, setup_seeds  # noqa: E402
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas  # noqa: E402
 from src.swa_runner import run_country_experiment  # noqa: E402
+from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 
 
 PRIMARY_METRICS = ["jsd", "pearson_r", "spearman_rho", "mae", "rmse", "mis"]
@@ -290,7 +358,7 @@ USE_REPLAY_LOGITS = os.environ.get("ABLATION_REPLAY_LOGITS", "1").strip() != "0"
 
 # Cache key: (prompt_text, phenomenon_category, lang)
 _ACTIVE_REPLAY_CACHE: Optional[Dict[Tuple[str, str, str], Dict[str, Any]]] = None
-_ORIG_EXTRACT_GAPS = _abl.Exp24DualPassController._extract_logit_gaps
+_ORIG_EXTRACT_GAPS = None
 
 
 def _cache_key(user_query: str, phenomenon_category: str, lang: str) -> Tuple[str, str, str]:
@@ -307,6 +375,19 @@ def _tensor_to_numpy_float32(x: torch.Tensor) -> np.ndarray:
     return x.detach().to(dtype=torch.float32).cpu().numpy()
 
 
+def _resolve_original_extract_gaps():
+    """Find original extractor even if class is already replay-patched."""
+    cur = _abl.Exp24DualPassController._extract_logit_gaps
+    if getattr(cur, "_is_replay_patch", False):
+        orig = getattr(cur, "_orig_extract", None)
+        if callable(orig):
+            return orig
+    return cur
+
+
+_ORIG_EXTRACT_GAPS = _resolve_original_extract_gaps()
+
+
 @torch.no_grad()
 def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, lang: str):
     """Patched extractor: replay from cache when available, fallback otherwise."""
@@ -317,6 +398,8 @@ def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, 
         da = torch.tensor(rec["da"], device=self.device, dtype=torch.float32)
         return db, da, float(rec["logit_temp"])
 
+    if _ORIG_EXTRACT_GAPS is None:
+        raise RuntimeError("Replay patch error: original extractor is not set.")
     db, da, logit_temp = _ORIG_EXTRACT_GAPS(self, user_query, phenomenon_category, lang)
     if _ACTIVE_REPLAY_CACHE is not None:
         _ACTIVE_REPLAY_CACHE[key] = {
@@ -329,6 +412,19 @@ def _extract_logit_gaps_replay(self, user_query: str, phenomenon_category: str, 
 
 def _install_replay_patch() -> None:
     """Monkey-patch base controller so all ablations can replay cached logits."""
+    global _ORIG_EXTRACT_GAPS
+    cur = _abl.Exp24DualPassController._extract_logit_gaps
+    if cur is _extract_logit_gaps_replay:
+        # Already patched in this runtime.
+        return
+
+    _ORIG_EXTRACT_GAPS = _resolve_original_extract_gaps()
+    if _ORIG_EXTRACT_GAPS is _extract_logit_gaps_replay:
+        raise RuntimeError("Replay patch error: failed to resolve original extractor.")
+
+    # Attach metadata so future reloads can still recover the true original.
+    _extract_logit_gaps_replay._is_replay_patch = True
+    _extract_logit_gaps_replay._orig_extract = _ORIG_EXTRACT_GAPS
     _abl.Exp24DualPassController._extract_logit_gaps = _extract_logit_gaps_replay
 
 
@@ -366,8 +462,10 @@ def _build_country_logit_replay_cache(
         country_iso=country,
     )
 
-    print(f"[REPLAY] Building logit cache for {country} ({len(scenario_df)} scenarios)...")
-    for _, row in scenario_df.iterrows():
+    total = len(scenario_df)
+    progress_every = max(1, total // 10)
+    print(f"[REPLAY] Building logit cache for {country} ({total} scenarios)...")
+    for idx, (_, row) in enumerate(scenario_df.iterrows(), start=1):
         prompt = row.get("Prompt", row.get("prompt", ""))
         if not prompt:
             continue
@@ -392,6 +490,11 @@ def _build_country_logit_replay_cache(
                     "da": _tensor_to_numpy_float32(da2),
                     "logit_temp": float(lt2),
                 }
+        if (idx % progress_every == 0) or (idx == total):
+            print(
+                f"[REPLAY] {country}: {idx}/{total} scenarios processed "
+                f"(cache_entries={len(cache)})"
+            )
 
     print(f"[REPLAY] Cache ready for {country}: {len(cache)} prompt entries")
     del controller
@@ -402,17 +505,10 @@ def _build_country_logit_replay_cache(
 
 
 def _parse_seeds() -> List[int]:
-    """Parse ABLATION_SEEDS (comma list) or fallback to ABLATION_SEED."""
+    """Single-seed mode: always use ABLATION_SEED."""
     raw = os.environ.get("ABLATION_SEEDS", "").strip()
     if raw:
-        seeds: List[int] = []
-        for tok in raw.split(","):
-            tok = tok.strip()
-            if not tok:
-                continue
-            seeds.append(int(tok))
-        if seeds:
-            return seeds
+        print("[SEED] ABLATION_SEEDS is set but ignored in single-seed mode.")
     return [int(os.environ.get("ABLATION_SEED", "42"))]
 
 
@@ -486,6 +582,13 @@ def _print_multi_seed_snapshot(stability_df: pd.DataFrame) -> None:
     """Compact console view: mean±std of ΔJSD and ΔMIS vs Full."""
     if stability_df.empty:
         return
+    def _pm(mean_v: float, std_v: float) -> str:
+        if not np.isfinite(mean_v):
+            return "n/a"
+        if not np.isfinite(std_v):
+            return f"{mean_v:+.4f}±--"
+        return f"{mean_v:+.4f}±{std_v:.4f}"
+
     print(f"\n{'=' * 80}")
     print("  Multi-seed stability vs Full SWA-DPBR")
     print("=" * 80)
@@ -505,17 +608,89 @@ def _print_multi_seed_snapshot(stability_df: pd.DataFrame) -> None:
         n_seeds = int(row.get("n_seeds", 0))
         print(
             f"  {str(row.get('country','')):<8} {str(row.get('ablation','')):<30} "
-            f"{djsd_m:+.4f}±{djsd_s:.4f} {dmis_m:+.4f}±{dmis_s:.4f} "
+            f"{_pm(djsd_m, djsd_s):>18} {_pm(dmis_m, dmis_s):>18} "
             f"{wins:>2}/{n_seeds:<2}"
         )
+
+
+def _print_latex_table_qwen(rows: List[Dict], country: str) -> None:
+    """Emit a Qwen-specific LaTeX ablation table snippet."""
+    cr = [r for r in rows if r["country"] == country]
+    if not cr:
+        return
+    ref = next((r for r in cr if r["ablation"] == "Full SWA-DPBR"), cr[0])
+
+    def _delta_fmt(val: float, ref_val: float, low_is_better: bool = True) -> str:
+        if not (np.isfinite(val) and np.isfinite(ref_val)):
+            return "--"
+        d = val - ref_val
+        sign = "+" if d > 0 else "$-$"
+        tag = r"\loss" if ((d > 0) == low_is_better) else r"\gain"
+        return f"{tag}{{{sign}.{abs(d):05.3f}}}"
+
+    lines = [
+        r"\begin{table}[t]",
+        (
+            rf"\caption{{Ablation on Qwen2.5-7B-Instruct, {country} "
+            rf"({ref['n_scenarios']} scenarios), \textbf{{SWA-DPBR}} with one"
+        ),
+        (
+            r"$K$-sample importance-sampling batch per scenario"
+            r" (dual-pass reliability disabled for isolation)."
+        ),
+        (
+            rf"Full configuration: JSD = {ref['jsd']:.4f},"
+            rf" $r$ = {ref['pearson_r']:.3f},"
+            rf" MIS = {ref['mis']:.4f}."
+            r"}"
+        ),
+        r"\label{tab:ablation_qwen25_7b}",
+        r"\centering\small",
+        r"\setlength{\tabcolsep}{4pt}",
+        r"\begin{tabular}{llcccccc}",
+        r"\toprule",
+        r"\# & Configuration & JSD $\downarrow$ & $\Delta$JSD & "
+        r"$r$ $\uparrow$ & $\Delta r$ & MIS $\downarrow$ & $\Delta$MIS \\",
+        r"\midrule",
+        (
+            rf"  & \textbf{{Full SWA-DPBR}} & \textbf{{{ref['jsd']:.4f}}} & -- &"
+            rf" \textbf{{{ref['pearson_r']:.3f}}} & -- &"
+            rf" \textbf{{{ref['mis']:.4f}}} & -- \\"
+        ),
+        r"\midrule",
+    ]
+
+    row_idx = {spec.row_label: i for i, spec in enumerate(_abl.ABLATION_SPECS) if i > 0}
+    for row in cr:
+        if row["ablation"] == "Full SWA-DPBR":
+            continue
+        idx = row_idx.get(row["ablation"], "?")
+        lines.append(
+            rf"{idx} & {row['ablation']}"
+            rf" & {row['jsd']:.4f} & {_delta_fmt(row['jsd'], ref['jsd'], low_is_better=True)}"
+            rf" & {row['pearson_r']:.3f} & {_delta_fmt(row['pearson_r'], ref['pearson_r'], low_is_better=False)}"
+            rf" & {row['mis']:.4f} & {_delta_fmt(row['mis'], ref['mis'], low_is_better=True)} \\"
+        )
+
+    lines += [
+        r"\bottomrule",
+        r"\end{tabular}",
+        r"\end{table}",
+    ]
+    print(f"\n{'─' * 70}")
+    print("  LaTeX ablation table snippet:")
+    print("─" * 70)
+    print("\n".join(lines))
+    print("─" * 70)
 
 
 def main() -> None:
     seeds = _parse_seeds()
     n_scenarios = int(os.environ.get("ABLATION_N_SCENARIOS", "500"))
+    default_countries = ",".join(PAPER_20_COUNTRIES)
     countries = [
         c.strip()
-        for c in os.environ.get("ABLATION_COUNTRIES", "USA,JPN,VNM").split(",")
+        for c in os.environ.get("ABLATION_COUNTRIES", default_countries).split(",")
         if c.strip()
     ]
 
@@ -545,6 +720,9 @@ def main() -> None:
     all_rows: List[Dict] = []
     logit_cache = LogitCache()
     country_assets: Dict[str, Dict[str, Any]] = {}
+    reuse_full_across_seeds = os.environ.get("ABLATION_REUSE_FULL_ACROSS_SEEDS", "1").strip() != "0"
+    # Cache one Full SWA-DPBR result per country to avoid re-running identical logits each seed.
+    full_result_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any]]] = {}
 
     # ── Load country data once and prebuild replay caches ─────────────────────
     for country in countries:
@@ -605,22 +783,27 @@ def main() -> None:
 
                 t0 = time.time()
 
-                # For multi-seed reproducibility, re-run Full row instead of
-                # reusing one precomputed CSV shared across seeds.
-                can_use_precomp_full = len(seeds) == 1
                 precomp = (
                     _abl._find_full_swa_csv(country)
-                    if (spec.row_label == "Full SWA-DPBR" and can_use_precomp_full)
+                    if (spec.row_label == "Full SWA-DPBR" and reuse_full_across_seeds)
                     else None
                 )
-                if precomp is not None:
+                if spec.row_label == "Full SWA-DPBR" and reuse_full_across_seeds and country in full_result_cache:
+                    print(f"  [FULL] Reusing in-memory cached Full result for {country}")
+                    cached_df, cached_summary = full_result_cache[country]
+                    results_df = cached_df.copy(deep=True)
+                    summary = dict(cached_summary)
+                elif precomp is not None:
                     print(f"  [FULL] Pre-computed: {precomp}")
                     results_df = pd.read_csv(precomp)
                     summary = _abl._reconstruct_summary(results_df, country, cfg)
+                    full_result_cache[country] = (results_df.copy(deep=True), dict(summary))
                 else:
                     results_df, summary = _abl._run_ablation_country(
                         spec, model, tokenizer, country, personas, scenario_df, cfg
                     )
+                    if spec.row_label == "Full SWA-DPBR" and reuse_full_across_seeds:
+                        full_result_cache[country] = (results_df.copy(deep=True), dict(summary))
 
                 elapsed = time.time() - t0
 
@@ -738,7 +921,7 @@ def main() -> None:
         _abl.print_cross_country_summary(report_df)
 
     # LaTeX table for first country from representative seed
-    _abl._print_latex_table(report_rows, countries[0])
+    _print_latex_table_qwen(report_rows, countries[0])
 
     print(f"\n{'#' * 80}")
     print(f"  Ablation COMPLETE — Qwen2.5-7B-Instruct")
