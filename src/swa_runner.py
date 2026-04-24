@@ -148,6 +148,7 @@ def run_country_experiment(
             "p_spare_preferred_is_pass1_micro", "p_spare_preferred_is_pass2_micro",
             "ess_anchor_alpha", "ess_anchor_reg_enabled",
             "positional_bias",
+            "agent_decision_gaps",  # list of per-persona debiased logit gaps; needed by DISCA playbook Exp 1/7/10
         ):
             if _k not in pred:
                 continue

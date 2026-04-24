@@ -1,23 +1,23 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-EXP-24 Ablation Study — Qwen2.5-7B-Instruct (HF native, bf16)
+EXP-24 Ablation Study â€” Magistral-Small-2509 (HF native, bf16)
 ================================================================
-Kaggle OFFLINE version — no Internet, no git clone, no pip install.
+Kaggle OFFLINE version â€” no Internet, no git clone, no pip install.
 
 Reuses all ablation controllers, metrics collection, and reporting from
 ``exp_paper_ablation_phi4.py``, patching only model path + Kaggle env.
 
-Six ablation configs × 20 countries (paper set).
+Six ablation configs Ã— 20 countries (paper set).
 Adds logit caching to .npz for CPU post-hoc analysis.
 
-Setup (same as exp_paper_kaggle_qwen25_7b.py):
+Setup (same as exp_paper_magistral_small_2509.py):
     1. Upload cultural_alignment as Kaggle Dataset
-    2. Add Qwen2.5-7B-Instruct as Kaggle Model input
+    2. Add Magistral-Small-2509 as Kaggle Model input
     3. Add multitp-data dataset
     4. Run with Internet OFF
 
 Usage:
-    !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_ablation_qwen25_7b.py
+    !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_ablation_magistral_small_2509.py
 
 Env overrides:
     ABLATION_COUNTRIES      comma-separated ISO3  (default: paper 20-country set)
@@ -29,7 +29,7 @@ Env overrides:
 from __future__ import annotations
 
 import gc
-import itertools
+import importlib.metadata as md
 import os
 import shutil
 import subprocess
@@ -40,13 +40,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  1. KAGGLE OFFLINE BOOTSTRAP                                               ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+# â•‘  1. KAGGLE OFFLINE BOOTSTRAP                                               â•‘
+# â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 PROJECT_DATASET_DIR = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
 PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
-MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
+MODEL_LOCAL_PATH = "/kaggle/input/models/mistral-ai/magistral-small-2509/transformers/magistral-small-2509/1"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 HUMAN_AMCE_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
@@ -62,7 +62,7 @@ os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 # Backend: HF native bf16 (matches main Qwen2.5 experiment)
 os.environ.setdefault("MORAL_MODEL_BACKEND", "hf_native")
-# ESS anchor regularisation ON (matches paper §4.2)
+# ESS anchor regularisation ON (matches paper Â§4.2)
 os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
 
 
@@ -88,7 +88,7 @@ def _setup_project() -> str:
                     "Project dataset not found. Checked: "
                     f"{PROJECT_DATASET_DIR} and {PROJECT_DATASET_DIR_ALT}"
                 )
-            print(f"[SETUP] Copying project from {project_src} → {WORK_DIR} ...")
+            print(f"[SETUP] Copying project from {project_src} â†’ {WORK_DIR} ...")
             shutil.copytree(project_src, WORK_DIR, dirs_exist_ok=True)
         os.chdir(WORK_DIR)
         sys.path.insert(0, WORK_DIR)
@@ -122,17 +122,76 @@ def _resolve_model_path() -> str:
     raise RuntimeError(f"Model weights not found at {p}")
 
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  2. BOOTSTRAP AND IMPORT                                                   ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+def _parse_major_minor(version: str) -> Tuple[int, int]:
+    parts = (version or "0.0").split("+", 1)[0].split(".")
+    try:
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return 0, 0
+
+
+def _ensure_transformers_55_for_magistral() -> None:
+    """Magistral tokenizer requires transformers >= 5.5."""
+    try:
+        cur_ver = md.version("transformers")
+    except Exception:
+        cur_ver = "0.0"
+    major, minor = _parse_major_minor(cur_ver)
+    if (major, minor) >= (5, 5):
+        return
+
+    print(
+        f"[SETUP] transformers=={cur_ver} detected; Magistral needs >=5.5.0. "
+        "Trying in-notebook upgrade..."
+    )
+    cmd = (
+        "pip install -q --upgrade --no-cache-dir "
+        "'transformers>=5.5.0,<6.0' 'tokenizers>=0.22.0,<0.23.0' safetensors"
+    )
+    rc = subprocess.run(cmd, shell=True, check=False).returncode
+    try:
+        new_ver = md.version("transformers")
+    except Exception:
+        new_ver = cur_ver
+
+    if rc != 0:
+        raise RuntimeError(
+            "Failed to upgrade transformers for Magistral tokenizer.\n"
+            f"Current transformers={cur_ver}.\n"
+            "If running on Kaggle, enable Internet and run:\n"
+            "  pip install -U --force-reinstall 'transformers>=5.5.0,<6.0'\n"
+            "Then restart the session and rerun."
+        )
+
+    n_major, n_minor = _parse_major_minor(new_ver)
+    if (n_major, n_minor) < (5, 5):
+        raise RuntimeError(
+            "transformers upgrade command ran but version is still <5.5.\n"
+            f"Current transformers={new_ver}. "
+            "Please restart session and ensure Internet is enabled."
+        )
+
+    if "transformers" in sys.modules:
+        raise RuntimeError(
+            f"transformers upgraded to {new_ver}, but module was already imported.\n"
+            "Restart Kaggle Session and rerun this script."
+        )
+
+    print(f"[SETUP] transformers upgraded successfully: {cur_ver} -> {new_ver}")
+
+
+# â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+# â•‘  2. BOOTSTRAP AND IMPORT                                                   â•‘
+# â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 print("=" * 70)
-print("  KAGGLE OFFLINE — Qwen2.5-7B Ablation Study (HF native, bf16)")
-print("  Cross-model breadth: USA × JPN × VNM")
+print("  KAGGLE OFFLINE â€” Magistral-Small-2509 Ablation Study (HF native, bf16)")
+print("  Cross-model breadth: USA Ã— JPN Ã— VNM")
 print("=" * 70)
 
 _setup_project()
 MODEL_LOCAL_PATH_RESOLVED = _resolve_model_path()
+_ensure_transformers_55_for_magistral()
 print(f"[SETUP] Model path: {MODEL_LOCAL_PATH_RESOLVED}")
 
 # Offline dep fallback
@@ -147,13 +206,13 @@ import exp_paper.exp_paper_ablation_phi4 as _abl  # noqa: E402
 
 # Patch model identity
 _abl.MODEL_NAME = MODEL_LOCAL_PATH_RESOLVED
-_abl.MODEL_SHORT = "kaggle_qwen25_7b_bf16"
+_abl.MODEL_SHORT = "kaggle_magistral_small_2509_bf16"
 
 # Patch results directory
 _RESULTS_BASE = (
-    "/kaggle/working/cultural_alignment/results/exp24_ablation_qwen25_7b"
+    "/kaggle/working/cultural_alignment/results/exp24_ablation_magistral_small_2509"
     if _on_kaggle()
-    else str(Path(__file__).parent.parent / "results" / "exp24_ablation_qwen25_7b")
+    else str(Path(__file__).parent.parent / "results" / "exp24_ablation_magistral_small_2509")
 )
 _abl.RESULTS_BASE = _RESULTS_BASE
 
@@ -167,90 +226,29 @@ from src.config import model_slug  # noqa: E402
 
 _KAGGLE_MAIN_RUN = (
     f"/kaggle/working/cultural_alignment/results/exp24_paper_20c"
-    f"/kaggle_qwen25_7b_bf16/swa/{model_slug(MODEL_LOCAL_PATH_RESOLVED)}"
+    f"/magistral_small_2509/swa/{model_slug(MODEL_LOCAL_PATH_RESOLVED)}"
 )
 _abl.FULL_SWA_BASE = os.environ.get("ABLATION_FULL_SWA_BASE") or (
     _KAGGLE_MAIN_RUN if _on_kaggle() else None
 )
 
-# Also patch _base_dpbr data paths (used by _build_cfg → SWAConfig)
+# Also patch _base_dpbr data paths (used by _build_cfg â†’ SWAConfig)
 import exp_model._base_dpbr as _dpbr  # noqa: E402
 
 _dpbr.MULTITP_DATA_PATH = MULTITP_DATA_PATH
 _dpbr.WVS_DATA_PATH = WVS_DATA_PATH
 _dpbr.HUMAN_AMCE_PATH = HUMAN_AMCE_PATH
 
-print(f"[SETUP] Patched for Qwen2.5-7B ablation:")
+print(f"[SETUP] Patched for Magistral-Small-2509 ablation:")
 print(f"  MODEL  : {_abl.MODEL_NAME}")
 print(f"  OUTPUT : {_abl.RESULTS_BASE}")
 print(f"  FULL   : {_abl.FULL_SWA_BASE}")
 print(f"  MULTITP: {MULTITP_DATA_PATH}")
 
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  2b. COMBINATORIAL ABLATION REGISTRY                                       ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
-def _enable_combinational_ablations() -> None:
-    """
-    Replace _abl.ABLATION_SPECS with Full + all non-empty component combinations.
-
-    Components are composed via multiple inheritance so each ablation behavior
-    keeps the same implementation as in exp_paper_ablation_phi4.py.
-    Set ABLATION_COMBINATIONS=0 to keep the original fixed 6-spec registry.
-    """
-    if os.environ.get("ABLATION_COMBINATIONS", "1").strip() == "0":
-        print("[ABL] Combination mode OFF (ABLATION_COMBINATIONS=0)")
-        return
-
-    component_defs = [
-        ("No-IS (consensus only)", _abl.NoISController, "importance sampling disabled"),
-        ("Always-on PT-IS", _abl.AlwaysOnISController, "reliability weight bypassed"),
-        ("No debiasing", _abl.NoDebiasController, "positional swap debiasing disabled"),
-        ("Without persona", _abl.NoPersonaController, "persona ensemble removed"),
-        ("No country prior (a_h=0)", _abl.NoPriorController, "country prior disabled"),
-    ]
-
-    specs: List[_abl.AblationSpec] = [
-        _abl.AblationSpec(
-            row_label="Full SWA-DPBR",
-            controller_cls=_abl.Exp24DualPassController,
-            description="All components enabled  [reference]",
-        )
-    ]
-
-    for r in range(1, len(component_defs) + 1):
-        for combo in itertools.combinations(component_defs, r):
-            labels = [c[0] for c in combo]
-            classes = [c[1] for c in combo]
-            descs = [c[2] for c in combo]
-
-            class_name = "ComboController_" + "_".join(
-                "".join(ch for ch in lbl if ch.isalnum()) for lbl in labels
-            )
-            combo_cls = type(
-                class_name,
-                tuple(classes) + (_abl.Exp24DualPassController,),
-                {},
-            )
-            specs.append(
-                _abl.AblationSpec(
-                    row_label=" + ".join(labels),
-                    controller_cls=combo_cls,
-                    description="; ".join(descs),
-                )
-            )
-
-    _abl.ABLATION_SPECS = specs
-    print(f"[ABL] Combination mode ON: {len(_abl.ABLATION_SPECS)} configurations")
-
-
-_enable_combinational_ablations()
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  3. LOGIT CACHING — saves intermediate logit gaps to .npz                  ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+# â•‘  3. LOGIT CACHING â€” saves intermediate logit gaps to .npz                  â•‘
+# â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class LogitCache:
     """Accumulates per-scenario logit diagnostics for CPU post-hoc analysis."""
@@ -280,7 +278,7 @@ class LogitCache:
             "mppi_flipped": bool(result.get("mppi_flipped", False)),
             "n_personas": int(result.get("n_personas", 0)),
         }
-        # Per-persona logit gaps (variable length → store as separate array)
+        # Per-persona logit gaps (variable length â†’ store as separate array)
         gaps = result.get("agent_decision_gaps", [])
         if gaps:
             entry["agent_gaps"] = np.array(gaps, dtype=np.float32)
@@ -295,7 +293,7 @@ class LogitCache:
             return
         arrays = {}
         n = len(self._entries)
-        # Scalar fields → 1-D arrays
+        # Scalar fields â†’ 1-D arrays
         scalar_keys = [
             "scenario_idx", "delta_consensus", "delta_opt_micro", "delta_opt",
             "delta_star_1", "delta_star_2", "bootstrap_var", "reliability_r",
@@ -308,7 +306,7 @@ class LogitCache:
         arrays["mppi_flipped"] = np.array(
             [e.get("mppi_flipped", False) for e in self._entries], dtype=np.bool_
         )
-        # Per-persona gaps: ragged → store per-scenario with prefix
+        # Per-persona gaps: ragged â†’ store per-scenario with prefix
         for i, e in enumerate(self._entries):
             if "agent_gaps" in e:
                 arrays[f"s{i:04d}_agent_gaps"] = e["agent_gaps"]
@@ -318,15 +316,15 @@ class LogitCache:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         np.savez_compressed(path, **arrays)
         sz = os.path.getsize(path)
-        print(f"  [LOGIT] Saved {n} scenarios → {path} ({sz / 1024:.1f} KB)")
+        print(f"  [LOGIT] Saved {n} scenarios â†’ {path} ({sz / 1024:.1f} KB)")
 
     def clear(self):
         self._entries.clear()
 
 
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  4. PATCHED MAIN — wraps phi4 main() with logit caching hooks              ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
+# â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—
+# â•‘  4. PATCHED MAIN â€” wraps phi4 main() with logit caching hooks              â•‘
+# â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
@@ -515,7 +513,7 @@ def _parse_seeds() -> List[int]:
 def _build_multi_seed_summary(summary_df: pd.DataFrame) -> pd.DataFrame:
     """
     Aggregate per-(country,ablation) metrics across seeds.
-    Returns one row per country × ablation with mean/std columns.
+    Returns one row per country Ã— ablation with mean/std columns.
     """
     if summary_df.empty:
         return pd.DataFrame()
@@ -579,22 +577,22 @@ def _build_delta_vs_full(summary_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _print_multi_seed_snapshot(stability_df: pd.DataFrame) -> None:
-    """Compact console view: mean±std of ΔJSD and ΔMIS vs Full."""
+    """Compact console view: meanÂ±std of Î”JSD and Î”MIS vs Full."""
     if stability_df.empty:
         return
     def _pm(mean_v: float, std_v: float) -> str:
         if not np.isfinite(mean_v):
             return "n/a"
         if not np.isfinite(std_v):
-            return f"{mean_v:+.4f}±--"
-        return f"{mean_v:+.4f}±{std_v:.4f}"
+            return f"{mean_v:+.4f}Â±--"
+        return f"{mean_v:+.4f}Â±{std_v:.4f}"
 
     print(f"\n{'=' * 80}")
     print("  Multi-seed stability vs Full SWA-DPBR")
     print("=" * 80)
     print(
         f"  {'Country':<8} {'Ablation':<30} "
-        f"{'ΔJSD mean±std':>18} {'ΔMIS mean±std':>18} {'JSD wins':>10}"
+        f"{'Î”JSD meanÂ±std':>18} {'Î”MIS meanÂ±std':>18} {'JSD wins':>10}"
     )
     print("  " + "-" * 76)
     for _, row in stability_df.iterrows():
@@ -631,7 +629,7 @@ def _print_latex_table_qwen(rows: List[Dict], country: str) -> None:
     lines = [
         r"\begin{table}[t]",
         (
-            rf"\caption{{Ablation on Qwen2.5-7B-Instruct, {country} "
+            rf"\caption{{Ablation on Magistral-Small-2509, {country} "
             rf"({ref['n_scenarios']} scenarios), \textbf{{SWA-DPBR}} with one"
         ),
         (
@@ -644,7 +642,7 @@ def _print_latex_table_qwen(rows: List[Dict], country: str) -> None:
             rf" MIS = {ref['mis']:.4f}."
             r"}"
         ),
-        r"\label{tab:ablation_qwen25_7b}",
+        r"\label{tab:ablation_magistral_small_2509}",
         r"\centering\small",
         r"\setlength{\tabcolsep}{4pt}",
         r"\begin{tabular}{llcccccc}",
@@ -677,11 +675,11 @@ def _print_latex_table_qwen(rows: List[Dict], country: str) -> None:
         r"\end{tabular}",
         r"\end{table}",
     ]
-    print(f"\n{'─' * 70}")
+    print(f"\n{'â”€' * 70}")
     print("  LaTeX ablation table snippet:")
-    print("─" * 70)
+    print("â”€" * 70)
     print("\n".join(lines))
-    print("─" * 70)
+    print("â”€" * 70)
 
 
 def main() -> None:
@@ -695,11 +693,11 @@ def main() -> None:
     ]
 
     print(f"\n{'#' * 80}")
-    print(f"  EXP-24 Ablation — Qwen2.5-7B-Instruct (bf16, HF native)")
+    print(f"  EXP-24 Ablation â€” Magistral-Small-2509 (bf16, HF native)")
     print(f"  Countries : {countries}")
     print(f"  Scenarios : {n_scenarios}")
     print(f"  Seeds     : {seeds}")
-    print(f"  DPBR      : K_HALF={K_HALF}×2={K_HALF*2}  VAR_SCALE={VAR_SCALE}")
+    print(f"  DPBR      : K_HALF={K_HALF}Ã—2={K_HALF*2}  VAR_SCALE={VAR_SCALE}")
     print(f"  Ablations : {len(_abl.ABLATION_SPECS)} configurations")
     print(f"  Replay    : {'ON' if USE_REPLAY_LOGITS else 'OFF'} (ABLATION_REPLAY_LOGITS)")
     print(f"  Output    : {_abl.RESULTS_BASE}")
@@ -710,7 +708,7 @@ def main() -> None:
     logit_dir = out_dir / "logits"
     logit_dir.mkdir(exist_ok=True)
 
-    # ── Load model ONCE ───────────────────────────────────────────────────────
+    # â”€â”€ Load model ONCE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     print(f"[LOAD] Loading {_abl.MODEL_NAME} via HF native (bf16)...")
     model, tokenizer = load_model_hf_native(
         _abl.MODEL_NAME, max_seq_length=2048, load_in_4bit=False
@@ -724,7 +722,7 @@ def main() -> None:
     # Cache one Full SWA-DPBR result per country to avoid re-running identical logits each seed.
     full_result_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any]]] = {}
 
-    # ── Load country data once and prebuild replay caches ─────────────────────
+    # â”€â”€ Load country data once and prebuild replay caches â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for country in countries:
         if country not in SUPPORTED_COUNTRIES:
             print(f"[SKIP] {country}: not in SUPPORTED_COUNTRIES")
@@ -747,7 +745,7 @@ def main() -> None:
     if USE_REPLAY_LOGITS:
         _install_replay_patch()
 
-    # ── Per-seed × country loop ───────────────────────────────────────────────
+    # â”€â”€ Per-seed Ã— country loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     for seed in seeds:
         setup_seeds(seed)
         print(f"\n{'#' * 80}")
@@ -770,12 +768,12 @@ def main() -> None:
             print(f"  {len(scenario_df)} scenarios | {len(personas)} personas"
                   f" | {human_amce_n} AMCE dims")
 
-            # ── Per-ablation inner loop ───────────────────────────────────────
+            # â”€â”€ Per-ablation inner loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             for spec_idx, spec in enumerate(_abl.ABLATION_SPECS):
-                print(f"\n  {'─' * 70}")
+                print(f"\n  {'â”€' * 70}")
                 print(f"  [{spec_idx}/{len(_abl.ABLATION_SPECS)-1}]"
-                      f"  {spec.row_label}  —  {spec.description}")
-                print(f"  {'─' * 70}")
+                      f"  {spec.row_label}  â€”  {spec.description}")
+                print(f"  {'â”€' * 70}")
 
                 _abl._reset_prior_state(country)
                 torch.cuda.empty_cache()
@@ -807,18 +805,18 @@ def main() -> None:
 
                 elapsed = time.time() - t0
 
-                # ── Save per-ablation CSV ─────────────────────────────────────
+                # â”€â”€ Save per-ablation CSV â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 safe_tag = (
                     spec.row_label.lower()
                     .replace(" ", "_").replace("(", "").replace(")", "")
-                    .replace("=", "eq").replace(",", "").replace("α", "a")
+                    .replace("=", "eq").replace(",", "").replace("Î±", "a")
                     .replace("/", "_")
                 )
                 results_df.to_csv(
                     out_dir / f"seed{seed}_{country}_{safe_tag}_results.csv", index=False
                 )
 
-                # ── Logit caching ─────────────────────────────────────────────
+                # â”€â”€ Logit caching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 logit_cache.clear()
                 for idx, row_data in results_df.iterrows():
                     entry = {
@@ -857,37 +855,27 @@ def main() -> None:
                     )
                 logit_cache.save(str(logit_dir / f"seed{seed}_{country}_{safe_tag}_logits.npz"))
 
-                # ── Collect metrics row ───────────────────────────────────────
+                # â”€â”€ Collect metrics row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 row = _abl._collect_row(spec, country, results_df, summary, elapsed)
                 row["seed"] = seed
                 all_rows.append(row)
 
                 a = summary.get("alignment", {})
-                dpbr = summary.get("dpbr", {})
-                util = summary.get("util", {})
                 print(
-                    f"\n  ✓  {spec.row_label} | {country} | seed={seed}"
+                    f"\n  âœ“  {spec.row_label} | {country} | seed={seed}"
                     f"  JSD={a.get('jsd',float('nan')):.4f}"
                     f"  r={a.get('pearson_r',float('nan')):+.3f}"
                     f"  MIS={a.get('mis',float('nan')):.4f}"
                     f"  ({elapsed:.0f}s)"
                 )
-                # Print key "score" diagnostics immediately after each ablation run.
-                print(
-                    f"     SCORE: util_fit={a.get('util_fit', float('nan')):.4f}"
-                    f" | sign_acc={a.get('sign_acc', float('nan')):.3f}"
-                    f" | dpbr_gain={dpbr.get('dpbr_gain', float('nan')):.4f}"
-                    f" | slope={util.get('slope', float('nan')):+.4f}",
-                    flush=True,
-                )
 
-    # ── Cleanup ───────────────────────────────────────────────────────────────
+    # â”€â”€ Cleanup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     del model, tokenizer
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    # ── Save summary ──────────────────────────────────────────────────────────
+    # â”€â”€ Save summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     summary_df = pd.DataFrame(all_rows)
     summary_csv = out_dir / "ablation_summary_all_seeds.csv"
     summary_df.to_csv(summary_csv, index=False)
@@ -912,14 +900,14 @@ def main() -> None:
         print(f"[SAVED] {stability_csv}")
         _print_multi_seed_snapshot(stability_df)
 
-    # ── Print reports ─────────────────────────────────────────────────────────
+    # â”€â”€ Print reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     # For detailed per-country report, use the first seed as representative.
     report_seed = seeds[0]
     report_rows = [r for r in all_rows if int(r.get("seed", report_seed)) == report_seed]
     report_df = pd.DataFrame(report_rows)
     for country in countries:
         print(f"\n\n{'#' * 80}")
-        print(f"  FINAL REPORT — {country} (seed={report_seed})")
+        print(f"  FINAL REPORT â€” {country} (seed={report_seed})")
         print(f"{'#' * 80}")
         _abl.print_ablation_table(report_rows, country)
         _abl.print_per_dim_table(report_rows, country)
@@ -934,7 +922,7 @@ def main() -> None:
     _print_latex_table_qwen(report_rows, countries[0])
 
     print(f"\n{'#' * 80}")
-    print(f"  Ablation COMPLETE — Qwen2.5-7B-Instruct")
+    print(f"  Ablation COMPLETE â€” Magistral-Small-2509")
     print(f"  Results : {out_dir}")
     print(f"  Logits  : {logit_dir}")
     print(f"{'#' * 80}\n")
@@ -942,3 +930,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
