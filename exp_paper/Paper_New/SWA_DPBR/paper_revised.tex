@@ -1254,9 +1254,28 @@ while obedience-oriented child-rearing values weight hierarchical social roles
 (affecting Age and Social Value).
 Crucially, DISCA does not require exact causal mapping: the 10-dimensional
 ensemble generates diversity in logit-space gaps, and the IS stage selects the
-correction balancing collective utility. A rigorous per-dimension causal analysis
-(e.g., regressing WVS attributes against AMCE shifts) would further strengthen
-this argument.
+correction balancing collective utility.
+
+\paragraph{Empirical validation of the WVS$\to$AMCE pathway.}
+Table~\ref{tab:wvs_amce_regression} regresses each of the six MultiTP human
+AMCE dimensions on the 10 WVS cultural features across the 20-country panel
+(standardised OLS). The 10-feature WVS profile explains $R^2 \in [0.55, 0.69]$
+of human AMCE variance, with $|\beta| > 0.3$ in 35 of 60 cells. This is
+direct evidence that WVS-grounded persona construction is not arbitrary:
+the cultural axes our personas inherit correlate strongly with the moral
+preferences DISCA must reproduce.
+
+\input{tab_wvs_amce_regression}
+
+Table~\ref{tab:wvs_impact_matrix} closes the loop with a causal
+leave-one-WVS-dim-out probe: for each WVS dimension $d$, we re-run DISCA
+with $d$ removed from every persona and measure the change in per-MultiTP-
+dim absolute error. \emph{Tolerance of diversity} drops Social Value
+accuracy by 7.76~pp when removed; \emph{moral acceptability} drops Social
+Value by 3.97~pp; \emph{gender equality} drops Gender by 3.42~pp. Cells with
+the top-3 largest positive couplings per row are bolded.
+
+\input{tab_wvs_impact_matrix}
 
 \section{PT--IS, Sampling, and Dual-Pass Reliability}
 \label{app:dpbr_theory}
