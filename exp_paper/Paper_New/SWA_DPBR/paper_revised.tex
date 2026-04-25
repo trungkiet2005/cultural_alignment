@@ -1302,7 +1302,21 @@ direct evidence that WVS-grounded persona construction is not arbitrary:
 the cultural axes our personas inherit correlate strongly with the moral
 preferences DISCA must reproduce.
 
-\input{tab_wvs_amce_regression}
+\begin{table}[h]\centering\scriptsize
+\caption{WVS features as predictors of human AMCE dimensions. OLS with standardised predictors. Coefficients are standardised ($\beta$); bold = $|\beta| > 0.3$. $R^2_{\text{adj}}$ measures how well the 10 WVS cultural dimensions explain each moral preference dimension across the 20-country panel.}
+\label{tab:wvs_amce_regression}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrrrrrrrrr}\toprule
+AMCE dim & relig & child & moral & socia & polit & natio & happi & gende & mater & toler & $R^2$ & $R^2_{\text{adj}}$ \\\midrule
+Species & \textbf{+0.47} & +0.12 & \textbf{-0.65} & \textbf{+0.60} & +0.08 & +0.16 & -0.02 & \textbf{-0.74} & -0.30 & \textbf{+0.40} & 0.57 & 0.09 \\
+Gender & \textbf{+0.69} & \textbf{+0.37} & -0.18 & \textbf{+0.41} & \textbf{-0.44} & \textbf{-0.39} & \textbf{+0.71} & \textbf{-0.81} & -0.20 & +0.06 & 0.66 & 0.29 \\
+Age & \textbf{-0.80} & -0.09 & \textbf{+0.61} & \textbf{-0.74} & +0.17 & +0.26 & -0.27 & \textbf{+0.62} & \textbf{+0.49} & \textbf{-0.37} & 0.55 & 0.05 \\
+Fitness & +0.28 & -0.23 & -0.16 & -0.12 & -0.17 & \textbf{+0.43} & +0.09 & \textbf{-1.46} & -0.21 & \textbf{+0.53} & 0.60 & 0.15 \\
+SocialValue & -0.27 & \textbf{-0.30} & \textbf{+0.40} & \textbf{-0.40} & \textbf{-0.37} & \textbf{+0.58} & +0.17 & \textbf{-0.31} & -0.12 & -0.15 & 0.69 & 0.35 \\
+Utilitarianism & \textbf{+1.11} & \textbf{+0.39} & +0.07 & \textbf{+0.59} & -0.21 & -0.01 & +0.13 & \textbf{-0.76} & \textbf{+0.42} & +0.25 & 0.66 & 0.29 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 Table~\ref{tab:wvs_impact_matrix} closes the loop with a causal
 leave-one-WVS-dim-out probe: for each WVS dimension $d$, we re-run DISCA
@@ -1312,7 +1326,25 @@ accuracy by 7.76~pp when removed; \emph{moral acceptability} drops Social
 Value by 3.97~pp; \emph{gender equality} drops Gender by 3.42~pp. Cells with
 the top-3 largest positive couplings per row are bolded.
 
-\input{tab_wvs_impact_matrix}
+\begin{table}[h]\centering\scriptsize
+\caption{WVS-dim $\times$ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf{Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to$ MultiTP links).}
+\label{tab:wvs_impact_matrix}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}\toprule
+WVS dim & Species\_Humans & Gender\_Female & Age\_Young & Fitness\_Fit & SocialValue\_High & Utilitarianism\_More \\\midrule
+religiosity & \textbf{+0.66} & \textbf{+1.65} & -1.66 & +0.58 & \textbf{+1.02} & -0.37 \\
+child rearing & -1.82 & \textbf{+1.29} & +0.86 & \textbf{+1.30} & -0.33 & \textbf{+2.41} \\
+moral acceptability & \textbf{+1.13} & -0.02 & -1.56 & -0.34 & \textbf{+3.97} & -1.69 \\
+social trust & +0.11 & \textbf{+1.43} & -0.85 & \textbf{+0.51} & \textbf{+2.81} & -1.88 \\
+political participation & -1.24 & -0.82 & -0.63 & -0.36 & -0.16 & \textbf{+0.86} \\
+national pride & -0.37 & -0.10 & -0.28 & \textbf{+0.52} & \textbf{+1.19} & \textbf{+1.21} \\
+happiness & -0.23 & -0.88 & \textbf{+0.13} & -1.69 & -0.11 & \textbf{+1.72} \\
+gender equality & \textbf{+0.41} & -3.42 & -2.90 & -1.11 & -1.87 & \textbf{+0.62} \\
+materialism orientation & \textbf{+1.35} & -1.26 & \textbf{+0.90} & +0.04 & -0.36 & \textbf{+2.15} \\
+tolerance diversity & -0.76 & -3.52 & \textbf{+1.95} & -0.59 & -7.76 & \textbf{+1.54} \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{PT--IS, Sampling, and Dual-Pass Reliability}
 \label{app:dpbr_theory}
@@ -2096,7 +2128,15 @@ structure.
 $n{=}250$/country). The four-persona default minimises macro MIS;
 larger panels add latency without alignment benefit.}
 \label{tab:r3_persona_count}
-\input{tab_persona_count}
+\begin{tabular}{rcccc}\toprule
+$N$ & Macro MIS $\downarrow$ & Std (across countries) & Flip rate & sec/scenario \\\midrule
+2 & 0.4252 & 0.1045 & 0.275 & 0.089 \\
+3 & 0.4194 & 0.0945 & 0.273 & 0.100 \\
+\textbf{4} & \textbf{0.4051} & 0.0829 & 0.276 & 0.111 \\
+5 & 0.4107 & 0.0745 & 0.276 & 0.120 \\
+6 & 0.4179 & 0.0919 & 0.245 & 0.130 \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 \begin{table}[h]
@@ -2107,7 +2147,16 @@ across an order of magnitude. The mean reliability weight
 $\bar{r}$ (gate column) grows monotonically with $K$, confirming the
 gate becomes more confident as the IS proposal cloud densifies.}
 \label{tab:r3_k_budget}
-\input{tab_k_budget}
+\begin{tabular}{rrcccc}\toprule
+$K_\text{half}$ & $K_\text{total}$ & Macro MIS $\downarrow$ & Flip rate & $\overline{r}$ (gate) & sec/scen \\\midrule
+8 & 16 & 0.4114 & 0.284 & 0.684 & 0.121 \\
+16 & 32 & 0.4092 & 0.271 & 0.736 & 0.114 \\
+32 & 64 & 0.4104 & 0.278 & 0.766 & 0.114 \\
+64 & 128 & 0.4103 & 0.280 & 0.793 & 0.113 \\
+128 & 256 & 0.4147 & 0.274 & 0.814 & 0.116 \\
+192 & 384 & 0.4126 & 0.273 & 0.827 & 0.112 \\
+\bottomrule
+\end{tabular}
 \end{table}
 
 % ============================================================================
