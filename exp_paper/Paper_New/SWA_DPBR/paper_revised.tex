@@ -1937,54 +1937,64 @@ where persona-conditioned next-token corrections are aggregated through
 PT--IS and dual-pass reliability.
 
 \paragraph{Where DISCA transfers.}
-On the high-baseline subset of BLEnD, the same disagreement-driven
-correction lifts open-ended cultural QA without retuning. Five of the
-sixteen countries show a positive SEM-B gain
-(Table~\ref{tab:blend_wins}); the largest are the United Kingdom
-($+7.45$~pp) and the United States ($+4.55$~pp), with Mexico, Spain,
-and Indonesia closely behind. These are precisely the countries where
-the vanilla baseline already generates fluent, culturally-appropriate
-text, so the persona signal can refine an already-coherent decision
-surface.
+\textbf{Seven of sixteen} countries see a positive SEM-B gain under
+the softmax-adapted DISCA variant
+(Table~\ref{tab:blend_wins}). The wins fall into two regimes. The
+largest gains land on \emph{high-baseline} countries -- the United
+Kingdom ($+7.45$~pp), the United States ($+4.55$), Mexico, Spain, and
+Indonesia -- where the vanilla baseline already generates fluent,
+culturally-appropriate text and the persona signal refines an
+already-coherent decision surface. A second pocket of smaller positive
+transfer appears at the \emph{low-baseline} end -- West Java
+($+2.40$~pp on a vanilla baseline of $26.64$\%) and Azerbaijan
+($+0.43$ on $28.78$\%) -- suggesting the persona signal can also
+benefit some lower-resource panels even when factual recall is weak.
 
 \begin{table}[h]\centering\small
-\caption{BLEnD per-country gains (Phi-4 14B). The five countries where
+\caption{BLEnD per-country gains (Phi-4 14B). The seven countries where
 the softmax-adapted DISCA improves Soft Exact Match over vanilla
 greedy decoding (SEM-B = between-country, SEM-W = within-country).
-These are also the countries with the highest vanilla baseline, in
-which the cultural signal can refine an already-fluent generation
-surface rather than amplify decoding noise.}
+The five high-baseline rows (top) are paired with two
+low-baseline outliers (bottom) where DISCA also delivers a positive
+shift, suggesting the disagreement signal is not strictly tied to
+high-baseline regimes.}
 \label{tab:blend_wins}
 \setlength{\tabcolsep}{6pt}
 \begin{tabular}{lcccc}\toprule
 Country  & \multicolumn{2}{c}{Vanilla (\%)} & \multicolumn{2}{c}{$\Delta$ DISCA (pp)} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
          & SEM-B & SEM-W & SEM-B & SEM-W \\\midrule
-UK        & 75.66 & 66.69 & \gain{+7.45} & \gain{+8.78} \\
-US        & 82.43 & 74.32 & \gain{+4.55} & \gain{+3.80} \\
-Mexico    & 72.65 & 61.75 & \gain{+2.09} & \gain{+2.76} \\
-Spain     & 72.71 & 63.12 & \gain{+1.92} & \gain{+2.89} \\
-Indonesia & 73.75 & 60.92 & \gain{+1.67} & \gain{+3.39} \\
+UK         & 75.66 & 66.69 & \gain{+7.45} & \gain{+8.78} \\
+US         & 82.43 & 74.32 & \gain{+4.55} & \gain{+3.80} \\
+Mexico     & 72.65 & 61.75 & \gain{+2.09} & \gain{+2.76} \\
+Spain      & 72.71 & 63.12 & \gain{+1.92} & \gain{+2.89} \\
+Indonesia  & 73.75 & 60.92 & \gain{+1.67} & \gain{+3.39} \\
+\midrule
+West Java  & 26.64 & 20.73 & \gain{+2.40} & \gain{+3.81} \\
+Azerbaijan & 28.78 & 24.92 & \gain{+0.43} & \gain{+0.48} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \paragraph{Where the binary formulation breaks.}
-Aggregate SEM-B across all 16 countries drops by 4.4~pp because the
-remaining eleven countries -- predominantly low-baseline cases such as
-Greece, Iran, and Assam -- regress under DISCA. The diagnosis is
-mechanistic rather than cultural: DISCA's correction was designed for a
-binary scalar (a single $\delta = z_B - z_A$), and in open-ended
-generation it must be redistributed across the entire vocabulary. The
-dual-pass reliability gate -- designed to detect agreement between two
-scalar IS estimates -- loses discriminative power in this
-high-dimensional softmax space, so the IS noise added to the logits
-swamps any culturally-informative signal when the baseline is already
-weak. WVS persona coverage is also sparsest for the low-baseline
-countries, compounding the noise. Together, these results delineate
-where the current binary-logit-gap formulation applies (high-baseline,
-fluent backbones) and motivate softmax-aware IS plus a vocabulary-level
-reliability gate as concrete next steps for full open-ended deployment.
+Aggregate SEM-B across all 16 countries still drops by 4.4~pp because
+the remaining nine countries -- predominantly mid- and low-baseline
+cases such as Greece, Iran, and Assam -- regress under DISCA. The
+diagnosis is mechanistic rather than cultural: DISCA's correction was
+designed for a binary scalar (a single $\delta = z_B - z_A$), and in
+open-ended generation it must be redistributed across the entire
+vocabulary. The dual-pass reliability gate -- designed to detect
+agreement between two scalar IS estimates -- loses discriminative
+power in this high-dimensional softmax space, so the IS noise added to
+the logits swamps any culturally-informative signal when the baseline
+is mid-range. The few exceptions at the very low end (West Java,
+Azerbaijan) suggest that for some low-baseline panels the persona
+signal can still nudge generation in a useful direction, but the
+pattern is not yet robust. Together, these results delineate where the
+current binary-logit-gap formulation applies (predominantly
+high-baseline backbones) and motivate softmax-aware IS plus a
+vocabulary-level reliability gate as concrete next steps for full
+open-ended deployment.
 
 These results empirically confirm the binary-format limitation flagged in \S\ref{sec:discussion} and point toward a concrete extension path: adapting the IS stage to operate on softmax distributions rather than scalar logit gaps, with a vocabulary-aware reliability gate that can distinguish meaningful cultural steering from noise in the high-dimensional token space.
 

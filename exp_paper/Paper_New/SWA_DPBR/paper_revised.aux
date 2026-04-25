@@ -359,11 +359,10 @@
 \@writefile{toc}{\contentsline {section}{\numberline {A15}Pilot: Open-Ended Cultural QA (BLEnD)}{29}{appendix.O}\protected@file@percent }
 \newlabel{app:blend}{{A15}{29}{Pilot: Open-Ended Cultural QA (BLEnD)}{appendix.O}{}}
 \@writefile{toc}{\contentsline {paragraph}{Where DISCA transfers.}{29}{section*.56}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces BLEnD per-country gains (Phi-4 14B). The five countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). These are also the countries with the highest vanilla baseline, in which the cultural signal can refine an already-fluent generation surface rather than amplify decoding noise.}}{29}{table.caption.57}\protected@file@percent }
-\newlabel{tab:blend_wins}{{18}{29}{BLEnD per-country gains (Phi-4 14B). The five countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). These are also the countries with the highest vanilla baseline, in which the cultural signal can refine an already-fluent generation surface rather than amplify decoding noise}{table.caption.57}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes.}}{29}{table.caption.57}\protected@file@percent }
+\newlabel{tab:blend_wins}{{18}{29}{BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes}{table.caption.57}{}}
 \@writefile{toc}{\contentsline {paragraph}{Where the binary formulation breaks.}{29}{section*.58}\protected@file@percent }
 \citation{kwon2025dropouts}
-\citation{chen2025diffpo}
 \def\@LN@column{1}
 \@writefile{toc}{\contentsline {section}{\numberline {A16}Engineering Journey: Method Selection}{30}{appendix.P}\protected@file@percent }
 \newlabel{app:engineering}{{A16}{30}{Engineering Journey: Method Selection}{appendix.P}{}}
@@ -372,18 +371,19 @@
 \@writefile{toc}{\contentsline {section}{\numberline {A17}Additional Inference-Time Baselines}{30}{appendix.Q}\protected@file@percent }
 \newlabel{app:r2_baselines}{{A17}{30}{Additional Inference-Time Baselines}{appendix.Q}{}}
 \@writefile{toc}{\contentsline {paragraph}{(6) MC-Dropout calibration.}{30}{section*.60}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling.}{30}{section*.61}\protected@file@percent }
+\citation{chen2025diffpo}
 \def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling.}{31}{section*.61}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{(8) DiffPO-binary.}{31}{section*.62}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Takeaway.}{31}{section*.63}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf  {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline.}}{31}{table.caption.64}\protected@file@percent }
 \newlabel{tab:r2_baselines_filled}{{20}{31}{Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline}{table.caption.64}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {A18}Extended Hyperparameter Sensitivity}{31}{appendix.R}\protected@file@percent }
 \newlabel{app:r2_hparam_sensitivity}{{A18}{31}{Extended Hyperparameter Sensitivity}{appendix.R}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{31}{table.caption.65}\protected@file@percent }
-\newlabel{tab:r2_hparam_sensitivity}{{21}{31}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.65}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{31}{section*.66}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{32}{table.caption.65}\protected@file@percent }
+\newlabel{tab:r2_hparam_sensitivity}{{21}{32}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.65}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{32}{section*.66}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Additional round-3 sensitivity checks.}{32}{section*.67}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}}{32}{table.caption.68}\protected@file@percent }
 \newlabel{tab:r3_persona_count}{{22}{32}{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit}{table.caption.68}{}}
@@ -398,9 +398,9 @@
 \newlabel{app:r2_persona_variant}{{A20}{33}{Sensitivity to the Fourth Persona}{appendix.T}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {A21}Logit-Conditioning Diagnostic}{33}{appendix.U}\protected@file@percent }
 \newlabel{app:r2_logit_conditioning}{{A21}{33}{Logit-Conditioning Diagnostic}{appendix.U}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A22}Rank-Based Dimension Agreement}{33}{appendix.V}\protected@file@percent }
-\newlabel{app:rank_agreement}{{A22}{33}{Rank-Based Dimension Agreement}{appendix.V}{}}
 \def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A22}Rank-Based Dimension Agreement}{34}{appendix.V}\protected@file@percent }
+\newlabel{app:rank_agreement}{{A22}{34}{Rank-Based Dimension Agreement}{appendix.V}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {A23}Cross-Model Ablation Breadth}{34}{appendix.W}\protected@file@percent }
 \newlabel{app:r2_ablation_breadth}{{A23}{34}{Cross-Model Ablation Breadth}{appendix.W}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {A24}Scenario-Slice Release and Category-Cap Sensitivity}{34}{appendix.X}\protected@file@percent }
