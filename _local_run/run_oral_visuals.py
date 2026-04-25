@@ -1003,7 +1003,8 @@ PRIMARY_ABLATIONS = [
     "Always-on PT-IS",
     "No debiasing",
     "Without persona",
-    "No country prior (a_h=0)",
+    # "No country prior (a_h=0)" intentionally excluded — treated as a tuning
+    # hyperparameter rather than a structural component of DISCA.
 ]
 
 
