@@ -36,20 +36,21 @@ Attach to your notebook (these are the candidates the bootstrap looks for):
 | Exp | Status | Output evidence | Cost |
 |---|---|---|---|
 | 1  Disagreement-Correction | ✅ done   | `figure2_scenario_correlation.{pdf,png}`, `scenario_analysis*.csv` | — |
-| 2  Country-Level Correlation | ❌ TODO | (no `figure3_*` / `country_correlation_data.csv`) | CPU, < 1 min — needs Exp 1 CSV (have) + main 20-country DISCA CSV |
+| 2  Country-Level Correlation | ✅ done (local) | `figure3_country_correlation.{pdf,png}`, `country_correlation_data.csv` | — (computed locally from paper_20c/phi-4) |
 | 3  Multi-Seed CI | ✅ done   | `exp3_country_stats.csv`, `exp3_macro_stats.csv`, `exp3_seed_country_mis.csv` | — |
 | 4  Tail-Safety | ❌ TODO | (no `tail_safety/` output) | **GPU heavy** — 6 models × 20 countries × 2 variants |
 | 5  Strong Baselines | ✅ done (component-wise) | `result/{mc_dropout,tempmargin,diffpo_binary,round3_baselines_prompts}/` | — (re-run `exp_r4_baselines.py` if you want the unified summary table) |
 | 6  3×3 Ablation Grid | ✅ done   | `exp6_ablation_grid.csv`, `exp6_ablation_grid_delta.csv` (also `result/ablation_breadth/`) | — |
 | 7  Predictive Failure | ❌ TODO | (no `failure_features.csv` / `failure_regression.csv`) | GPU vanilla pass + regression — needs `R4_DISCA_CSV` |
 | 8  N-Persona Sensitivity | ✅ done   | `exp8_n_persona_sensitivity.{csv,pdf,png}` (also `result/round3_sensitivity_persona_count/`) | — |
-| 9  Negative-r Diagnosis | ❌ TODO | (no `negr_country_summary.csv` / `negr_swap_pairs.csv`) | **CPU only**, seconds — needs `R4_MODEL_AMCE_CSV` + `R4_HUMAN_AMCE_CSV` |
+| 9  Negative-r Diagnosis | ✅ done (local) | `negr_country_summary.csv`, `negr_swap_pairs.csv`, `negr_paragraph.txt` | — (Phi-4 has 0 / 20 negative-r countries) |
 | 10 Reliability Distribution | ✅ done   | `exp10_reliability_distribution.{pdf,png}`, `exp10_reliability_stats.csv` | — |
-| 11 Per-Dimension Breakdown | ❌ TODO | (no `per_dim_cross_model_*` output) | CPU post-hoc — reads `swa_results_*.csv` from main run |
+| 11 Per-Dimension Breakdown | ✅ done (local) | `exp11_per_dim_cross_model.csv` (66 cells = 11 models × 6 dims), `exp11_model_summary.csv` | — (computed locally from `result/exp24_paper_20c/`) |
 | 12 WVS Dimension Dropout | ✅ done   | `exp12_wvs_dropout_{raw,summary}.csv` (also `result/wvs_dropout/`) | — |
 
-**5 missing experiments:** 2, 4, 7, 9, 11. Run order suggestion in the
-"Recommended next runs" section below.
+**2 remaining experiments:** 4, 7. Both need GPU; see "Recommended next runs"
+below. Exp 2 / 9 / 11 were ran locally via [`_local_run/run_exp2_exp9_local.py`](../../_local_run/run_exp2_exp9_local.py)
+(stdlib-only, bypasses scipy/pandas import-time DLL issues on the user's box).
 
 ## Layout
 
@@ -122,25 +123,12 @@ playbook/
 | 11 | "Where do the gains come from? Is the pattern backbone-dependent?" | `exp_r3_per_dim_cross_model.py`, `exp_r2_per_dim_mis.py` |
 | 12 | "Which WVS dim drives which moral dim? Show causal coupling." | `exp_r2_wvs_dropout.py`, `wvs_dimension_matrix.py` |
 
-## Recommended next runs (only the 5 missing experiments)
+## Recommended next runs (only the 2 remaining experiments)
 
-Cheap → expensive. Each script auto-zips its output to
+Both need GPU. Each script auto-zips its output to
 `/kaggle/working/<exp_name>.zip` for one-click download.
 
 ```bash
-# Exp 9 — CPU, seconds. Needs two AMCE long-form CSVs.
-R4_MODEL_AMCE_CSV=/kaggle/input/.../disca_amce_long.csv \
-R4_HUMAN_AMCE_CSV=/kaggle/input/.../human_amce_long.csv \
-    python exp_paper/playbook/exp_r4_negr_diagnosis.py
-
-# Exp 11 — CPU, < 1 min. Reads existing per-country swa_results_*.csv.
-python exp_paper/playbook/exp_r3_per_dim_cross_model.py
-
-# Exp 2 — CPU, seconds. Reads Exp 1 CSV (already have) + main 20-country results.
-R4_SCENARIO_CSV=/kaggle/working/cultural_alignment/results/exp24_playbook_qwen25_7b/scenario_analysis_all_countries.csv \
-R4_MAIN_RESULTS_CSV=/kaggle/input/.../disca_phi4_20c.csv \
-    python exp_paper/playbook/exp_r4_country_correlation.py
-
 # Exp 7 — GPU vanilla forward pass per country + regression (~30 min on H100).
 R4_DISCA_CSV=/kaggle/input/.../disca_phi4_20c.csv \
     python exp_paper/playbook/exp_r4_failure_prediction.py
