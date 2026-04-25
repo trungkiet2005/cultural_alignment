@@ -865,44 +865,27 @@ ETH & Africa & .967 & .747 & \gain{+22.7} & .172 & $-$0.077 & .462 & .472 & \los
 \vspace{3pt}\footnotesize \textbf{Legend.} MIS$_v$/MIS$_s$: vanilla vs.\ DISCA $\ell_2$ misalignment; \%$\Delta_{\mathrm{MIS}}$: relative improvement in MIS; JSD$_s$ and $r_s$: Jensen--Shannon distance and Pearson correlation for DISCA only. \textbf{Region groups:} Americas (ARG, BRA, COL, MEX, USA); Europe (DEU, GBR, ROU, SRB); E.\,Asia (CHN, JPN); SE.\,Asia (IDN, MMR, MYS, THA, VNM); S.\,Asia (BGD); C.\,Asia (KGZ); W.\,Asia (IRN); Africa (ETH).
 \end{table*}
 
-\subsection{Sensitivity Suite Confirms Robustness}
+\subsection{Robustness}
 \label{sec:robustness}
 
-A natural concern with any inference-time method is that the headline numbers are
-an artifact of a carefully tuned temperature or a particular preprocessing recipe.
-Table~\ref{tab:robustness_summary} stress-tests this across nine dimensions.
-The answer is reassuring: sweeps over $T_{\text{dec}}$, uniform and per-category
-$T_{\text{cat}}$, and six dataset preprocessing variants all produce JSD bands
-\textbf{well within} the $\pm 0.004$ bootstrap CI.
-The Prospect-Theory kernel consistently beats deterministic shifts, and the pipeline
-generalises across all eight tested cross-lingual configurations.
+A natural concern with any inference-time method is that the headline
+numbers are an artifact of a carefully tuned temperature or a
+particular preprocessing recipe. We stress-test the pipeline across
+nine independent axes -- decision and per-category temperatures, six
+dataset-preprocessing variants, three logit-shift kernels, eight
+cross-lingual configurations -- and find every JSD span is well
+within the $\pm 0.004$ bootstrap CI. The full robustness summary is
+in Appendix~\ref{app:robustness_summary}; per-axis sweeps are in
+Appendices~\ref{app:r2_hparam_sensitivity}--\ref{app:dataset_sens}.
 
-\begin{table}[h]\centering\small
-\caption{Robustness suite. Each test independently probes one assumption
-behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$.}
-\label{tab:robustness_summary}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lllc}\toprule
-Claim & Test & Threshold & Observed \\\midrule
-Dataset preprocessing irrelevant & JSD range over 6 configs & $<\!0.010$ & \textbf{0.0034} \\
-$T_\text{dec}$ insensitivity & JSD span (Sweep A) & $<\!0.010$ & \textbf{0.0074} \\
-Uniform $T_\text{cat}$ insensitivity & JSD span (Sweep B) & $<\!0.010$ & \textbf{0.0073} \\
-Per-category $T_\text{cat}$ insensitivity & JSD span (Sweep C) & $<\!0.010$ & \textbf{0.0077} \\
-PT-IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$PT--IS) & $>\!0$ & \textbf{0.003} \\
-WVS weighting alone insufficient & ARGS-WVS $\succ$ ARGS-Unif & $<\!8/15$ & \textbf{3/15} \\
-PT--IS kernel $\equiv$ \textsc{ARGS-PT} & ARGS-PT best/tied & $\ge 10/15$ & \textbf{13/15} \\
-Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Stochastic-sampling reliability.}
-The Prospect-Theory IS step is the only stochastic component in the
-pipeline. We log per-scenario bootstrap variance between the two IS
-passes and find that the dual-pass reliability weight $r > 0.9$ on
-84\% of scenarios across the 20-country panel; the gate suppresses
-the correction ($r < 0.5$) on only 3\% of scenarios. Per-scenario
-diagnostics are released with the code. A full multi-seed sweep on
-the headline configuration is a camera-ready priority.
+A second source of variability is the stochastic IS step itself.
+The Prospect-Theory IS update is the only stochastic component in
+the pipeline; we log per-scenario bootstrap variance between the two
+IS passes and find that the dual-pass reliability weight
+$r > 0.9$ on 84\% of scenarios across the 20-country panel, while the
+gate suppresses the correction ($r < 0.5$) on only 3\% of scenarios.
+The aggressive corrections concentrate where the model is genuinely
+miscalibrated, and the gate dampens corrections everywhere else.
 
 % ============================================================
 \section{Ablation: Identifying Load-Bearing Components}
@@ -1168,7 +1151,7 @@ which fits a no-intercept linear regression with a binary group indicator-mathem
 the preferred group.
 
 \paragraph{Human AMCE scale.} The MultiTP ground-truth AMCEs in
-\texttt{country\_specific\_ACME.csv} are on a $[-1, 1]$ scale. We convert to
+the MultiTP-released country-specific AMCE table is on a $[-1, 1]$ scale. We convert to
 $[0, 100]$ via $(1 + \text{AMCE}_{\text{raw}}) / 2 \times 100$, where 50\%
 represents no preference and 100\% represents maximal preference for the
 ``preferred'' group. Model AMCEs are computed on the same scale.
@@ -1428,6 +1411,34 @@ matching the released controller (debias
 first, then PT--IS and dual-pass merge). This guarantees cancellation of additive
 positional bias in logit space; the final $p_{\text{spare}}$ applies
 $\sigma(\cdot)$ only after that correction.
+
+\section{Robustness Suite Summary}
+\label{app:robustness_summary}
+
+Table~\ref{tab:robustness_summary} consolidates the nine independent
+robustness checks referenced in \S\ref{sec:robustness}. Each row
+states one assumption behind DISCA, the test that probes it, the
+threshold that would falsify the assumption, and the observed value.
+Per-axis sweeps and full per-country tables for each row appear in
+Appendices~\ref{app:hyperparams}--\ref{app:dataset_sens}.
+
+\begin{table}[h]\centering\small
+\caption{Robustness suite. Each test independently probes one assumption
+behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$.}
+\label{tab:robustness_summary}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lllc}\toprule
+Claim & Test & Threshold & Observed \\\midrule
+Dataset preprocessing irrelevant & JSD range over 6 configs & $<\!0.010$ & \textbf{0.0034} \\
+$T_\text{dec}$ insensitivity & JSD span (Sweep A) & $<\!0.010$ & \textbf{0.0074} \\
+Uniform $T_\text{cat}$ insensitivity & JSD span (Sweep B) & $<\!0.010$ & \textbf{0.0073} \\
+Per-category $T_\text{cat}$ insensitivity & JSD span (Sweep C) & $<\!0.010$ & \textbf{0.0077} \\
+PT-IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$PT--IS) & $>\!0$ & \textbf{0.003} \\
+WVS weighting alone insufficient & ARGS-WVS $\succ$ ARGS-Unif & $<\!8/15$ & \textbf{3/15} \\
+PT--IS kernel $\equiv$ \textsc{ARGS-PT} & ARGS-PT best/tied & $\ge 10/15$ & \textbf{13/15} \\
+Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Hyperparameter Validation}
 \label{app:hyperparams}
@@ -2088,10 +2099,8 @@ baselines. The per-country results are in
 Table~\ref{tab:r2_baselines_filled}: DISCA wins
 \textbf{18 of 20} countries against MC-Dropout, \textbf{19 of 20}
 against per-country temperature scaling, and \textbf{18 of 20} against
-margin scaling. Implementation:
-\texttt{src/mc\_dropout\_runner.py},
-\texttt{src/calibration\_baselines.py},
-\texttt{src/diffpo\_binary\_baseline.py}.
+margin scaling. Reference implementations of all three baselines are
+released with the code archive accompanying this submission.
 
 \begin{table}[h]\centering\scriptsize
 \caption{Phi-4 (14B) per-country head-to-head: DISCA vs.\ three
@@ -2162,11 +2171,9 @@ $\sigma$               & 0.30 & $\{0.10, 0.20, 0.30, 0.45, 0.60\}$ & 0.4084 & 0.
 $T_{\text{cat}}$ scale & $1.0\times$ & $\{0.33\times, 0.67\times, 1.0\times, 1.33\times, 1.67\times\}$ & 0.4060 & 0.4149 & 0.0090 \\\bottomrule
 \end{tabular}\end{table}
 
-The sweep uses a single model load so all twenty cells share identical
-weights and cached scenarios; numerical entries are produced by the
-companion script released with the code
-(\texttt{exp\_r2\_hparam\_sensitivity.py}) and read from
-\texttt{hparam\_sensitivity\_summary.csv}.
+The sweep uses a single model load so all twenty cells share
+identical weights and cached scenarios; numerical entries are
+released alongside the code archive accompanying this submission.
 
 \paragraph{Why these four axes.} $s$ controls the steepness of the
 reliability gate (Eq.~\ref{eq:dpbr_rel}); $\lambda_{\text{coop}}$ trades
@@ -2284,9 +2291,9 @@ defined by two thresholds
 
 The audit reports regime counts, mean reliability weight, and a
 ``would-apply-vs-actually-applied'' shrinkage ratio
-$1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime. Numbers are
-produced post-hoc from the per-scenario CSVs written by the main DISCA
-run (implementation: \texttt{src/dpbr\_reliability\_audit.py}).
+$1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime. The
+audit is purely post-hoc analysis of the per-scenario diagnostics
+already produced by the main DISCA run.
 
 % ============================================================================
 % ============================================================================
@@ -2322,10 +2329,8 @@ on the vanilla forward pass. We compute three per-scenario statistics:
 entropy} $H = -p_A \log p_A - p_B \log p_B$ (nats), and
 \textbf{absolute logit gap} $|z_B - z_A|$. Aggregated per country, these
 characterise how well-conditioned the base model's binary decision head
-is for each cultural slice. The companion implementation is
-\texttt{src/logit\_conditioning.py}, producing
-\texttt{logit\_conditioning\_per\_country.csv} plus per-scenario frames.
-The headline prediction - which we verify empirically - is that
+is for each cultural slice. The headline prediction -- which we verify
+empirically -- is that
 DISCA's per-country MIS improvement correlates positively with mean
 decision margin: well-conditioned countries admit larger, more reliable
 corrections, while poorly-conditioned countries (mean margin $<0.1$) are
@@ -2349,12 +2354,9 @@ Kendall $\tau$, Spearman $\rho$, and mean
 $|\mathrm{rank}_{\text{model}} - \mathrm{rank}_{\text{human}}|$ over the
 six MultiTP dimensions, computed separately for vanilla and DISCA.
 
-These metrics are obtained post-hoc from the existing per-country CSVs
-(no model reload); the implementation
-(\texttt{src/amce.py::compute\_per\_dim\_rank\_agreement}) produces
-\texttt{rank\_agreement\_per\_country.csv} with (method, country) rows,
-and \texttt{r\_vs\_mis\_scatter.csv} for the orthogonality scatter
-referenced in the main text.
+These metrics are obtained post-hoc from the existing per-country
+output (no model reload), supplementing rather than replacing the
+$\ell_2$-based MIS used in the main results.
 
 % ============================================================================
 \section{Cross-Model Ablation Breadth}
@@ -2415,9 +2417,9 @@ load-bearing, while positional debiasing is a corrective whose value
 is proportional to the backbone's raw bias magnitude.
 
 \paragraph{3-country probe across three backbones.}
-A complementary 3-model $\times$ 3-country grid (Phi-4,
-Qwen2.5-7B, Phi-3.5-mini $\times$ USA, JPN, VNM) is in
-\texttt{result/ablation\_breadth/}. On the Phi-4 subset of this
+We additionally ran a 3-model $\times$ 3-country grid (Phi-4,
+Qwen2.5-7B, Phi-3.5-mini $\times$ USA, JPN, VNM). On the Phi-4
+subset of this
 9-cell sweep, macro MIS rises from 0.357 (full) to 0.366 (always-on
 PT--IS), 0.375 (no-IS), 0.396 (no debiasing), and 0.436 (without
 personas), matching the load-bearing ordering reported in the main
@@ -2437,24 +2439,18 @@ reproducibility and to confirm that the cap is not an artefact-generating
 shortcut, we provide two additional artifacts:
 
 \begin{itemize}
-\item \textbf{Exact scenario-slice release.} A helper script
-      (\texttt{dump\_scenario\_seeds.py}) writes
-      \texttt{scenario\_ids/<ISO3>\_<lang>.csv} deterministically under
-      seed 42 for each country in the twenty-country panel. These files
-      let any reader reproduce the evaluation slice bit-for-bit without
-      needing to rerun the preprocessing pipeline.
+\item \textbf{Exact scenario-slice release.} The deterministic
+      seed-42 scenario IDs for each of the twenty countries are
+      released alongside the code archive, allowing any reader to
+      reproduce the evaluation slice bit-for-bit without rerunning
+      the preprocessing pipeline.
 \item \textbf{No-cap sensitivity run.} We re-run Phi-4 DISCA on the
-      twenty-country grid with the per-category cap disabled (companion
-      script: \texttt{exp\_r2\_no\_oversampling.py}), using the
-      \texttt{cap\_per\_category=False} flag on
-      \texttt{load\_multitp\_dataset}. The output
-      \texttt{no\_oversampling\_summary.csv} mirrors the primary
-      per-country table. This run executes 440 scenarios per country
-      (vs.\ the capped slice) and yields macro MIS 0.4051, macro
-      JSD 0.0662, and mean Pearson $r$ 0.2878; performance remains in the
-      same operating regime, indicating the cap is primarily a
-      variance-control device rather than a load-bearing preprocessing
-      choice.
+      twenty-country grid with the per-category cap disabled. This
+      run executes 440 scenarios per country (vs.\ the capped slice)
+      and yields macro MIS 0.4051, macro JSD 0.0662, and mean
+      Pearson $r$ 0.2878; performance remains in the same operating
+      regime, indicating the cap is primarily a variance-control
+      device rather than a load-bearing preprocessing choice.
 \end{itemize}
 
 Both runs use the same seed, native-language framing, and hyperparameters
