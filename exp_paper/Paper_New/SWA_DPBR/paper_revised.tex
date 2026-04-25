@@ -683,30 +683,44 @@ frontier-scale models.
 \end{figure}
 
 As a direct sanity check against simpler inference-time alternatives on the
-same 20-country Phi-4 grid, DISCA (MIS 0.346) remains ahead of the best
-prompt-only baseline variant (MIS 0.364), MC-Dropout uncertainty smoothing
-(0.403), activation steering (0.430), and SWAI-style additive biasing (0.439).
+same 20-country Phi-4 grid (Table~\ref{tab:main_baseline_sanity}), DISCA
+(MIS 0.346) remains ahead of the best prompt-only baseline variant
+(MIS 0.364), MC-Dropout uncertainty smoothing (0.403), activation steering
+(0.430), SWAI-style additive biasing (0.439), and vanilla decoding (0.454).
 Here, \emph{prompt baseline} means country-conditioned instruction prompting
 (best variant: B3-long role-framed prompt), and \emph{SWAI-style additive
 biasing} means applying a fixed side-bias logit offset per country estimated
-from calibration data. These baselines are training-free and cheap to deploy,
-but they do not match disagreement-informed steering in aggregate alignment.
+from calibration data. Notably, even \emph{oracle} calibration baselines that
+fit a per-country scalar on the human AMCE (Temperature scaling, Margin
+scaling) score \emph{above} 0.50 on this benchmark, indicating that simple
+scalar calibration over-fits the 25\% held-out split rather than recovering
+the cultural signal. DISCA, which never sees the human target, beats both
+oracle baselines and every fair (non-AMCE) inference-time baseline.
 
 \begin{table}[t]
-\caption{Sanity comparison on the Phi-4 20-country grid
-(macro MIS, lower is better).}
+\caption{Inference-time baseline comparison on the Phi-4 20-country grid
+(macro MIS, lower is better). Numbers below the dashed line use the
+human AMCE during calibration on a held-out 25\% split (\emph{oracle}
+access); even with this oracle they fail to match DISCA, indicating
+that scalar calibration over-fits the small calibration set.}
 \label{tab:main_baseline_sanity}
 \centering\scriptsize
 \setlength{\tabcolsep}{6pt}
-\begin{tabular}{lc}
+\begin{tabular}{lcc}
 \toprule
-Method & Macro MIS $\downarrow$ \\
+Method & Uses AMCE? & Macro MIS $\downarrow$ \\
 \midrule
-DISCA (ours) & \textbf{0.346} \\
-WVS Profile Prompting baseline & 0.384 \\
-PRISM-Style Prompting baseline & 0.395 \\
-MC-Dropout uncertainty smoothing (T=8, p=0.1) & 0.403 \\
-Activation steering & 0.430 \\
+\textbf{DISCA (ours)}                              & No  & \textbf{0.346} \\
+Prompt B3-long (best of B1\,/\,B2\,/\,B3\,/\,B4)   & No  & 0.364 \\
+MC-Dropout (T=8, p=0.1)                            & No  & 0.403 \\
+Activation steering                                & No  & 0.430 \\
+SWAI (logit-side additive bias)                    & No  & 0.439 \\
+WVS Profile prompt (B2)                            & No  & 0.453 \\
+Vanilla decoding                                   & No  & 0.454 \\
+\midrule
+\multicolumn{3}{l}{\emph{Oracle baselines (use human AMCE during calibration)}} \\
+Margin scaling (per-country $m_c$)                 & Yes & 0.506 \\
+Temperature scaling (per-country $T_c$)            & Yes & 0.513 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -2039,16 +2053,38 @@ Appendix~\ref{app:temp_sensitivity}.
 
 \paragraph{Additional round-3 sensitivity checks.}
 We additionally swept three operational knobs on the same
-USA/VNM/DEU panel. \textbf{Persona count:} $N{=}4$ is optimal among
-$N\in\{2,3,4,5,6\}$ (macro MIS 0.4051), with degradation at both smaller
-and larger panels (0.4252 at $N{=}2$, 0.4179 at $N{=}6$), supporting the
-four-persona design. \textbf{IS budget:} performance is flat around
-$K_{\text{half}}\in[16,64]$ (best 0.4092 at 16; 0.4103 at 64), indicating
+USA/VNM/DEU panel. \textbf{Persona count} ($N\in\{2,3,4,5,6\}$,
+Table~\ref{tab:r3_persona_count}): $N{=}4$ is optimal at macro MIS
+0.4051, with degradation at both smaller and larger panels (0.4252 at
+$N{=}2$, 0.4179 at $N{=}6$), supporting the four-persona design.
+\textbf{IS budget} ($K_{\text{half}}\in\{8,16,32,64,128,192\}$,
+Table~\ref{tab:r3_k_budget}): performance is flat across an order of
+magnitude (best 0.4092 at $K{=}16$; 0.4103 at $K{=}64$), indicating
 the default $K_{\text{half}}{=}64$ is in the stable region rather than
 over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$:} the
 per-category default outperforms all global schedules in this sweep
 (0.4098 vs.\ 0.4119--0.4138), supporting category-specific temperature
 structure.
+
+\begin{table}[h]
+\centering\small
+\caption{Persona-count sweep on the USA/VNM/DEU panel (Phi-4,
+$n{=}250$/country). The four-persona default minimises macro MIS;
+larger panels add latency without alignment benefit.}
+\label{tab:r3_persona_count}
+\input{tab_persona_count}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{IS-budget sweep ($K_{\text{half}}$ samples per pass; total per
+scenario is $K_\text{total}{=}2 K_\text{half}$). Macro MIS is flat
+across an order of magnitude. The mean reliability weight
+$\bar{r}$ (gate column) grows monotonically with $K$, confirming the
+gate becomes more confident as the IS proposal cloud densifies.}
+\label{tab:r3_k_budget}
+\input{tab_k_budget}
+\end{table}
 
 % ============================================================================
 \section{Dual-Pass Reliability Audit}
