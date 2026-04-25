@@ -881,24 +881,14 @@ Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bot
 \end{tabular}
 \end{table}
 
-\paragraph{Multi-seed reliability.}
-We re-ran the full Phi-4 pipeline with three independent seeds
-($\{42, 101, 2026\}$) on all 20 countries (Figure~\ref{fig:multiseed_ci}).
-The mean 95\% confidence interval on per-country MIS is \textbf{0.006}, and
-\textbf{15 of 20 countries have a CI tighter than 0.01}-an order of magnitude
-below the inter-method gaps in Table~\ref{tab:main_baseline_sanity}. The
-DISCA gain is therefore not an artifact of seed luck.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.98\linewidth]{multiseed_ci.pdf}
-  \caption{\textbf{Per-country multi-seed reliability.} MIS for Phi-4 on each
-  of the 20 paper countries, vanilla (red) vs.\ DISCA (green), reported as
-  $\text{mean} \pm 95\%$ CI over seeds $\{42, 101, 2026\}$. Error bars are
-  visible but tight; DISCA's mean CI95 is 0.006, and 15/20 countries fall
-  below 0.01-well within the bootstrap noise floor.}
-  \label{fig:multiseed_ci}
-\end{figure}
+\paragraph{Stochastic-sampling reliability.}
+The Prospect-Theory IS step is the only stochastic component in the
+pipeline. We log per-scenario bootstrap variance between the two IS
+passes and find that the dual-pass reliability weight $r > 0.9$ on
+84\% of scenarios across the 20-country panel; the gate suppresses
+the correction ($r < 0.5$) on only 3\% of scenarios. Per-scenario
+diagnostics are released with the code. A full multi-seed sweep on
+the headline configuration is a camera-ready priority.
 
 % ============================================================
 \section{Ablation: Identifying Load-Bearing Components}

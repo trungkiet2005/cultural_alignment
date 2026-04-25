@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.3.3)  25 APR 2026 15:27
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (MiKTeX 26.2) (preloaded format=pdflatex 2026.3.3)  25 APR 2026 15:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1131,48 +1131,34 @@ Package pdftex.def Info: figures/world_delta_mis.pdf  used on input line 773.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-
-Underfull \hbox (badness 2205) in paragraph at lines 885--891
- []\T1/ptm/b/n/10 (+20) Multi-seed re-li-a-bil-ity.[] \T1/ptm/m/n/10 (+20) We r
-e-ran the full Phi-4 pipeline with three in-de-pen-dent seeds
- []
-
-[10 <./figures/scaling_vs_calibration.pdf>]
-<figures/multiseed_ci.pdf, id=643, 819.78267pt x 386.7731pt>
-File: figures/multiseed_ci.pdf Graphic file (type pdf)
-<use figures/multiseed_ci.pdf>
-Package pdftex.def Info: figures/multiseed_ci.pdf  used on input line 894.
-(pdftex.def)             Requested size: 389.53358pt x 183.78404pt.
-
-Underfull \vbox (badness 1337) has occurred while \output is active []
-
- [11 <./figures/world_delta_mis.pdf>] [12 <./figures/multiseed_ci.pdf>]
-Underfull \vbox (badness 2080) has occurred while \output is active []
+[10 <./figures/scaling_vs_calibration.pdf>] [11 <./figures/world_delta_mis.pdf>
+] [12]
+Underfull \vbox (badness 10000) has occurred while \output is active []
 
  [13]
-(paper_revised.bbl [14] [15] [16]) [17] [18] [19] [20] [21]
+(paper_revised.bbl [14] [15]) [16] [17] [18] [19] [20]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[22]
+[21]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[23] [24]
-<figures/latency_vs_mis.pdf, id=891, 604.27974pt x 363.23807pt>
+[22] [23]
+<figures/latency_vs_mis.pdf, id=871, 604.27974pt x 363.23807pt>
 File: figures/latency_vs_mis.pdf Graphic file (type pdf)
 <use figures/latency_vs_mis.pdf>
-Package pdftex.def Info: figures/latency_vs_mis.pdf  used on input line 1651.
+Package pdftex.def Info: figures/latency_vs_mis.pdf  used on input line 1641.
 (pdftex.def)             Requested size: 357.73405pt x 215.04575pt.
 
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[25]
-<figures/per_dim_heatmap.pdf, id=910, 577.91936pt x 322.15875pt>
+[24]
+<figures/per_dim_heatmap.pdf, id=889, 577.91936pt x 322.15875pt>
 File: figures/per_dim_heatmap.pdf Graphic file (type pdf)
 <use figures/per_dim_heatmap.pdf>
-Package pdftex.def Info: figures/per_dim_heatmap.pdf  used on input line 1722.
+Package pdftex.def Info: figures/per_dim_heatmap.pdf  used on input line 1712.
 (pdftex.def)             Requested size: 365.68546pt x 203.85083pt.
 
 
@@ -1184,39 +1170,39 @@ LaTeX Warning: `h' float specifier changed to `ht'.
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[26 <./figures/latency_vs_mis.pdf>]
+[25 <./figures/latency_vs_mis.pdf>]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[27 <./figures/per_dim_heatmap.pdf>]
+[26 <./figures/per_dim_heatmap.pdf>]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[28]
+[27]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
 
 Underfull \vbox (badness 5288) has occurred while \output is active []
 
- [29]
+ [28]
 
 LaTeX Warning: `h' float specifier changed to `ht'.
 
-[30] [31] [32]
-Underfull \hbox (badness 4441) in paragraph at lines 2191--2197
+[29] [30] [31]
+Underfull \hbox (badness 4441) in paragraph at lines 2181--2187
 []\T1/ptm/m/n/10 (+20) These met-rics are ob-tained post-hoc from the ex-ist-in
 g per-country CSVs (no model
  []
 
 
-Underfull \hbox (badness 1348) in paragraph at lines 2225--2237
+Underfull \hbox (badness 1348) in paragraph at lines 2215--2227
 \T1/ptm/m/n/10 (+20) To place seed-level con-fi-dence in-ter-vals on the head-l
 ine 19--24% MIS re-duc-tion, we re-
  []
 
 
-Underfull \hbox (badness 1931) in paragraph at lines 2225--2237
+Underfull \hbox (badness 1931) in paragraph at lines 2215--2227
 \T1/ptm/m/n/10 (+20) run Phi-4 with three seeds ($\OMS/cmsy/m/n/10 f\OT1/cmr/m/
 n/10 42\OML/cmm/m/it/10 ; \OT1/cmr/m/n/10 101\OML/cmm/m/it/10 ; \OT1/cmr/m/n/10
  2026\OMS/cmsy/m/n/10 g$\T1/ptm/m/n/10 (+20) ) over the twenty pa-per coun-trie
@@ -1224,12 +1210,12 @@ s and com-
  []
 
 
-Underfull \hbox (badness 4872) in paragraph at lines 2225--2237
+Underfull \hbox (badness 4872) in paragraph at lines 2215--2227
 \T1/ptm/m/n/10 (+20) pute a 95% nor-mal CI around the macro MIS, sep-a-rately f
 or vanilla and DISCA.
  []
 
-[33] (paper_revised.aux)
+[32] (paper_revised.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1238,13 +1224,13 @@ Package rerunfilecheck Info: File `paper_revised.out' has not changed.
 (rerunfilecheck)             Checksum: 78B0C3F9DC06D9B9B232F624C54BEE4A;11343.
  ) 
 Here is how much of TeX's memory you used:
- 28869 strings out of 467867
- 541570 string characters out of 5416363
- 1067082 words of memory out of 5000000
- 56553 multiletter control sequences out of 15000+600000
+ 28857 strings out of 467867
+ 541244 string characters out of 5416363
+ 1065734 words of memory out of 5000000
+ 56543 multiletter control sequences out of 15000+600000
  729521 words of font info for 415 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 84i,15n,94p,1990b,676s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 84i,15n,94p,1990b,652s stack positions out of 10000i,1000n,20000p,200000b,200000s
  <C:\Users\DELL 3450\AppData\Local\MiKTeX\fonts/pk/ljfour/jknappen/ec/dpi600\
 ectt1000.pk><C:/Users/DELL 3450/AppData/Local/Programs/MiKTeX/fonts/type1/publi
 c/amsfonts/cm/cmbx10.pfb><C:/Users/DELL 3450/AppData/Local/Programs/MiKTeX/font
@@ -1275,9 +1261,9 @@ eX/fonts/type1/urw/helvetic/uhvr8a.pfb><C:/Users/DELL 3450/AppData/Local/Progra
 ms/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Users/DELL 3450/AppData/Local/Pr
 ograms/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/Users/DELL 3450/AppData/Loca
 l/Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on paper_revised.pdf (33 pages, 747064 bytes).
+Output written on paper_revised.pdf (32 pages, 725800 bytes).
 PDF statistics:
- 1237 PDF objects out of 1440 (max. 8388607)
- 217 named destinations out of 1000 (max. 500000)
- 93163 words of extra memory for PDF output out of 106986 (max. 10000000)
+ 1213 PDF objects out of 1440 (max. 8388607)
+ 215 named destinations out of 1000 (max. 500000)
+ 93158 words of extra memory for PDF output out of 106986 (max. 10000000)
 
