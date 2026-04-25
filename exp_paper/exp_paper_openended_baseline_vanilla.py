@@ -292,9 +292,11 @@ def run_stage1(cfg: BaselineConfig) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*70}")
-    print(f"  BASELINE Stage 1 — actor=[{cfg.actor_model_name}]")
+    print(f"  OPEN-ENDED Stage 1 (VANILLA BASELINE) — actor=[{cfg.actor_model_name}]")
     print(f"{'='*70}")
     print(f"[CFG] out_dir={out_dir}  countries={cfg.countries}  n_scenarios={cfg.n_scenarios}")
+    print(f"[CFG] max_new_tokens={cfg.max_new_tokens_actor}  4bit=False  seed={cfg.seed}")
+    print(f"[CFG] use_real_data={cfg.use_real_data}  flush_every={cfg.flush_every}")
 
     model, tokenizer = load_model_hf_native(
         cfg.actor_model_name, max_seq_length=2048, load_in_4bit=False,
@@ -460,8 +462,11 @@ def run_stage2(cfg: BaselineConfig) -> None:
         d.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*70}")
-    print(f"  BASELINE Stage 2 — judge=[{cfg.judge_model_name}]")
+    print(f"  OPEN-ENDED Stage 2 (VANILLA BASELINE) — judge=[{cfg.judge_model_name}]")
     print(f"{'='*70}")
+    print(f"[CFG] stage1={stage1_dir}  out={results_base}  countries={cfg.countries}")
+    print(f"[CFG] max_new_tokens={cfg.max_new_tokens_judge}  T_DECISION={T_DECISION}  "
+          f"max_parse_fail_pct={cfg.max_parse_fail_pct}")
 
     judge_model, judge_tokenizer = load_model_hf_native(
         cfg.judge_model_name, max_seq_length=4096, load_in_4bit=False,
@@ -595,9 +600,13 @@ def run_stage2(cfg: BaselineConfig) -> None:
                 "judge_parse_fail_pct": fail_pct,
             })
 
+            van_align = van_summary.get("alignment", {})
             print(
-                f"  [OK] {country}  VAN MIS={van_summary.get('alignment', {}).get('mis', float('nan')):.4f}"
-                f"  r={van_summary.get('alignment', {}).get('pearson_r', float('nan')):+.3f}"
+                f"  [OK] {country}  "
+                f"VAN MIS={van_align.get('mis', float('nan')):.4f}  "
+                f"r={van_align.get('pearson_r', float('nan')):+.3f}  "
+                f"JSD={van_align.get('jsd', float('nan')):.4f}  "
+                f"n={van_summary['n_scenarios']}  parse_fail%={fail_pct:.1f}"
             )
             torch.cuda.empty_cache()
             gc.collect()
@@ -610,6 +619,22 @@ def run_stage2(cfg: BaselineConfig) -> None:
     cmp_df = pd.DataFrame(compare_rows)
     cmp_df.to_csv(cmp_root / "comparison.csv", index=False)
     print(f"\n[Stage 2] DONE — comparison at {cmp_root/'comparison.csv'}")
+    if not cmp_df.empty:
+        print(f"\n{'='*70}")
+        print(f"  FINAL SUMMARY — VANILLA BASELINE  ({len(cmp_df)} country rows)")
+        print(f"{'='*70}")
+        cols = [c for c in (
+            "country", "align_mis", "align_pearson_r", "align_jsd",
+            "n_scenarios", "judge_parse_fail_pct",
+        ) if c in cmp_df.columns]
+        with pd.option_context("display.max_rows", None, "display.width", 140):
+            print(cmp_df[cols].to_string(index=False))
+        if "align_mis" in cmp_df.columns:
+            print(
+                f"\n[MEAN] MIS={cmp_df['align_mis'].mean():.4f}  "
+                f"r={cmp_df['align_pearson_r'].mean():+.3f}  "
+                f"JSD={cmp_df['align_jsd'].mean():.4f}"
+            )
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -648,7 +673,9 @@ def main() -> None:
     print(f"\n[BASELINE] stage={stage}  countries={cfg.countries}  n={cfg.n_scenarios}")
     print(f"[BASELINE] actor={cfg.actor_model_name}")
     print(f"[BASELINE] judge={cfg.judge_model_name}")
-    print(f"[BASELINE] results_base={cfg.results_base}")
+    print(f"[BASELINE] results_base={cfg.results_base}  jsonl_dir={cfg.out_jsonl_dir}")
+    print(f"[BASELINE] max_new_tokens_actor={cfg.max_new_tokens_actor}  "
+          f"max_new_tokens_judge={cfg.max_new_tokens_judge}  seed={cfg.seed}")
 
     if stage in ("1", "both"):
         run_stage1(cfg)

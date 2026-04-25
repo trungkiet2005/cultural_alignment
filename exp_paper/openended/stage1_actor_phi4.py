@@ -210,10 +210,11 @@ def run_stage1(cfg: Stage1Config) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*70}")
-    print(f"  OPEN-ENDED Stage 1 — actor=[{cfg.model_name}]")
+    print(f"  OPEN-ENDED Stage 1 (SWA-DPBR) — actor=[{cfg.model_name}]")
     print(f"{'='*70}")
     print(f"[CFG] out_dir={out_dir}  countries={cfg.countries}  n_scenarios={cfg.n_scenarios}")
     print(f"[CFG] max_new_tokens={cfg.max_new_tokens}  4bit={cfg.load_in_4bit}  seed={cfg.seed}")
+    print(f"[CFG] use_real_data={cfg.use_real_data}  flush_every={cfg.flush_every}")
 
     model, tokenizer = load_model_hf_native(
         cfg.model_name, max_seq_length=2048, load_in_4bit=cfg.load_in_4bit,

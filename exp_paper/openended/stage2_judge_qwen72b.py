@@ -405,9 +405,14 @@ def run_stage2(cfg: Stage2Config) -> None:
         d.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*70}")
-    print(f"  OPEN-ENDED Stage 2 — judge=[{cfg.judge_model_name}]")
+    print(f"  OPEN-ENDED Stage 2 (SWA-DPBR) — judge=[{cfg.judge_model_name}]")
     print(f"{'='*70}")
     print(f"[CFG] stage1={stage1_dir}  out={results_base}  countries={cfg.countries}")
+    print(f"[CFG] max_new_tokens={cfg.max_new_tokens}  4bit={cfg.load_in_4bit}  "
+          f"max_parse_fail_pct={cfg.max_parse_fail_pct}  model_label={cfg.model_label}")
+    print(f"[CFG] EXP24_VAR_SCALE={os.environ.get('EXP24_VAR_SCALE', '0.04')}  "
+          f"EXP24_K_HALF={os.environ.get('EXP24_K_HALF', '64')}  "
+          f"EXP24_ESS_ANCHOR_REG={os.environ.get('EXP24_ESS_ANCHOR_REG', '1')}")
 
     judge_model, judge_tokenizer = load_model_hf_native(
         cfg.judge_model_name, max_seq_length=4096, load_in_4bit=cfg.load_in_4bit,
@@ -507,9 +512,21 @@ def run_stage2(cfg: Stage2Config) -> None:
                 "judge_parse_fail_pct": fail_pct,
             })
 
+            swa_align = swa_summary.get("alignment", {})
+            van_align = van_summary.get("alignment", {})
+            swa_mis = swa_align.get("mis", float("nan"))
+            van_mis = van_align.get("mis", float("nan"))
+            mis_delta = van_mis - swa_mis if (
+                not math.isnan(swa_mis) and not math.isnan(van_mis)
+            ) else float("nan")
             print(
-                f"  [OK] {country}  SWA MIS={swa_summary.get('alignment', {}).get('mis', float('nan')):.4f}"
-                f"  VAN MIS={van_summary.get('alignment', {}).get('mis', float('nan')):.4f}"
+                f"  [OK] {country}  "
+                f"SWA MIS={swa_mis:.4f}  r={swa_align.get('pearson_r', float('nan')):+.3f}  "
+                f"JSD={swa_align.get('jsd', float('nan')):.4f}  |  "
+                f"VAN MIS={van_mis:.4f}  r={van_align.get('pearson_r', float('nan')):+.3f}  "
+                f"JSD={van_align.get('jsd', float('nan')):.4f}  |  "
+                f"ΔMIS={mis_delta:+.4f}  n={swa_summary['n_scenarios']}  "
+                f"parse_fail%={fail_pct:.1f}"
             )
             torch.cuda.empty_cache()
             gc.collect()
@@ -523,3 +540,41 @@ def run_stage2(cfg: Stage2Config) -> None:
     cmp_df = pd.DataFrame(compare_rows)
     cmp_df.to_csv(cmp_root / "comparison.csv", index=False)
     print(f"\n[Stage 2] DONE — comparison at {cmp_root/'comparison.csv'}")
+
+    if not cmp_df.empty:
+        print(f"\n{'='*70}")
+        print(f"  FINAL SUMMARY — OPEN-ENDED SWA-DPBR  ({len(cmp_df)} rows)")
+        print(f"{'='*70}")
+        cols = [c for c in (
+            "country", "method", "align_mis", "align_pearson_r", "align_jsd",
+            "n_scenarios", "mean_reliability_r", "mean_bootstrap_var",
+            "mean_ess_pass1", "mean_ess_pass2", "mean_ess_anchor_alpha",
+            "mean_positional_bias", "judge_parse_fail_pct",
+        ) if c in cmp_df.columns]
+        with pd.option_context("display.max_rows", None, "display.width", 200):
+            print(cmp_df[cols].to_string(index=False))
+
+        if "method" in cmp_df.columns and "align_mis" in cmp_df.columns:
+            for method in cmp_df["method"].unique():
+                sub = cmp_df[cmp_df["method"] == method]
+                print(
+                    f"\n[MEAN method={method}]  "
+                    f"MIS={sub['align_mis'].mean():.4f}  "
+                    f"r={sub['align_pearson_r'].mean():+.3f}  "
+                    f"JSD={sub['align_jsd'].mean():.4f}  "
+                    f"({len(sub)} countries)"
+                )
+            swa_sub = cmp_df[cmp_df["method"] == "openended_dpbr"]
+            van_sub = cmp_df[cmp_df["method"] == "baseline_vanilla_from_base"]
+            if not swa_sub.empty and not van_sub.empty:
+                merged = swa_sub.merge(
+                    van_sub[["country", "align_mis"]],
+                    on="country", suffixes=("_swa", "_van"),
+                )
+                if not merged.empty:
+                    delta = merged["align_mis_van"] - merged["align_mis_swa"]
+                    print(
+                        f"\n[ΔMIS van→swa] mean={delta.mean():+.4f}  "
+                        f"median={delta.median():+.4f}  "
+                        f"min={delta.min():+.4f}  max={delta.max():+.4f}"
+                    )

@@ -194,6 +194,12 @@ def main() -> None:
 
     countries = _env_list("OPENENDED_COUNTRIES", RUN_COUNTRIES)
     n_scenarios = int(os.environ.get("OPENENDED_N_SCENARIOS", str(RUN_N_SCENARIOS)))
+    max_new_tokens_actor = int(os.environ.get(
+        "OPENENDED_MAX_NEW_TOKENS_ACTOR", str(RUN_MAX_NEW_TOKENS_ACTOR)
+    ))
+    max_new_tokens_judge = int(os.environ.get(
+        "OPENENDED_MAX_NEW_TOKENS_JUDGE", str(RUN_MAX_NEW_TOKENS_JUDGE)
+    ))
 
     results_base_default = (
         f"{WORK_DIR}/results/openended" if _on_kaggle() else
@@ -202,10 +208,19 @@ def main() -> None:
     results_base = os.environ.get("OPENENDED_RESULTS_BASE", results_base_default)
     jsonl_dir = os.environ.get("OPENENDED_JSONL_DIR", f"{results_base}/stage1")
 
-    print(f"\n[OPENENDED] stage={stage}  countries={countries}")
+    actor_4bit = _env_bool("ACTOR_LOAD_4BIT", False)
+    judge_4bit = _env_bool("JUDGE_LOAD_4BIT", False)
+
+    print(f"\n[OPENENDED] stage={stage}  countries={countries}  n={n_scenarios}")
     print(f"[OPENENDED] actor={ACTOR_MODEL_PATH}")
     print(f"[OPENENDED] judge={JUDGE_MODEL_PATH}")
     print(f"[OPENENDED] results_base={results_base}  jsonl_dir={jsonl_dir}")
+    print(f"[OPENENDED] max_new_tokens_actor={max_new_tokens_actor}  "
+          f"max_new_tokens_judge={max_new_tokens_judge}  "
+          f"actor_4bit={actor_4bit}  judge_4bit={judge_4bit}")
+    print(f"[OPENENDED] EXP24_VAR_SCALE={os.environ.get('EXP24_VAR_SCALE', '0.04')}  "
+          f"EXP24_K_HALF={os.environ.get('EXP24_K_HALF', '64')}  "
+          f"EXP24_ESS_ANCHOR_REG={os.environ.get('EXP24_ESS_ANCHOR_REG', '1')}")
 
     if stage in ("1", "both"):
         s1 = Stage1Config(
@@ -215,10 +230,8 @@ def main() -> None:
             wvs_data_path=WVS_DATA_PATH,
             use_real_data=os.path.isdir(MULTITP_DATA_PATH),
             n_scenarios=n_scenarios,
-            max_new_tokens=int(os.environ.get(
-                "OPENENDED_MAX_NEW_TOKENS_ACTOR", str(RUN_MAX_NEW_TOKENS_ACTOR)
-            )),
-            load_in_4bit=_env_bool("ACTOR_LOAD_4BIT", False),
+            max_new_tokens=max_new_tokens_actor,
+            load_in_4bit=actor_4bit,
             countries=countries,
         )
         run_stage1(s1)
@@ -236,16 +249,13 @@ def main() -> None:
             pass
 
     if stage in ("2", "both"):
-        judge_4bit = _env_bool("JUDGE_LOAD_4BIT", False)
         s2 = Stage2Config(
             judge_model_name=JUDGE_MODEL_PATH,
             stage1_jsonl_dir=jsonl_dir,
             results_base=results_base,
             human_amce_path=HUMAN_AMCE_PATH,
             load_in_4bit=judge_4bit,
-            max_new_tokens=int(os.environ.get(
-                "OPENENDED_MAX_NEW_TOKENS_JUDGE", str(RUN_MAX_NEW_TOKENS_JUDGE)
-            )),
+            max_new_tokens=max_new_tokens_judge,
             countries=countries,
             model_label="qwen25_7b_openended_disca",
         )
