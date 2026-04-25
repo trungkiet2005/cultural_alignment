@@ -38,6 +38,12 @@ from __future__ import annotations
 
 import os as _os
 import sys as _sys
+
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _kaggle_setup import bootstrap_offline, zip_outputs as _zip_outputs
+
+bootstrap_offline()
+
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -45,12 +51,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr
 
-# Allow import from repo root if run locally from elsewhere.
 _HERE = Path(__file__).resolve()
-for parent in [_HERE.parent.parent.parent, _HERE.parent.parent]:
-    if (parent / "src" / "controller.py").is_file() and str(parent) not in _sys.path:
-        _sys.path.insert(0, str(parent))
-        break
 
 DEFAULT_DIMS = [
     "Species_Humans",
@@ -221,3 +222,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    try:
+        _zip_outputs(RESULTS_BASE)
+    except Exception as _e:
+        print(f"[ZIP] failed: {_e}")

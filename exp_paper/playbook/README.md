@@ -9,12 +9,23 @@ reliability-weight distribution figure (Exp 10) — plus the all-in-one
 `exp_paper_disca_playbook_qwen25_7b.py` runner that executes Exp 1–12
 on Qwen2.5-7B in a single script.
 
-All scripts share the same Kaggle self-bootstrap pattern as `round2/`
-and `round3/` — copy-paste a single `!python ...` line into a fresh
-Kaggle notebook cell and the script clones the repo, sets up the
-environment, and runs. Outputs land in
-`results/exp24_round4/<experiment>/` (per-experiment) or
+All scripts share the same **Kaggle offline-mode** bootstrap (no internet
+required — Kaggle competition kernels). Copy-paste a single `!python ...`
+line into a fresh Kaggle notebook cell and the script copies the repo
+from a Kaggle input dataset to `/kaggle/working/cultural_alignment`,
+sets HF/Transformers offline mode, runs the experiment, and **zips
+the output to `/kaggle/working/<exp_name>.zip`** for one-click download.
+
+Outputs land in `results/exp24_round4/<experiment>/` (per-experiment) or
 `results/exp24_playbook_qwen25_7b/` (all-in-one runner).
+
+### Required Kaggle inputs
+
+Attach to your notebook (these are the candidates the bootstrap looks for):
+- repo: `notebooks/foundnotkiet/git-moral/cultural-alignment` (notebook output)
+        or any path under `/kaggle/input/cultural-alignment/`
+- model weights as a Kaggle model dataset (varies per experiment)
+- multitp data: `/kaggle/input/datasets/trungkiet/mutltitp-data/`
 
 ## Layout
 

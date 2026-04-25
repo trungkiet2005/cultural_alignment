@@ -2057,4 +2057,11 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+        from _kaggle_setup import zip_outputs as _zip_outputs
+        _zip_outputs(RESULTS_BASE)
+    except Exception as _e:
+        print(f"[ZIP] failed: {_e}")
 

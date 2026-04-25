@@ -28,29 +28,13 @@ Env overrides:
 
 from __future__ import annotations
 
-import os as _os, subprocess as _sp, sys as _sys
+import os as _os
+import sys as _sys
 
-_REPO_URL = "https://github.com/trungkiet2005/cultural_alignment.git"
-_REPO_DIR_KAGGLE = "/kaggle/working/cultural_alignment"
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from _kaggle_setup import bootstrap_offline, zip_outputs as _zip_outputs
 
-
-def _r2_bootstrap() -> str:
-    here = _os.getcwd()
-    if _os.path.isfile(_os.path.join(here, "src", "controller.py")):
-        if here not in _sys.path:
-            _sys.path.insert(0, here)
-        return here
-    if not _os.path.isdir("/kaggle/input"):
-        raise RuntimeError("Not on Kaggle and not inside the repo root.")
-    if not _os.path.isdir(_REPO_DIR_KAGGLE):
-        _sp.run(["git", "clone", "--depth", "1", _REPO_URL, _REPO_DIR_KAGGLE], check=True)
-    _os.chdir(_REPO_DIR_KAGGLE)
-    _sys.path.insert(0, _REPO_DIR_KAGGLE)
-    return _REPO_DIR_KAGGLE
-
-
-_r2_bootstrap()
-
+bootstrap_offline()
 import glob
 import os
 from pathlib import Path
