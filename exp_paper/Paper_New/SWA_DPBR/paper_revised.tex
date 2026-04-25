@@ -2362,21 +2362,68 @@ referenced in the main text.
 % ============================================================================
 
 The ablation in \S\ref{sec:ablation} uses a single (model, country)
-cell - Phi-4 on the USA - so a natural concern is whether the
-identified load-bearing components are Phi-4 / USA specific or hold more
-broadly. To answer this, we rerun the six-row ablation table
-(Table~\ref{tab:ablation_phi4}) across a $3 \times 3 = 9$-cell grid:
-three models (Phi-4, Qwen2.5-7B, Phi-3.5-mini) crossed with three
-countries (USA, JPN, VNM). The companion script
-\texttt{exp\_r2\_ablation\_breadth.py} writes
-\texttt{ablation\_breadth\_summary.csv}. The finding transfers cleanly:
-positional debiasing and persona diversity remain the two largest
-single-component drops in every cell; the IS kernel and country prior
-contribute consistently smaller but always directional improvements.
-On the Phi-4 subset of this 9-cell sweep, macro MIS rises from 0.3569
-(full method) to 0.3658 (always-on PT--IS), 0.3750 (no-IS), 0.3964
-(no debiasing), 0.4117 (no country prior), and 0.4363 (without personas),
-matching the load-bearing ordering reported in the main ablation.
+cell -- Phi-4 on the USA -- so a natural concern is whether the
+identified load-bearing components are Phi-4-specific. We address
+this in two complementary ways: a 3-country probe across three
+backbones (Phi-4, Qwen2.5-7B, Phi-3.5-mini) and a 20-country
+ablation on Qwen2.5-7B as a second backbone for full-panel
+verification.
+
+\paragraph{20-country ablation on Qwen2.5-7B (BF16).}
+We re-run the four structural ablations from
+Table~\ref{tab:ablation_phi4} across all 20 paper countries with the
+same Qwen2.5-7B BF16 backbone that produces the headline
+$\text{MIS}=0.362$ in Table~\ref{tab:main_macro_summary}.
+Table~\ref{tab:ablation_qwen20c} reports macro MIS, the macro shift
+relative to Full DISCA, and the count of countries hurt by each
+ablation.
+
+\begin{table}[h]
+\centering\small
+\caption{Structural ablation on Qwen2.5-7B (BF16) across the
+20-country panel. Full DISCA's macro MIS is 0.362, matching
+Table~\ref{tab:main_macro_summary}. ``$n$ hurt'' counts countries
+with strictly higher MIS than Full DISCA. Persona removal is the
+single largest hurt (16/20 countries, $+0.055$ macro), confirming the
+Phi-4 finding that personas are load-bearing across backbones.
+Debiasing has a much smaller effect on Qwen2.5-7B than on Phi-4
+because Qwen's vanilla logits exhibit less positional bias.}
+\label{tab:ablation_qwen20c}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lccc}\toprule
+Configuration            & Macro MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt / 20 \\\midrule
+Full DISCA               & \textbf{0.362} & ---     & --- \\
+Without persona          & 0.417          & $+0.055$ & 16 \\
+Always-on PT-IS          & 0.379          & $+0.017$ & 14 \\
+No-IS (consensus only)   & 0.371          & $+0.009$ & 12 \\
+No debiasing             & 0.363          & $+0.001$ & 12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The hierarchy on Qwen2.5-7B differs from the Phi-4 ablation
+(\S\ref{sec:ablation}) in an interpretable way: persona is the
+dominant component on both backbones, but debiasing's contribution is
+\emph{model-dependent}. On Phi-4, vanilla decoding has a large
+positional bias of $\bar{b} \approx -29.1$ logit units, so removing
+debiasing collapses Pearson $r$ by $-0.282$ (Table~\ref{tab:ablation_phi4}).
+On Qwen2.5-7B (BF16), the same removal moves MIS by only $+0.001$
+because the base logits are already approximately balanced. The
+two-backbone view therefore tells a sharper story than the
+single-cell ablation alone: persona disagreement is universally
+load-bearing, while positional debiasing is a corrective whose value
+is proportional to the backbone's raw bias magnitude.
+
+\paragraph{3-country probe across three backbones.}
+A complementary 3-model $\times$ 3-country grid (Phi-4,
+Qwen2.5-7B, Phi-3.5-mini $\times$ USA, JPN, VNM) is in
+\texttt{result/ablation\_breadth/}. On the Phi-4 subset of this
+9-cell sweep, macro MIS rises from 0.357 (full) to 0.366 (always-on
+PT--IS), 0.375 (no-IS), 0.396 (no debiasing), and 0.436 (without
+personas), matching the load-bearing ordering reported in the main
+ablation. The Qwen2.5-7B and Phi-3.5-mini cells are noisier in this
+3-country panel due to the smaller $n$, which is exactly why we
+include the dedicated 20-country Qwen2.5-7B sweep above.
 
 % ============================================================================
 \section{Scenario-Slice Release and Category-Cap Sensitivity}
