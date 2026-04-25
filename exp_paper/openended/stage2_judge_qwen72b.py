@@ -71,6 +71,7 @@ class Stage2Config:
     max_parse_fail_pct: float = 5.0
     countries: List[str] = field(default_factory=list)
     lambda_coop: float = 0.70
+    model_label: str = "phi4_openended"
 
 
 # ----------------------------------------------------------------------------
@@ -473,7 +474,7 @@ def run_stage2(cfg: Stage2Config) -> None:
 
             ps = PRIOR_STATE.get(country, BootstrapPriorState()).stats
             compare_rows.append({
-                "model": "phi4_openended",
+                "model": cfg.model_label,
                 "judge": cfg.judge_model_name,
                 "method": "baseline_vanilla_from_base",
                 "country": country,
@@ -481,7 +482,7 @@ def run_stage2(cfg: Stage2Config) -> None:
                 "n_scenarios": van_summary["n_scenarios"],
             })
             compare_rows.append({
-                "model": "phi4_openended",
+                "model": cfg.model_label,
                 "judge": cfg.judge_model_name,
                 "method": "openended_dpbr",
                 "country": country,

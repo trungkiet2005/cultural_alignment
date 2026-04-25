@@ -28,7 +28,7 @@ Setup:
     4. Run with Internet OFF
 
 Usage:
-    !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_openended_with_judge_llm.py
+    !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_openended_with_DISCA.py
 
 Environment variables:
     OPENENDED_STAGE            "1" | "2" | "both"     (default: both)
@@ -151,8 +151,7 @@ print(f"[SETUP] Actor model path: {ACTOR_MODEL_PATH}")
 print(f"[SETUP] Judge model path: {JUDGE_MODEL_PATH}")
 
 # Offline dep fallback (uses Kaggle's pre-cached wheels; --no-index avoids network).
-# Self-judge uses the same Qwen2.5-7B BF16 weights as the actor, so no GPTQ deps
-# (auto-gptq / optimum) are required.
+# Self-judge reuses the actor's Qwen2.5-7B BF16 weights — no GPTQ deps required.
 if _on_kaggle():
     subprocess.run(
         "pip install -q --no-deps --no-index scipy tqdm sentencepiece protobuf "
@@ -216,7 +215,9 @@ def main() -> None:
             wvs_data_path=WVS_DATA_PATH,
             use_real_data=os.path.isdir(MULTITP_DATA_PATH),
             n_scenarios=n_scenarios,
-            max_new_tokens=int(os.environ.get("OPENENDED_MAX_NEW_TOKENS_ACTOR", "400")),
+            max_new_tokens=int(os.environ.get(
+                "OPENENDED_MAX_NEW_TOKENS_ACTOR", str(RUN_MAX_NEW_TOKENS_ACTOR)
+            )),
             load_in_4bit=_env_bool("ACTOR_LOAD_4BIT", False),
             countries=countries,
         )
@@ -225,8 +226,8 @@ def main() -> None:
 
     if stage == "both":
         # Bridge between stages: drop any lingering CUDA allocations before
-        # loading the 72B judge. `run_stage1` already frees the actor, this is
-        # belt-and-braces.
+        # reloading the self-judge. `run_stage1` already frees the actor; this
+        # is belt-and-braces.
         try:
             import torch
             if torch.cuda.is_available():
@@ -242,8 +243,11 @@ def main() -> None:
             results_base=results_base,
             human_amce_path=HUMAN_AMCE_PATH,
             load_in_4bit=judge_4bit,
-            max_new_tokens=int(os.environ.get("OPENENDED_MAX_NEW_TOKENS_JUDGE", "64")),
+            max_new_tokens=int(os.environ.get(
+                "OPENENDED_MAX_NEW_TOKENS_JUDGE", str(RUN_MAX_NEW_TOKENS_JUDGE)
+            )),
             countries=countries,
+            model_label="qwen25_7b_openended_disca",
         )
         run_stage2(s2)
 
