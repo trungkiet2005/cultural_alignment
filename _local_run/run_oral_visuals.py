@@ -1016,32 +1016,37 @@ def plot_ablation_multiseed() -> None:
         print(f"  [SKIP] {csv_path}")
         return
 
-    # Compute delta-vs-Full per (model, country) ourselves: read all ablation
-    # rows, find the Full SWA-DPBR MIS for each (model, country), subtract.
+    # Switch to Pearson r delta (rank-order metric). MIS delta on this
+    # particular dataset has a "JSD paradox" sign-flip on debiasing (paper
+    # tracker note 2026-04-13): MIS can improve when distribution flattens,
+    # so MIS delta misattributes debiasing's effect. Pearson r is the
+    # rank-order metric the paper actually claims for ablation hierarchy.
     by_mc: Dict[Tuple[str, str], Dict[str, float]] = defaultdict(dict)
     with open(csv_path, "r", encoding="utf-8", newline="") as fh:
         for r in csv.DictReader(fh):
             if r["ablation"] not in PRIMARY_ABLATIONS:
                 continue
             try:
-                mis = float(r["mis"])
+                pr = float(r["pearson_r"])
             except (KeyError, ValueError):
                 continue
-            if np.isfinite(mis):
-                by_mc[(r["model"], r["country"])][r["ablation"]] = mis
+            if np.isfinite(pr):
+                by_mc[(r["model"], r["country"])][r["ablation"]] = pr
 
     rows = []
     full_label = "Full SWA-DPBR"
     for (model, country), abl_map in by_mc.items():
         if full_label not in abl_map:
             continue
-        full_mis = abl_map[full_label]
-        for ablation, mis in abl_map.items():
+        full_r = abl_map[full_label]
+        for ablation, r in abl_map.items():
             rows.append({
                 "model": model, "country": country,
                 "ablation": ablation,
-                # Sign convention: + means removing component HURTS (mis went up).
-                "delta": mis - full_mis,
+                # Sign convention: NEGATIVE means removing this component
+                # HURTS rank-order (Pearson r dropped). The Full reference
+                # is r=Full so its delta = 0.
+                "delta": r - full_r,
             })
 
     if not rows:
@@ -1052,8 +1057,16 @@ def plot_ablation_multiseed() -> None:
     for r in rows:
         by_abl[r["ablation"]].append(r["delta"])
 
-    # Order: ablations whose removal hurts most (largest +delta) at top.
-    order = sorted([a for a in by_abl], key=lambda a: -np.mean(by_abl[a]))
+    # Order so that, when boxplot draws with index 0 at bottom and index N-1
+    # at top, the figure reads as:
+    #     TOP    = most critical component (most-negative Δr)
+    #     BOTTOM = reference (Full SWA-DPBR, Δr = 0)
+    # Layout list = [Full, least-hurt, ..., most-hurt]. Sort non-Full rows
+    # in DESCENDING order of mean Δr (largest first → least critical first).
+    order = ["Full SWA-DPBR"] + sorted(
+        [a for a in by_abl if a != "Full SWA-DPBR"],
+        key=lambda a: -np.mean(by_abl[a]),
+    )
 
     fig, ax = plt.subplots(figsize=(10, 5))
     data = [by_abl[a] for a in order]
@@ -1066,24 +1079,38 @@ def plot_ablation_multiseed() -> None:
                         markeredgecolor="none", alpha=0.5),
     )
     means = [float(np.mean(by_abl[a])) for a in order]
-    vmax = max(0.001, max(abs(m) for m in means))
-    for patch, m in zip(box["boxes"], means):
-        patch.set_facecolor(DIVERGING_RDGN(0.5 + 0.5 * (m / vmax) * 0.85))
-        patch.set_alpha(0.85); patch.set_edgecolor("black"); patch.set_linewidth(0.6)
+    # Color encoding: more-negative Δr (component more critical when removed)
+    # → deeper RED. Positive (rare, removing helps) → green. Full (mean=0)
+    # gets a neutral teal so it stands out as the reference row.
+    vmax = max(0.05, max(abs(m) for m in means))
+    for patch, m, label in zip(box["boxes"], means, order):
+        if label == "Full SWA-DPBR":
+            patch.set_facecolor("#4DB6AC")  # teal reference
+            patch.set_alpha(0.85)
+        else:
+            # negative m → red; positive m → green; map (m / vmax) ∈ [-1, 1]
+            # to cmap t ∈ [0, 1] where 0 = red, 1 = green.
+            t = 0.5 + 0.5 * (m / vmax) * 0.85
+            patch.set_facecolor(DIVERGING_RDGN(t))
+            patch.set_alpha(0.85)
+        patch.set_edgecolor("black"); patch.set_linewidth(0.6)
 
     ax.axvline(0, color="black", lw=1.0, alpha=0.7)
     ax.set_yticklabels(order, fontsize=10.5)
-    ax.set_xlabel(r"$\Delta$MIS vs Full SWA-DPBR  "
-                  r"($+$ = removing this component hurts, $-$ = helps)",
+    ax.set_xlabel(r"$\Delta$ Pearson $r$ vs Full SWA-DPBR  "
+                  r"($-$ = removing this component hurts rank-order, "
+                  r"$+$ = helps)",
                   fontsize=11, labelpad=8)
-    ax.set_title("Ablation effect — across 3 models × 3 countries  "
-                 "(Phi-4, Phi-3.5-Mini, Qwen2.5-7B)", fontsize=12, pad=10)
+    ax.set_title("Ablation effect on rank-order alignment "
+                 r"($\Delta$ Pearson $r$, 3 models × 3 countries)",
+                 fontsize=12, pad=10)
     ax.grid(True, axis="x", alpha=0.3, lw=0.5)
 
     # Annotate component-importance ordering
     for i, (a, m) in enumerate(zip(order, means)):
-        col = "#222" if abs(m) < 0.005 else ("#1B7C3D" if m < 0 else "#B2182B")
-        ax.annotate(f"mean = {m:+.4f}",
+        # Negative = component is critical → red, positive → grey-ish
+        col = "#B2182B" if m < -0.01 else ("#1B7C3D" if m > 0.01 else "#444")
+        ax.annotate(f"mean = {m:+.3f}",
                     (m, i + 1), xytext=(10, 0), textcoords="offset points",
                     va="center", fontsize=9.5, color=col, weight="bold")
 
