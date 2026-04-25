@@ -8,7 +8,7 @@ high-ESS yet disagree, and what does the gate do in that case?".
 This script does NOT re-run the model; it's post-hoc over existing CSVs.
 
 Kaggle:
-    !python exp_paper/review/round2/phase1_posthoc/exp_r2_reliability_audit.py
+    !python exp_paper/playbook/exp_r2_reliability_audit.py
 
 Env overrides:
     R2_SWA_DIR   where to find swa_results_*.csv (default: Kaggle Phi-4 path)

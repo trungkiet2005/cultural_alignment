@@ -15,7 +15,7 @@ strictly more information than SWA-DPBR -- the comparison is deliberately
 favourable to the baseline.
 
 Kaggle:
-    !python exp_paper/review/round2/phase2_baselines/exp_r2_baseline_diffpo.py
+    !python exp_paper/playbook/exp_r2_baseline_diffpo.py
 """
 
 from __future__ import annotations

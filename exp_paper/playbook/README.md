@@ -22,37 +22,70 @@ environment, and runs. Outputs land in
 playbook/
 ├── experiment_playbook.md                   # The playbook itself (instructions per Exp)
 ├── exp_paper_disca_playbook_qwen25_7b.py    # All-in-one runner: Exp 1–12 on Qwen2.5-7B
-├── exp_r4_scenario_logging.py               # Exp 1  — Figure 2 disagreement-vs-correction scatter
-├── exp_r4_country_correlation.py            # Exp 2  — Figure 3 country-level variance vs ΔMIS
-├── exp_r4_multiseed.py                      # Exp 3  — Multi-seed CI (mean ± std)
-├── exp_r4_tail_safety.py                    # Exp 4  — Full DISCA vs consensus across 6×20 cells
-├── exp_r4_baselines.py                      # Exp 5  — Strong baselines (vanilla, WVS, MC-dropout, Temp, DiffPO)
-├── exp_r4_ablation_3x3.py                   # Exp 6  — 5 variants × 3 models × 3 countries
-├── exp_r4_failure_prediction.py             # Exp 7  — Predictive failure regression on vanilla features
-├── exp_r3_persona_count.py                  # Exp 8  — N-persona sensitivity (N ∈ {2..6})
-├── exp_r4_negr_diagnosis.py                 # Exp 9  — Negative-r diagnosis (rank swap analysis)
-├── exp_r4_reliability_dist.py               # Exp 10 — Reliability weight histogram + CDF
-├── exp_r3_per_dim_cross_model.py            # Exp 11 — Per-dimension MIS-reduction across models
-├── exp_r2_wvs_dropout.py                    # Exp 12 — WVS dimension leave-one-out
-└── wvs_dimension_matrix.py                  # Exp 12 — Post-hoc 10×6 impact matrix
+│
+│ ───── Exp 1 — Disagreement-Correction (Figure 2) ────────────────
+├── exp_r4_scenario_logging.py               # per-scenario log + Pearson r scatter
+│
+│ ───── Exp 2 — Country-Level Correlation (Figure 3) ──────────────
+├── exp_r4_country_correlation.py            # per-country mean variance vs ΔMIS
+│
+│ ───── Exp 3 — Multi-Seed Confidence Intervals ───────────────────
+├── exp_r4_multiseed.py                      # 5-country multi-seed (Phi-4 default)
+├── exp_r2_multiseed_phi4.py                 # full 20-country multi-seed (Phi-4)
+│
+│ ───── Exp 4 — Tail-Safety (Step 3 defense) ──────────────────────
+├── exp_r4_tail_safety.py                    # Full DISCA vs consensus across 6×20 cells
+│
+│ ───── Exp 5 — Strong Baselines ──────────────────────────────────
+├── exp_r4_baselines.py                      # all-in-one: vanilla / WVS / MC-dropout / Temp / DiffPO
+├── exp_r2_baseline_dropout.py               # MC-Dropout standalone (Phi-4 × 20)
+├── exp_r2_baseline_diffpo.py                # DiffPO-binary standalone
+├── exp_r2_baseline_tempmargin.py            # per-country temperature/margin scaling
+├── exp_r3_baseline_prompts.py               # B1/B2/B3/B4 prompt-prefix baselines (incl. WVS prompt)
+│
+│ ───── Exp 6 — 3×3 Ablation Grid ─────────────────────────────────
+├── exp_r4_ablation_3x3.py                   # 5 variants × 3 models × 3 countries
+├── exp_r2_ablation_breadth.py               # 6-row ablation across more (model, country) pairs
+│
+│ ───── Exp 7 — Predictive Failure Model ──────────────────────────
+├── exp_r4_failure_prediction.py             # regress ΔMIS on margin/entropy/vanilla_mis
+│
+│ ───── Exp 8 — N-Persona Sensitivity ─────────────────────────────
+├── exp_r3_persona_count.py                  # N ∈ {2..6}
+│
+│ ───── Exp 9 — Negative Pearson r Diagnosis ──────────────────────
+├── exp_r4_negr_diagnosis.py                 # rank-swap analysis on negative-r countries
+├── exp_r2_rank_agreement.py                 # Kendall τ / Spearman ρ / mean rank-error
+│
+│ ───── Exp 10 — Reliability Weight Distribution ──────────────────
+├── exp_r4_reliability_dist.py               # histogram + CDF
+├── exp_r2_reliability_audit.py              # post-hoc audit table from main run
+│
+│ ───── Exp 11 — Per-Dimension Improvement ────────────────────────
+├── exp_r3_per_dim_cross_model.py            # 6-models × 6-dimensions matrix
+├── exp_r2_per_dim_mis.py                    # per-dim MIS decomposition for one model
+│
+│ ───── Exp 12 — WVS Dimension Dropout ────────────────────────────
+├── exp_r2_wvs_dropout.py                    # leave-one-WVS-dim-out
+└── wvs_dimension_matrix.py                  # post-hoc 10×6 WVS-vs-MultiTP impact matrix
 ```
 
 ## What each script defends
 
-| Script | Playbook Exp | Reviewer attack it preempts |
+| Playbook Exp | Reviewer attack it preempts | Primary script(s) |
 |---|---|---|
-| `exp_r4_scenario_logging.py`    | 1  | "The central claim 'disagreement is the signal' is asserted but never demonstrated." |
-| `exp_r4_country_correlation.py` | 2  | "Method effectiveness varies across countries for no explained reason." |
-| `exp_r4_multiseed.py`           | 3  | "Single-seed results. Where are the error bars?" |
-| `exp_r4_tail_safety.py`         | 4  | "Step 3 contributes only +0.006 MIS. It's a marginal component." |
-| `exp_r4_baselines.py`           | 5  | "Baselines are weak. How does DISCA compare to oracle methods?" |
-| `exp_r4_ablation_3x3.py`        | 6  | "Ablation is on one model and one country. Does the hierarchy generalise?" |
-| `exp_r4_failure_prediction.py`  | 7  | "When does DISCA fail? Can we predict it?" |
-| `exp_r3_persona_count.py`       | 8  | "Why 4 personas? Is it the right operating point?" |
-| `exp_r4_negr_diagnosis.py`      | 9  | "Negative Pearson r despite better MIS — does DISCA capture cultural structure?" |
-| `exp_r4_reliability_dist.py`    | 10 | "The self-regulation claim is vague. Show me the gate actually activates." |
-| `exp_r3_per_dim_cross_model.py` | 11 | "Where do the gains come from? Is the pattern backbone-dependent?" |
-| `exp_r2_wvs_dropout.py` + `wvs_dimension_matrix.py` | 12 | "Which WVS dim drives which moral dim? Show causal coupling." |
+| 1  | "The central claim 'disagreement is the signal' is asserted but never demonstrated." | `exp_r4_scenario_logging.py` |
+| 2  | "Method effectiveness varies across countries for no explained reason." | `exp_r4_country_correlation.py` |
+| 3  | "Single-seed results. Where are the error bars?" | `exp_r4_multiseed.py`, `exp_r2_multiseed_phi4.py` |
+| 4  | "Step 3 contributes only +0.006 MIS. It's a marginal component." | `exp_r4_tail_safety.py` |
+| 5  | "Baselines are weak. How does DISCA compare to oracle methods?" | `exp_r4_baselines.py`, `exp_r2_baseline_*`, `exp_r3_baseline_prompts.py` |
+| 6  | "Ablation is on one model and one country. Does the hierarchy generalise?" | `exp_r4_ablation_3x3.py`, `exp_r2_ablation_breadth.py` |
+| 7  | "When does DISCA fail? Can we predict it?" | `exp_r4_failure_prediction.py` |
+| 8  | "Why 4 personas? Is it the right operating point?" | `exp_r3_persona_count.py` |
+| 9  | "Negative Pearson r despite better MIS — does DISCA capture cultural structure?" | `exp_r4_negr_diagnosis.py`, `exp_r2_rank_agreement.py` |
+| 10 | "The self-regulation claim is vague. Show me the gate actually activates." | `exp_r4_reliability_dist.py`, `exp_r2_reliability_audit.py` |
+| 11 | "Where do the gains come from? Is the pattern backbone-dependent?" | `exp_r3_per_dim_cross_model.py`, `exp_r2_per_dim_mis.py` |
+| 12 | "Which WVS dim drives which moral dim? Show causal coupling." | `exp_r2_wvs_dropout.py`, `wvs_dimension_matrix.py` |
 
 ## Run order (recommended)
 

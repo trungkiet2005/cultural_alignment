@@ -22,7 +22,7 @@ Key claims this supports:
 No GPU required -- pure post-hoc over existing CSVs.
 
 Kaggle:
-    !python exp_paper/review/round2/phase7_oral/exp_r2_per_dim_mis.py
+    !python exp_paper/playbook/exp_r2_per_dim_mis.py
 
 Env overrides:
     R2_MODEL_SHORT    slug used to build default CSV paths (default: phi_4)

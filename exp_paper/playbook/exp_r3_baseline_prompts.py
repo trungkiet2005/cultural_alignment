@@ -17,7 +17,7 @@ ask the model to speak as country X without ever supplying the
 within-country disagreement signal that SWA-DPBR exploits.
 
 Kaggle:
-    !python exp_paper/review/round3/baselines/exp_r3_baseline_prompts.py
+    !python exp_paper/playbook/exp_r3_baseline_prompts.py
 
 Env overrides:
     R2_BASELINES       comma list (default: B1,B2,B3_short,B3_long,B4)

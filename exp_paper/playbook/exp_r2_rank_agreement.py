@@ -15,7 +15,7 @@ Output:
                                              MIS decreases" scatter.
 
 Usage:
-    python exp_paper/review/round2/phase1_posthoc/exp_r2_rank_agreement.py
+    python exp_paper/playbook/exp_r2_rank_agreement.py
 """
 
 from __future__ import annotations

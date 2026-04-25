@@ -16,7 +16,7 @@ The IS proposal noise is drawn from ``torch.randn`` which is seeded via
     * the dual-pass bootstrap variance
 
 Kaggle (best on a long session):
-    !python exp_paper/review/round2/phase4_big_sweeps/exp_r2_multiseed_phi4.py
+    !python exp_paper/playbook/exp_r2_multiseed_phi4.py
 """
 
 from __future__ import annotations
