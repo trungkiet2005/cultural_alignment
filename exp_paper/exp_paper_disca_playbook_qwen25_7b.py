@@ -1990,7 +1990,8 @@ def main() -> None:
                n_scenarios=n_scenarios, seed=seed, out_dir=out_dir)
 
         # Exp 9 (model-free)
-        if model_amce_csv.exists() and human_amce_long.exists():
+        if (str(model_amce_csv) != "" and str(human_amce_long) != ""
+                and model_amce_csv.is_file() and human_amce_long.is_file()):
             _timed("Exp9", run_experiment_9,
                    disca_model_amce_csv=model_amce_csv, human_amce_csv=human_amce_long, out_dir=out_dir)
         else:
@@ -2005,7 +2006,8 @@ def main() -> None:
             print(f"[PLAYBOOK][SKIP] Exp10 needs scenario CSV")
 
         # Exp 11 (model-free)
-        if vanilla_per_dim_csv.exists() and disca_per_dim_csv.exists():
+        if (str(vanilla_per_dim_csv) != "" and str(disca_per_dim_csv) != ""
+                and vanilla_per_dim_csv.is_file() and disca_per_dim_csv.is_file()):
             _timed("Exp11", run_experiment_11,
                    vanilla_per_dim_csv=vanilla_per_dim_csv,
                    disca_per_dim_csv=disca_per_dim_csv, out_dir=out_dir)
