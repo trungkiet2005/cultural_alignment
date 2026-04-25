@@ -2074,10 +2074,53 @@ twenty-country grid; because baselines (7) and (8) use
 \emph{population-level} supervision while DISCA uses only
 \emph{within-country persona disagreement} (never touching the human AMCE
 at inference), the comparison is deliberately favourable to the
-baselines. Implementation:
+baselines. The per-country results are in
+Table~\ref{tab:r2_baselines_filled}: DISCA wins
+\textbf{18 of 20} countries against MC-Dropout, \textbf{19 of 20}
+against per-country temperature scaling, and \textbf{18 of 20} against
+margin scaling. Implementation:
 \texttt{src/mc\_dropout\_runner.py},
 \texttt{src/calibration\_baselines.py},
 \texttt{src/diffpo\_binary\_baseline.py}.
+
+\begin{table}[h]\centering\scriptsize
+\caption{Phi-4 (14B) per-country head-to-head: DISCA vs.\ three
+inference-time baselines on the same 20-country test split. Per-country
+held-out MIS ($\downarrow$, lower is better). \textbf{Bold} cells mark
+the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country.
+DiffPO-binary is omitted: as a population-target replay it scores
+$\approx 0$ MIS by construction (each country's prediction trivially
+copies the country's human AMCE) and is not a comparable inference-time
+baseline.}
+\label{tab:r2_baselines_filled}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lcccc}\toprule
+Country & DISCA (ours) & MC-Dropout & $T_c$ scale & Margin $m_c$ \\\midrule
+ARG & \textbf{0.389} & 0.412 & 0.471 & 0.453 \\
+BGD & \textbf{0.368} & 0.379 & 0.535 & 0.535 \\
+BRA & 0.299 & 0.306 & 0.354 & \textbf{0.298} \\
+CHN & \textbf{0.214} & 0.367 & 0.528 & 0.528 \\
+COL & 0.438 & \textbf{0.389} & 0.501 & 0.469 \\
+DEU & \textbf{0.255} & 0.376 & 0.580 & 0.580 \\
+ETH & \textbf{0.485} & 0.526 & 0.655 & 0.655 \\
+GBR & \textbf{0.319} & 0.407 & 0.576 & 0.576 \\
+IDN & \textbf{0.274} & 0.452 & 0.542 & 0.542 \\
+IRN & 0.530 & 0.538 & 0.382 & \textbf{0.353} \\
+JPN & \textbf{0.195} & 0.371 & 0.327 & 0.327 \\
+KGZ & 0.393 & \textbf{0.361} & 0.538 & 0.538 \\
+MEX & \textbf{0.420} & 0.445 & 0.509 & 0.506 \\
+MMR & \textbf{0.357} & 0.382 & 0.523 & 0.523 \\
+MYS & \textbf{0.328} & 0.363 & 0.497 & 0.497 \\
+ROU & \textbf{0.385} & 0.398 & 0.564 & 0.564 \\
+SRB & \textbf{0.385} & 0.410 & 0.563 & 0.563 \\
+THA & \textbf{0.313} & 0.342 & 0.494 & 0.494 \\
+USA & \textbf{0.243} & 0.369 & 0.564 & 0.564 \\
+VNM & \textbf{0.336} & 0.473 & 0.561 & 0.561 \\\midrule
+\textbf{Macro} & \textbf{0.346} & 0.403 & 0.513 & 0.506 \\
+\textbf{Wins (DISCA vs.)} & --- & 18/20 & 19/20 & 18/20 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 % ============================================================================
 \section{Extended Hyperparameter Sensitivity}
