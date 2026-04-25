@@ -2135,10 +2135,13 @@ $N{=}2$, 0.4179 at $N{=}6$), supporting the four-persona design.
 Table~\ref{tab:r3_k_budget}): performance is flat across an order of
 magnitude (best 0.4092 at $K{=}16$; 0.4103 at $K{=}64$), indicating
 the default $K_{\text{half}}{=}64$ is in the stable region rather than
-over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$:} the
-per-category default outperforms all global schedules in this sweep
-(0.4098 vs.\ 0.4119--0.4138), supporting category-specific temperature
-structure.
+over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$}
+(Table~\ref{tab:r3_global_tcat}): the per-category default outperforms
+\emph{every} global schedule we tested (0.4098 vs.\ all
+seven global values in $\{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$, which
+land in $0.4119$--$0.4138$). The advantage is small in absolute terms
+but consistent: per-category temperature is preserving information
+that any single global value flattens.
 
 \begin{table}[h]
 \centering\small
@@ -2173,6 +2176,28 @@ $K_\text{half}$ & $K_\text{total}$ & Macro MIS $\downarrow$ & Flip rate & $\over
 64 & 128 & 0.4103 & 0.280 & 0.793 & 0.113 \\
 128 & 256 & 0.4147 & 0.274 & 0.814 & 0.116 \\
 192 & 384 & 0.4126 & 0.273 & 0.827 & 0.112 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{Global vs.\ per-category $T_{\text{cat}}$ on the USA/VNM/DEU
+panel. The per-category default (decision $4.0$, social $3.5$,
+non-social $1.5$) outperforms every global value we tested. The gap
+is small ($\le 0.004$) but uniformly directional, supporting
+category-specific decision temperatures over a single shared scalar.}
+\label{tab:r3_global_tcat}
+\begin{tabular}{lccc}\toprule
+$T_{\text{cat}}$ schedule & Macro MIS $\downarrow$ & Std & Flip rate \\\midrule
+\textbf{per-category default (4.0 / 3.5 / 1.5)} & \textbf{0.4098} & 0.0881 & 0.278 \\\midrule
+global $T_\text{cat} = 1.00$ & 0.4120 & 0.0921 & 0.292 \\
+global $T_\text{cat} = 1.50$ & 0.4119 & 0.0838 & 0.304 \\
+global $T_\text{cat} = 2.00$ & 0.4138 & 0.0778 & 0.301 \\
+global $T_\text{cat} = 2.50$ & 0.4134 & 0.0774 & 0.296 \\
+global $T_\text{cat} = 3.00$ & 0.4127 & 0.0749 & 0.303 \\
+global $T_\text{cat} = 3.50$ & 0.4138 & 0.0689 & 0.306 \\
+global $T_\text{cat} = 4.00$ & 0.4128 & 0.0734 & 0.302 \\
 \bottomrule
 \end{tabular}
 \end{table}
