@@ -2,7 +2,7 @@
 
 ---
 
-#### 2026-04-13 — EXP-24 Ablation CORRECTED (Phi-4 14B **vLLM**, USA) — `exp_paper/exp_paper_ablation_phi4.py`
+#### 2026-04-13 — EXP-24 Ablation CORRECTED (Phi-4 14B **vLLM**, USA) — `exp_paper/ablation/exp_paper_ablation_phi4.py`
 
 > **Supersedes the Unsloth entry below.** Backend fixed to vLLM; numbers now match the main EXP-24-PHI_4 sweep.
 
