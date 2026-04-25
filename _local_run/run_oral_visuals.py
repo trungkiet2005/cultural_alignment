@@ -33,6 +33,47 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
 from matplotlib.lines import Line2D
+from matplotlib.patches import FancyBboxPatch, Polygon
+from matplotlib import rcParams
+
+# Paper-quality typography
+rcParams.update({
+    "font.family":      "DejaVu Sans",
+    "font.size":        11,
+    "axes.titlesize":   12,
+    "axes.labelsize":   11,
+    "axes.spines.top":   False,
+    "axes.spines.right": False,
+    "axes.linewidth":   0.8,
+    "xtick.major.width": 0.8,
+    "ytick.major.width": 0.8,
+    "legend.frameon":   True,
+    "legend.framealpha": 0.95,
+    "savefig.bbox":     "tight",
+    "pdf.fonttype":     42,
+    "ps.fonttype":      42,
+})
+
+# Refined diverging palette (paper-style, slightly muted)
+COL_VAN  = "#D6604D"   # vanilla orange-red
+COL_SWA  = "#1B7C3D"   # DISCA forest green
+COL_HUMN = "#2166AC"   # human steel blue
+COL_GREY = "#999999"
+DIVERGING = LinearSegmentedColormap.from_list(
+    "rdgn_paper",
+    ["#B2182B", "#D6604D", "#F4A582", "#FDDBC7",
+     "#F7F7F7",
+     "#D1E5F0", "#92C5DE", "#4393C3", "#2166AC"][::-1],
+    N=256,
+)
+# We want negative→red, positive→green for our gain plots.
+DIVERGING_RDGN = LinearSegmentedColormap.from_list(
+    "rdgn_diva",
+    ["#B2182B", "#D6604D", "#F4A582", "#FDDBC7",
+     "#F2F0E6",
+     "#C7E9C0", "#74C476", "#31A354", "#006D2C"],
+    N=256,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULT = ROOT / "exp_paper" / "result" / "exp24_playbook_qwen25_7b"
@@ -137,10 +178,16 @@ def plot_per_dim_heatmap() -> None:
         for r in csv.DictReader(fh):
             cells[(r["model"], r["dimension"])] = float(r["macro_delta"])
 
-    # Only keep models where DISCA delivers a clear win — sorts by mean Δ.
+    # Headline tier — sort by COUNT of positive cells (then by mean) so models
+    # that are "uniformly positive across dims" rank higher than models with
+    # one big spike + one big regression. This sort is purely cosmetic and
+    # does not change which cells are shown.
+    def _score(m):
+        vals = [cells.get((m, d), 0.0) for d in DIMS]
+        return (sum(v > 0 for v in vals), np.mean(vals))
     models = sorted(
         [m for m in HEADLINE_MODELS if any((m, d) in cells for d in DIMS)],
-        key=lambda m: -np.mean([cells.get((m, d), 0.0) for d in DIMS]),
+        key=lambda m: -_score(m)[0] - _score(m)[1] / 100.0,
     )
     M = np.full((len(models), len(DIMS)), np.nan)
     for i, m in enumerate(models):
@@ -150,30 +197,38 @@ def plot_per_dim_heatmap() -> None:
                 M[i, j] = v
 
     finite = M[np.isfinite(M)]
-    # Symmetric vmax so the diverging cmap stays centered at 0 even when
-    # all selected cells happen to be positive.
-    vmax = float(np.max(np.abs(finite))) if len(finite) else 1.0
-    norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
-    cmap = LinearSegmentedColormap.from_list(
-        "rdgn", ["#C04E28", "#F2EDE0", "#1A8A66"], N=256,
-    )
+    # Asymmetric range based on actual data so positive greens stay vivid
+    # rather than getting washed out by a forced symmetric scale.
+    vmin = float(np.min(finite))
+    vmax = float(np.max(finite))
+    pad = 0.5
+    norm = TwoSlopeNorm(vmin=min(vmin - pad, -1), vcenter=0.0, vmax=max(vmax + pad, 1))
+    cmap = DIVERGING_RDGN
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
+    fig, ax = plt.subplots(figsize=(8.5, 4.6))
     im = ax.imshow(M, aspect="auto", cmap=cmap, norm=norm)
+    # Subtle white grid between cells
+    ax.set_xticks(np.arange(M.shape[1] + 1) - 0.5, minor=True)
+    ax.set_yticks(np.arange(M.shape[0] + 1) - 0.5, minor=True)
+    ax.grid(which="minor", color="white", lw=1.5)
+    ax.tick_params(which="minor", length=0)
+
     for i in range(M.shape[0]):
         for j in range(M.shape[1]):
             if np.isfinite(M[i, j]):
-                col = "white" if abs(M[i, j]) > vmax * 0.55 else "black"
+                # White text on saturated cells, dark on light ones
+                col = "white" if abs(M[i, j]) > 0.65 * max(abs(vmin), abs(vmax)) else "#222"
+                weight = "bold" if M[i, j] > 5 else "normal"
                 ax.text(j, i, f"{M[i, j]:+.2f}", ha="center", va="center",
-                        fontsize=8.5, color=col)
+                        fontsize=9, color=col, weight=weight)
     ax.set_xticks(range(len(DIMS)))
-    ax.set_xticklabels([DIM_SHORT[d] for d in DIMS], rotation=20, ha="right")
+    ax.set_xticklabels([DIM_SHORT[d] for d in DIMS], rotation=18, ha="right")
     ax.set_yticks(range(len(models)))
-    ax.set_yticklabels([PRETTY_MODEL.get(m, m) for m in models])
-    ax.set_xlabel("MultiTP dimension", fontsize=11)
-    ax.set_title("DISCA macro improvement on the headline 6 models\n"
-                 "(vanilla |err| − DISCA |err|, pp; sorted by mean Δ)",
-                 fontsize=11)
+    ax.set_yticklabels([PRETTY_MODEL.get(m, m) for m in models], fontsize=10.5)
+    ax.set_xlabel("MultiTP dimension", fontsize=11.5, labelpad=8)
+    ax.set_title(r"DISCA per-dim improvement, headline models  "
+                 r"($\Delta = $vanilla |err|$\,-\,$DISCA |err|, pp)",
+                 fontsize=12, pad=10)
     cb = plt.colorbar(im, ax=ax, shrink=0.85)
     cb.set_label(r"$\Delta$ MPR error (pp)", rotation=90)
     plt.tight_layout()
@@ -286,29 +341,45 @@ def plot_scaling_vs_calibration() -> None:
         w.writeheader()
         w.writerows(rows)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(8.5, 5.2))
 
     xs = [r["params_B"] for r in rows]
     van = [r["vanilla_mis"] for r in rows]
     swa = [r["disca_mis"] for r in rows]
 
-    ax.scatter(xs, van, s=110, color="#C04E28", alpha=0.85,
-               label="Vanilla (baseline)", zorder=3, edgecolors="black", linewidth=0.4)
-    ax.scatter(xs, swa, s=110, color="#1A8A66", alpha=0.9, marker="^",
-               label="DISCA (ours)", zorder=4, edgecolors="black", linewidth=0.4)
+    # Soft horizontal "good zone" band
+    if min(swa) < min(van):
+        ax.axhspan(0, min(swa) + 0.02, color="#E8F5E9", alpha=0.5, zorder=0,
+                   label="DISCA reach")
 
-    # Connect each model's (vanilla, DISCA) pair with an arrow
+    ax.scatter(xs, van, s=140, color=COL_VAN, alpha=0.9,
+               label="Vanilla (baseline)", zorder=3,
+               edgecolors="black", linewidth=0.5)
+    ax.scatter(xs, swa, s=160, color=COL_SWA, alpha=0.95, marker="^",
+               label="DISCA (ours)", zorder=4,
+               edgecolors="black", linewidth=0.5)
+
+    # Vanilla→DISCA arrows + per-model labels
     for r in rows:
         ax.annotate(
             "", xy=(r["params_B"], r["disca_mis"]),
             xytext=(r["params_B"], r["vanilla_mis"]),
-            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.55, lw=1.0),
+            arrowprops=dict(arrowstyle="->", color="#666", alpha=0.6, lw=1.1),
             zorder=2,
         )
+        # Phi-4 gets a bold star marker on top of triangle (headline model)
+        is_phi4 = r["model"] == "phi_4"
+        if is_phi4:
+            ax.scatter([r["params_B"]], [r["disca_mis"]], s=350, marker="*",
+                       facecolor="#FFD93D", edgecolor="#B8860B", linewidth=1.2,
+                       zorder=6, label="Headline (Phi-4)")
         ax.annotate(
             PRETTY_MODEL.get(r["model"], r["model"]),
             (r["params_B"], r["disca_mis"]),
-            xytext=(8, -3), textcoords="offset points", fontsize=9, color="#222",
+            xytext=(10, -4), textcoords="offset points",
+            fontsize=10 if is_phi4 else 9.5,
+            color="#222",
+            weight="bold" if is_phi4 else "normal",
         )
 
     # Pareto frontier (DISCA): connect dots in non-increasing MIS as params grow
@@ -341,11 +412,15 @@ def plot_scaling_vs_calibration() -> None:
             )
 
     ax.set_xscale("log")
-    ax.set_xlabel("Model parameters (B, log)", fontsize=11)
-    ax.set_ylabel("Mean MIS across 20 countries  ↓ better", fontsize=11)
+    ax.set_xlabel("Model parameters (B, log scale)", fontsize=11.5, labelpad=8)
+    ax.set_ylabel(r"Mean MIS across 20 countries  ($\downarrow$ better)",
+                  fontsize=11.5, labelpad=8)
     ax.set_title("Calibration competes with scale — DISCA reshapes the size/MIS curve",
-                 fontsize=11)
-    ax.legend(loc="upper right", fontsize=9)
+                 fontsize=12.5, pad=10)
+    # Y-axis honest: starts at 0 to avoid "exaggerated diff" critique
+    ax.set_ylim(bottom=0.0)
+    ax.set_yticks(np.arange(0.0, 0.81, 0.1))
+    ax.legend(loc="upper left", fontsize=9.5, framealpha=0.95)
     ax.grid(True, alpha=0.3, lw=0.5)
     plt.tight_layout()
 
@@ -469,35 +544,80 @@ def plot_amce_pca() -> None:
     n = len(countries)
     H2, D2, V2 = proj[:n], proj[n:2 * n], proj[2 * n:3 * n]
 
-    fig, ax = plt.subplots(figsize=(8.5, 6))
+    fig, ax = plt.subplots(figsize=(9, 6.5))
+
+    def _convex_hull(pts: np.ndarray) -> np.ndarray:
+        """2-D convex hull via Andrew's monotone chain (numpy-only)."""
+        pts = np.asarray(pts)
+        pts = pts[np.lexsort((pts[:, 1], pts[:, 0]))]
+        def cross(o, a, b):
+            return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+        lower = []
+        for p in pts:
+            while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+                lower.pop()
+            lower.append(tuple(p))
+        upper = []
+        for p in reversed(pts):
+            while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+                upper.pop()
+            upper.append(tuple(p))
+        return np.array(lower[:-1] + upper[:-1])
+
+    # Soft hulls behind the points so the three clusters read as regions.
+    for pts, color, label in [
+        (V2, COL_VAN,  "Vanilla cloud"),
+        (D2, COL_SWA,  "DISCA cloud"),
+        (H2, COL_HUMN, "Human cloud"),
+    ]:
+        hull = _convex_hull(pts)
+        ax.add_patch(Polygon(hull, closed=True, facecolor=color, alpha=0.12,
+                             edgecolor=color, linewidth=1.2, linestyle="-",
+                             zorder=1))
 
     # Vanilla → DISCA arrows
     for i, c in enumerate(countries):
         ax.annotate(
             "", xy=D2[i], xytext=V2[i],
-            arrowprops=dict(arrowstyle="->", color="#1A8A66", alpha=0.55, lw=0.8),
+            arrowprops=dict(arrowstyle="->", color=COL_SWA, alpha=0.55, lw=0.9),
             zorder=2,
         )
 
-    ax.scatter(H2[:, 0], H2[:, 1], s=140, marker="*", color="#2D5F9A",
-               alpha=0.9, edgecolors="black", linewidth=0.6, label="Human", zorder=5)
-    ax.scatter(V2[:, 0], V2[:, 1], s=80, marker="o", color="#C04E28",
-               alpha=0.7, edgecolors="black", linewidth=0.4, label="Vanilla model", zorder=4)
-    ax.scatter(D2[:, 0], D2[:, 1], s=80, marker="^", color="#1A8A66",
-               alpha=0.85, edgecolors="black", linewidth=0.4, label="DISCA model", zorder=4)
+    ax.scatter(H2[:, 0], H2[:, 1], s=180, marker="*", color=COL_HUMN,
+               alpha=0.95, edgecolors="black", linewidth=0.7,
+               label="Human", zorder=5)
+    ax.scatter(V2[:, 0], V2[:, 1], s=95, marker="o", color=COL_VAN,
+               alpha=0.85, edgecolors="black", linewidth=0.5,
+               label="Vanilla", zorder=4)
+    ax.scatter(D2[:, 0], D2[:, 1], s=95, marker="^", color=COL_SWA,
+               alpha=0.95, edgecolors="black", linewidth=0.5,
+               label="DISCA", zorder=4)
 
     for i, c in enumerate(countries):
         ax.annotate(c, H2[i], xytext=(5, 5), textcoords="offset points",
-                    fontsize=8, color="#2D5F9A")
+                    fontsize=8, color=COL_HUMN, alpha=0.85)
 
-    ax.set_xlabel(f"PC 1", fontsize=11)
-    ax.set_ylabel(f"PC 2", fontsize=11)
-    ax.set_title(f"Geometric story: DISCA pulls the model toward the human point\n"
+    # Distance reduction summary printed inside the plot
+    dist_van = float(np.mean(np.linalg.norm(V2 - H2, axis=1)))
+    dist_swa = float(np.mean(np.linalg.norm(D2 - H2, axis=1)))
+    n_pull = int((np.linalg.norm(D2 - H2, axis=1)
+                  < np.linalg.norm(V2 - H2, axis=1)).sum())
+    summary = (f"DISCA pulled {n_pull}/{n} countries closer to human\n"
+               f"mean ‖model−human‖: {dist_van:.1f} → {dist_swa:.1f}  "
+               f"({100*(1-dist_swa/dist_van):+.1f}%)")
+    ax.text(0.02, 0.02, summary, transform=ax.transAxes, fontsize=10,
+            va="bottom", ha="left",
+            bbox=dict(boxstyle="round,pad=0.4", facecolor="white",
+                      edgecolor=COL_SWA, lw=1.0, alpha=0.95))
+
+    ax.set_xlabel("PC 1", fontsize=11.5, labelpad=8)
+    ax.set_ylabel("PC 2", fontsize=11.5, labelpad=8)
+    ax.set_title(f"Geometric story: DISCA pulls the model toward the human cluster\n"
                  f"({PRETTY_MODEL.get(target_model)}, "
-                 f"{n} countries, {100 * expl:.1f}% variance in 2 PCs)",
-                 fontsize=11)
-    ax.legend(loc="upper right", fontsize=10, framealpha=0.9)
-    ax.grid(True, alpha=0.3, lw=0.5)
+                 f"{n} countries, {100 * expl:.1f}% variance captured)",
+                 fontsize=12, pad=10)
+    ax.legend(loc="upper right", fontsize=10.5, framealpha=0.95)
+    ax.grid(True, alpha=0.25, lw=0.4)
     ax.set_aspect("equal", adjustable="datalim")
     plt.tight_layout()
 
@@ -543,49 +663,55 @@ def plot_world_delta_mis() -> None:
         print("  [SKIP] too few countries")
         return
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
-    # Light continental backdrop using regional rectangles (very rough, just for context)
+    fig, ax = plt.subplots(figsize=(12, 5.6))
+    ax.set_facecolor("#EAF1F8")  # ocean tint
+    # Continental backdrop — soft beige for land, no border
     backdrop_regions = [
-        # (lon_min, lon_max, lat_min, lat_max, name)
-        (-170, -30, -55, 75, ""),     # Americas
-        (-25,  60, -35, 70, ""),      # Europe + Africa
-        (60,  180, -45, 75, ""),      # Asia + Oceania
+        (-170, -30, -55, 75),  # Americas
+        (-25,  60, -35, 70),   # Europe + Africa
+        (60,  180, -45, 75),   # Asia + Oceania
     ]
-    for lo1, lo2, la1, la2, _ in backdrop_regions:
+    for lo1, lo2, la1, la2 in backdrop_regions:
         ax.add_patch(plt.Rectangle((lo1, la1), lo2 - lo1, la2 - la1,
-                                   facecolor="#F2EDE0", edgecolor="none",
-                                   alpha=0.6, zorder=1))
+                                   facecolor="#F5F1E6", edgecolor="none",
+                                   alpha=0.95, zorder=1))
 
     vmax = float(max(np.max(np.abs(deltas)), 1e-6))
-    cmap = LinearSegmentedColormap.from_list(
-        "rdgn_world", ["#C04E28", "#F2EDE0", "#1A8A66"], N=256,
-    )
+    cmap = DIVERGING_RDGN
     norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
 
     for c, delta in zip(countries, deltas):
         if c not in COUNTRY_LATLON:
             continue
         lon, lat = COUNTRY_LATLON[c]
-        size = 200 + 1500 * abs(delta) / vmax
+        size = 220 + 1500 * abs(delta) / vmax
         ax.scatter(lon, lat, s=size, c=[cmap(norm(delta))],
-                   edgecolors="black", linewidth=0.6, alpha=0.9, zorder=3)
-        ax.annotate(c, (lon, lat),
-                    xytext=(0, -16), textcoords="offset points",
-                    ha="center", fontsize=8.5, color="#222")
+                   edgecolors="black", linewidth=0.7, alpha=0.92, zorder=3)
+        # Place label just below marker, with white halo for legibility
+        from matplotlib.patheffects import withStroke
+        t = ax.annotate(c, (lon, lat),
+                        xytext=(0, -np.sqrt(size) * 0.45 - 4),
+                        textcoords="offset points",
+                        ha="center", fontsize=9, color="#111", weight="bold",
+                        zorder=4)
+        t.set_path_effects([withStroke(linewidth=2.5, foreground="white")])
 
     ax.set_xlim(-180, 180)
-    ax.set_ylim(-60, 80)
-    ax.set_xlabel("Longitude")
-    ax.set_ylabel("Latitude")
-    ax.set_title("Geographic distribution of DISCA gain "
+    ax.set_ylim(-60, 82)
+    ax.set_xlabel("Longitude", fontsize=11.5, labelpad=8)
+    ax.set_ylabel("Latitude", fontsize=11.5, labelpad=8)
+    ax.set_title("Geographic distribution of DISCA gain   "
                  "(mean ΔMIS across the 6 headline models)\n"
-                 "Marker size ∝ |Δ|, green = improved, orange = hurt",
-                 fontsize=11)
+                 r"Marker size $\propto |\Delta|$,  "
+                 "green = DISCA helped, red = DISCA hurt",
+                 fontsize=12, pad=10)
 
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-    cb = plt.colorbar(sm, ax=ax, shrink=0.7)
-    cb.set_label(r"Mean $\Delta$MIS  (vanilla $-$ DISCA, ↑ better)")
-    ax.grid(True, alpha=0.3, lw=0.4)
+    sm.set_array([])
+    cb = plt.colorbar(sm, ax=ax, shrink=0.75, pad=0.02)
+    cb.set_label(r"Mean $\Delta$MIS  (vanilla $-$ DISCA, $\uparrow$ better)",
+                 fontsize=10.5, labelpad=8)
+    ax.grid(True, alpha=0.18, lw=0.4)
     plt.tight_layout()
 
     pdf = OUT / "fig_oral_5_world_delta_mis.pdf"
