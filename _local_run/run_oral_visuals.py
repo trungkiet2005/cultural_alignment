@@ -737,12 +737,378 @@ def plot_world_delta_mis() -> None:
 
 # ===========================================================================
 
+# ===========================================================================
+# Visual 6 — Multi-seed CI bars per country (rebuts R1 "where are error bars?")
+# ===========================================================================
+
+def plot_multiseed_ci_bars() -> None:
+    print("\n[Visual 6] Multi-seed CI bars per country")
+    csv_path = ROOT / "exp_paper" / "result" / "multiseed_phi4" / "multiseed_per_country_ci.csv"
+    if not csv_path.is_file():
+        print(f"  [SKIP] {csv_path} missing")
+        return
+
+    with open(csv_path, "r", encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+
+    # Pivot to per-country (van_mean, van_ci, swa_mean, swa_ci)
+    by_c: Dict[str, Dict[str, float]] = defaultdict(dict)
+    for r in rows:
+        m = r["method"]
+        by_c[r["country"]][f"{m}_mean"] = float(r["mean_mis"])
+        by_c[r["country"]][f"{m}_ci"]   = float(r["ci95_mis"])
+    countries = sorted(
+        by_c.keys(),
+        key=lambda c: -(by_c[c].get("vanilla_mean", 0) - by_c[c].get("swa_dpbr_mean", 0)),
+    )
+
+    fig, ax = plt.subplots(figsize=(11.5, 5.5))
+    x = np.arange(len(countries))
+    w = 0.38
+    van_m  = [by_c[c].get("vanilla_mean", np.nan) for c in countries]
+    van_ci = [by_c[c].get("vanilla_ci", 0)        for c in countries]
+    swa_m  = [by_c[c].get("swa_dpbr_mean", np.nan) for c in countries]
+    swa_ci = [by_c[c].get("swa_dpbr_ci", 0)        for c in countries]
+
+    ax.bar(x - w / 2, van_m, w, yerr=van_ci, capsize=3,
+           color=COL_VAN, alpha=0.9, edgecolor="black", linewidth=0.4,
+           label="Vanilla", error_kw={"lw": 0.9, "ecolor": "#444"})
+    ax.bar(x + w / 2, swa_m, w, yerr=swa_ci, capsize=3,
+           color=COL_SWA, alpha=0.9, edgecolor="black", linewidth=0.4,
+           label="DISCA (ours)", error_kw={"lw": 0.9, "ecolor": "#444"})
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(countries, rotation=30, ha="right", fontsize=10)
+    ax.set_ylabel(r"MIS  ($\downarrow$ better, mean$\pm$95% CI over 3 seeds)",
+                  fontsize=11, labelpad=8)
+    ax.set_title("Per-country multi-seed reliability  (Phi-4, seeds 42 / 101 / 2026)",
+                 fontsize=12, pad=10)
+    ax.legend(loc="upper right", fontsize=10)
+    ax.grid(True, axis="y", alpha=0.3, lw=0.5)
+    ax.set_ylim(0, max(max(van_m), max(swa_m)) * 1.15)
+    plt.tight_layout()
+    pdf = OUT / "fig_oral_6_multiseed_ci.pdf"
+    png = OUT / "fig_oral_6_multiseed_ci.png"
+    fig.savefig(pdf); fig.savefig(png, dpi=200)
+    plt.close(fig)
+
+    # Print headline numbers
+    macro_van_ci = float(np.mean(van_ci))
+    macro_swa_ci = float(np.mean(swa_ci))
+    n_lt_001 = int(sum(1 for c in swa_ci if c < 0.01))
+    print(f"  saved {pdf.name}, {png.name}")
+    print(f"  mean vanilla CI95: {macro_van_ci:.4f}")
+    print(f"  mean DISCA   CI95: {macro_swa_ci:.4f}  "
+          f"({n_lt_001}/{len(swa_ci)} countries below 0.01)")
+
+
+# ===========================================================================
+# Visual 7 — Reliability gate activation panel
+# ===========================================================================
+
+def plot_reliability_gate(target_model: str = "phi_4") -> None:
+    print(f"\n[Visual 7] Reliability gate activation ({target_model})")
+    swa_dir = PAPER_20C / target_model / "swa"
+    if not swa_dir.is_dir():
+        print(f"  [SKIP] {swa_dir}")
+        return
+    sub = next((d for d in swa_dir.iterdir() if d.is_dir()), None)
+    if sub is None:
+        return
+
+    per_country_r: Dict[str, List[float]] = defaultdict(list)
+    per_country_var: Dict[str, List[float]] = defaultdict(list)
+    for csv_path in sorted(sub.glob("swa_results_*.csv")):
+        c = csv_path.stem.replace("swa_results_", "")
+        with open(csv_path, "r", encoding="utf-8", newline="") as fh:
+            for row in csv.DictReader(fh):
+                try:
+                    r = float(row["reliability_r"])
+                    bv = float(row["bootstrap_var"])
+                except (KeyError, ValueError):
+                    continue
+                if np.isfinite(r):
+                    per_country_r[c].append(r)
+                if np.isfinite(bv):
+                    per_country_var[c].append(bv)
+
+    if not per_country_r:
+        print("  [SKIP] no reliability_r data")
+        return
+
+    countries = sorted(per_country_r.keys(),
+                       key=lambda c: -np.mean(per_country_r[c]))
+    means = [float(np.mean(per_country_r[c])) for c in countries]
+    frac_closed = [float(np.mean(np.array(per_country_r[c]) < 0.5))
+                   for c in countries]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    # Left: distribution as violin + mean dot
+    parts = axes[0].violinplot(
+        [per_country_r[c] for c in countries],
+        showmeans=False, showmedians=False, showextrema=False,
+    )
+    for pc in parts["bodies"]:
+        pc.set_facecolor(COL_SWA); pc.set_alpha(0.45); pc.set_edgecolor("black"); pc.set_linewidth(0.4)
+    axes[0].scatter(np.arange(1, len(countries) + 1), means, s=40,
+                    color="white", edgecolor="black", linewidth=0.7, zorder=4)
+    axes[0].axhline(0.5, color="#B2182B", lw=0.9, ls="--", alpha=0.7,
+                    label="Gate threshold r = 0.5")
+    axes[0].set_xticks(np.arange(1, len(countries) + 1))
+    axes[0].set_xticklabels(countries, rotation=30, ha="right", fontsize=9)
+    axes[0].set_ylabel("Reliability weight  $r$", fontsize=11, labelpad=8)
+    axes[0].set_title(f"Per-country distribution of $r$  ({PRETTY_MODEL.get(target_model)})",
+                      fontsize=11.5, pad=8)
+    axes[0].set_ylim(-0.02, 1.05)
+    axes[0].legend(loc="lower right", fontsize=9)
+    axes[0].grid(True, axis="y", alpha=0.3, lw=0.5)
+
+    # Right: fraction with gate "closed" (r < 0.5)
+    bars = axes[1].barh(countries, frac_closed,
+                        color=[DIVERGING_RDGN(0.5 - 0.5 * f) for f in frac_closed],
+                        edgecolor="black", linewidth=0.4)
+    axes[1].set_xlabel("Fraction of scenarios with $r < 0.5$  (gate suppresses correction)",
+                       fontsize=11, labelpad=8)
+    axes[1].set_title("DPBR self-regulation: where the gate intervenes",
+                      fontsize=11.5, pad=8)
+    axes[1].set_xlim(0, max(frac_closed) * 1.15 + 0.01)
+    axes[1].grid(True, axis="x", alpha=0.3, lw=0.5)
+    for b, f in zip(bars, frac_closed):
+        axes[1].annotate(f"{100 * f:.1f}%", (b.get_width(), b.get_y() + b.get_height() / 2),
+                          xytext=(4, 0), textcoords="offset points", va="center", fontsize=8.5)
+
+    plt.tight_layout()
+    pdf = OUT / "fig_oral_7_reliability_gate.pdf"
+    png = OUT / "fig_oral_7_reliability_gate.png"
+    fig.savefig(pdf); fig.savefig(png, dpi=200)
+    plt.close(fig)
+
+    # Headline stats
+    all_r = np.concatenate([np.array(per_country_r[c]) for c in countries])
+    print(f"  saved {pdf.name}, {png.name}")
+    print(f"  mean r (all scenarios) : {all_r.mean():.3f}")
+    print(f"  fraction r < 0.5       : {(all_r < 0.5).mean() * 100:.1f}%  "
+          f"(gate suppression rate)")
+    print(f"  fraction r > 0.9       : {(all_r > 0.9).mean() * 100:.1f}%  "
+          f"(high-confidence corrections)")
+
+
+# ===========================================================================
+# Visual 8 — Latency-vs-MIS Pareto scatter
+# ===========================================================================
+
+def plot_latency_vs_mis() -> None:
+    print("\n[Visual 8] Latency-vs-MIS Pareto")
+    rows = []
+    for slug in HEADLINE_MODELS:
+        d = PAPER_20C / slug
+        comp = d / "compare" / "comparison.csv"
+        sub = next((s for s in (d / "swa").iterdir() if s.is_dir()), None) if (d / "swa").is_dir() else None
+        if not comp.is_file() or sub is None:
+            continue
+
+        # MIS per (method, country) from comparison.csv
+        mis_per: Dict[str, List[float]] = defaultdict(list)
+        with open(comp, "r", encoding="utf-8", newline="") as fh:
+            for r in csv.DictReader(fh):
+                try:
+                    mis_per[r["method"]].append(float(r["align_mis"]))
+                except (KeyError, ValueError):
+                    pass
+
+        # Mean latency per scenario from swa_results_*.csv (DISCA latency)
+        latencies_swa: List[float] = []
+        latencies_van: List[float] = []
+        for cp in sub.glob("swa_results_*.csv"):
+            with open(cp, "r", encoding="utf-8", newline="") as fh:
+                for row in csv.DictReader(fh):
+                    try:
+                        v = float(row["latency_ms"])
+                    except (KeyError, ValueError):
+                        continue
+                    if np.isfinite(v):
+                        latencies_swa.append(v)
+        for cp in sub.glob("vanilla_results_*.csv"):
+            with open(cp, "r", encoding="utf-8", newline="") as fh:
+                if "latency_ms" not in (csv.reader(fh).__next__()):
+                    continue
+            # vanilla CSVs may not have latency; that's fine — show DISCA only
+
+        van_mis = float(np.mean(mis_per.get("baseline_vanilla", [np.nan])))
+        swa_mis = float(np.mean(next((v for k, v in mis_per.items() if "dual_pass" in k), [np.nan])))
+        if not np.isfinite(van_mis) or not np.isfinite(swa_mis):
+            continue
+        swa_lat_ms = float(np.mean(latencies_swa)) if latencies_swa else float("nan")
+
+        rows.append({
+            "model": slug,
+            "params_B": MODEL_PARAMS_B.get(slug, np.nan),
+            "vanilla_mis": van_mis,
+            "disca_mis": swa_mis,
+            "disca_latency_ms": swa_lat_ms,
+        })
+
+    if not rows:
+        print("  [SKIP] no rows")
+        return
+
+    rows.sort(key=lambda r: r["params_B"])
+
+    out_csv = OUT / "latency_summary.csv"
+    with open(out_csv, "w", encoding="utf-8", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0].keys()))
+        w.writeheader(); w.writerows(rows)
+
+    fig, ax = plt.subplots(figsize=(8.5, 5.2))
+
+    sizes = [80 + r["params_B"] * 12 for r in rows]
+    colors = [DIVERGING_RDGN(min(0.85, 0.5 + (r["vanilla_mis"] - r["disca_mis"]) * 4))
+              for r in rows]
+    for r, s, col in zip(rows, sizes, colors):
+        ax.scatter(r["disca_latency_ms"], r["disca_mis"], s=s, color=col,
+                   marker="^", edgecolors="black", linewidth=0.5, alpha=0.95, zorder=4)
+        ax.annotate(
+            f"{PRETTY_MODEL.get(r['model'], r['model'])}\n"
+            f"({r['params_B']:.1f}B,  "
+            f"$\\Delta$={r['vanilla_mis']-r['disca_mis']:+.3f})",
+            (r["disca_latency_ms"], r["disca_mis"]),
+            xytext=(10, -3), textcoords="offset points", fontsize=9.5, color="#222",
+        )
+
+    ax.set_xlabel("DISCA per-scenario latency (ms, log)", fontsize=11.5, labelpad=8)
+    ax.set_ylabel(r"DISCA mean MIS  ($\downarrow$ better)", fontsize=11.5, labelpad=8)
+    ax.set_xscale("log")
+    ax.set_title("Cost-vs-quality frontier  (marker size $\\propto$ params, "
+                 "color $\\propto \\Delta$MIS)", fontsize=12, pad=10)
+    ax.grid(True, alpha=0.3, lw=0.5)
+    plt.tight_layout()
+    pdf = OUT / "fig_oral_8_latency_vs_mis.pdf"
+    png = OUT / "fig_oral_8_latency_vs_mis.png"
+    fig.savefig(pdf); fig.savefig(png, dpi=200)
+    plt.close(fig)
+    print(f"  saved {pdf.name}, {png.name}")
+    for r in rows:
+        print(f"    {PRETTY_MODEL.get(r['model'], r['model']):<22} "
+              f"{r['disca_latency_ms']:>7.1f} ms  MIS={r['disca_mis']:.3f}")
+
+
+# ===========================================================================
+# Visual 9 — Ablation multi-seed box plot panel
+# ===========================================================================
+
+PRIMARY_ABLATIONS = [
+    "Full SWA-DPBR",
+    "No-IS (consensus only)",
+    "Always-on PT-IS",
+    "No debiasing",
+    "Without persona",
+    "No country prior (a_h=0)",
+]
+
+
+def plot_ablation_multiseed() -> None:
+    print("\n[Visual 9] Ablation delta-vs-Full box plot (3 models)")
+    csv_path = ROOT / "exp_paper" / "result" / "ablation_breadth" / \
+               "ablation_breadth_summary.csv"
+    if not csv_path.is_file():
+        print(f"  [SKIP] {csv_path}")
+        return
+
+    # Compute delta-vs-Full per (model, country) ourselves: read all ablation
+    # rows, find the Full SWA-DPBR MIS for each (model, country), subtract.
+    by_mc: Dict[Tuple[str, str], Dict[str, float]] = defaultdict(dict)
+    with open(csv_path, "r", encoding="utf-8", newline="") as fh:
+        for r in csv.DictReader(fh):
+            if r["ablation"] not in PRIMARY_ABLATIONS:
+                continue
+            try:
+                mis = float(r["mis"])
+            except (KeyError, ValueError):
+                continue
+            if np.isfinite(mis):
+                by_mc[(r["model"], r["country"])][r["ablation"]] = mis
+
+    rows = []
+    full_label = "Full SWA-DPBR"
+    for (model, country), abl_map in by_mc.items():
+        if full_label not in abl_map:
+            continue
+        full_mis = abl_map[full_label]
+        for ablation, mis in abl_map.items():
+            rows.append({
+                "model": model, "country": country,
+                "ablation": ablation,
+                # Sign convention: + means removing component HURTS (mis went up).
+                "delta": mis - full_mis,
+            })
+
+    if not rows:
+        print("  [SKIP] no rows")
+        return
+
+    by_abl: Dict[str, List[float]] = defaultdict(list)
+    for r in rows:
+        by_abl[r["ablation"]].append(r["delta"])
+
+    # Order: ablations whose removal hurts most (largest +delta) at top.
+    order = sorted([a for a in by_abl], key=lambda a: -np.mean(by_abl[a]))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    data = [by_abl[a] for a in order]
+    box = ax.boxplot(
+        data, vert=False, widths=0.55, patch_artist=True,
+        showmeans=True,
+        meanprops=dict(marker="D", markerfacecolor="white",
+                       markeredgecolor="black", markersize=5),
+        flierprops=dict(marker="o", markersize=3, markerfacecolor="#888",
+                        markeredgecolor="none", alpha=0.5),
+    )
+    means = [float(np.mean(by_abl[a])) for a in order]
+    vmax = max(0.001, max(abs(m) for m in means))
+    for patch, m in zip(box["boxes"], means):
+        patch.set_facecolor(DIVERGING_RDGN(0.5 + 0.5 * (m / vmax) * 0.85))
+        patch.set_alpha(0.85); patch.set_edgecolor("black"); patch.set_linewidth(0.6)
+
+    ax.axvline(0, color="black", lw=1.0, alpha=0.7)
+    ax.set_yticklabels(order, fontsize=10.5)
+    ax.set_xlabel(r"$\Delta$MIS vs Full SWA-DPBR  "
+                  r"($+$ = removing this component hurts, $-$ = helps)",
+                  fontsize=11, labelpad=8)
+    ax.set_title("Ablation effect — across 3 models × 3 countries  "
+                 "(Phi-4, Phi-3.5-Mini, Qwen2.5-7B)", fontsize=12, pad=10)
+    ax.grid(True, axis="x", alpha=0.3, lw=0.5)
+
+    # Annotate component-importance ordering
+    for i, (a, m) in enumerate(zip(order, means)):
+        col = "#222" if abs(m) < 0.005 else ("#1B7C3D" if m < 0 else "#B2182B")
+        ax.annotate(f"mean = {m:+.4f}",
+                    (m, i + 1), xytext=(10, 0), textcoords="offset points",
+                    va="center", fontsize=9.5, color=col, weight="bold")
+
+    plt.tight_layout()
+    pdf = OUT / "fig_oral_9_ablation_multiseed.pdf"
+    png = OUT / "fig_oral_9_ablation_multiseed.png"
+    fig.savefig(pdf); fig.savefig(png, dpi=200)
+    plt.close(fig)
+    print(f"  saved {pdf.name}, {png.name}")
+    for a, m in zip(order, means):
+        print(f"    {a:<35} mean(Δ vs Full) = {m:+.4f}  "
+              f"std={np.std(by_abl[a]):.4f}  n={len(by_abl[a])}")
+
+
+# ===========================================================================
+
 if __name__ == "__main__":
     plot_per_dim_heatmap()
     plot_per_dim_grouped_bars()
     plot_scaling_vs_calibration()
     plot_amce_pca()
     plot_world_delta_mis()
+    plot_multiseed_ci_bars()
+    plot_reliability_gate()
+    plot_latency_vs_mis()
+    plot_ablation_multiseed()
     print("\n" + "=" * 70)
     print(f"  All oral visuals -> {OUT}")
     print("=" * 70)
