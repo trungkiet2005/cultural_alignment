@@ -1,32 +1,33 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Open-Ended VANILLA BASELINE — Qwen2.5-7B actor + Qwen2.5-72B-GPTQ-Int4 judge
-============================================================================================
+Paper sweep — Open-Ended VANILLA BASELINE — Qwen2.5-7B actor + Qwen2.5-7B self-judge
+====================================================================================
 Kaggle OFFLINE version — no Internet, no git clone, no pip install.
 
 This is the **vanilla baseline** counterpart of
-``exp_paper_openended_with_judge_llm.py``. It uses the SAME actor + judge models
-and the SAME prompts, but DOES NOT apply SWA-DPBR (no PT-IS, no dual-pass
-bootstrap reliability, no ESS anchor blend, no hierarchical prior, no persona
-ensemble, no positional debiasing).
+``exp_paper_openended_with_judge_llm.py``. Uses Qwen2.5-7B for BOTH actor and
+judge (self-judge), BF16, no GPTQ. No SWA-DPBR (no PT-IS, no dual-pass bootstrap
+reliability, no ESS anchor blend, no hierarchical prior, no persona ensemble,
+no positional debiasing).
 
 Per scenario:
     Stage 1  Qwen2.5-7B generates ONE free-form answer using only the base
              (utilitarian-neutral) persona on the original prompt (pass1, no swap).
-    Stage 2  Qwen2.5-72B-GPTQ-Int4 judges that answer into {A, B, UNCERTAIN, conf}.
+    Stage 2  Qwen2.5-7B (same model, reloaded) judges that answer into
+             {A, B, UNCERTAIN, conf}.
              Pseudo-delta = pseudo_delta_from_judge(choice, conf).
              p_right = sigmoid(pseudo_delta / T_DECISION).
              AMCE + alignment computed against human AMCE.
 
 Workload is ~10× lighter than the SWA-DPBR variant (1 generation/scenario instead
-of ~10 generation × debias variants).
+of ~10 generation × debias variants). Self-judge avoids the 72B GPTQ dependency
+chain (optimum / auto-gptq) and fits comfortably on a single 96 GB GPU.
 
-Setup (same pattern as exp_paper_openended_with_judge_llm.py):
+Setup:
     1. Upload cultural_alignment as Kaggle Dataset
-    2. Add Qwen2.5-7B-Instruct as Kaggle Model input
-    3. Add Qwen2.5-72B-Instruct-GPTQ-Int4 as Kaggle Model input
-    4. Add multitp-data dataset
-    5. Run with Internet OFF
+    2. Add Qwen2.5-7B-Instruct as Kaggle Model input (used for actor AND judge)
+    3. Add multitp-data dataset
+    4. Run with Internet OFF
 
 Usage:
     !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_openended_baseline_vanilla.py
@@ -53,7 +54,9 @@ from typing import Any, Dict, List, Tuple
 PROJECT_DATASET_DIR = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
 PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
 ACTOR_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
-JUDGE_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/72b-instruct-gptq-int4/1"
+# Self-judge: same model as actor (Qwen2.5-7B BF16). Avoids 72B GPTQ deps
+# (optimum / auto-gptq) and fits a single 96 GB GPU comfortably.
+JUDGE_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 HUMAN_AMCE_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
@@ -127,7 +130,7 @@ def _resolve_model_path(base_path: str, label: str) -> str:
 
 print("=" * 70)
 print("  KAGGLE OFFLINE — Open-Ended VANILLA BASELINE (no SWA-DPBR)")
-print("  Actor: Qwen2.5-7B-Instruct (bf16) | Judge: Qwen2.5-72B-Instruct-GPTQ-Int4")
+print("  Actor: Qwen2.5-7B-Instruct (bf16) | Judge: Qwen2.5-7B-Instruct (bf16, self-judge)")
 print("=" * 70)
 
 _setup_project()
@@ -140,7 +143,7 @@ print(f"[SETUP] Judge model path: {JUDGE_MODEL_PATH}")
 if _on_kaggle():
     subprocess.run(
         "pip install -q --no-deps --no-index scipy tqdm sentencepiece protobuf "
-        "auto-gptq optimum 2>/dev/null || true",
+        "2>/dev/null || true",
         shell=True, check=False,
     )
 
@@ -400,9 +403,14 @@ def _judge_generate(
         {"role": "user", "content": build_judge_prompt(scenario_en, actor_text)},
     ]
     if hasattr(judge_tokenizer, "apply_chat_template"):
-        input_ids = judge_tokenizer.apply_chat_template(
+        templated = judge_tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_tensors="pt",
-        ).to(device)
+        )
+        # Newer Transformers may return a BatchEncoding dict instead of a Tensor.
+        if isinstance(templated, torch.Tensor):
+            input_ids = templated.to(device)
+        else:
+            input_ids = templated["input_ids"].to(device)
     else:
         prompt = (
             f"{JUDGE_SYSTEM_PROMPT}\n\n"
@@ -578,9 +586,9 @@ def run_stage2(cfg: BaselineConfig) -> None:
             )
 
             compare_rows.append({
-                "model": "qwen25_7b_openended_baseline",
+                "model": "qwen25_7b_openended_baseline_selfjudge",
                 "judge": cfg.judge_model_name,
-                "method": "vanilla_baseline",
+                "method": "vanilla_baseline_selfjudge",
                 "country": country,
                 **{f"align_{k}": v for k, v in van_summary.get("alignment", {}).items()},
                 "n_scenarios": van_summary["n_scenarios"],

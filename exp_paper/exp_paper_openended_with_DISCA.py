@@ -1,30 +1,31 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Open-Ended SWA-DPBR — Qwen2.5-7B actor + Qwen2.5-72B-GPTQ-Int4 judge
-====================================================================================
+Paper sweep — Open-Ended SWA-DPBR — Qwen2.5-7B actor + Qwen2.5-7B self-judge
+============================================================================
 Kaggle OFFLINE version — no Internet, no git clone, no pip install.
 
 Same DPBR math as ``exp_paper/exp_paper_qwen25_7b.py``, but the actor (Qwen2.5-7B)
-produces free-form reasoning text instead of emitting an A/B next token. A separate
-72B GPTQ-Int4 judge LLM parses each generation into ``{choice, confidence}``, which
-is mapped to a scalar pseudo-logit-gap and fed into an offline DPBR controller so
-PT-IS, dual-pass bootstrap reliability, ESS anchor blend, and the hierarchical
-country prior run unchanged.
+produces free-form reasoning text instead of emitting an A/B next token. A judge
+LLM (Qwen2.5-7B reloaded — self-judge, BF16) parses each generation into
+``{choice, confidence}``, which is mapped to a scalar pseudo-logit-gap and fed
+into an offline DPBR controller so PT-IS, dual-pass bootstrap reliability, ESS
+anchor blend, and the hierarchical country prior run unchanged.
 
 Two-stage pipeline (memory-safe on Kaggle):
     Stage 1  load Qwen2.5-7B  ->  generate all (country x scenario x agent x debias)
              texts to JSONL, release actor.
-    Stage 2  load Qwen2.5-72B-GPTQ-Int4 judge  ->  parse each text, assemble debiased
+    Stage 2  load Qwen2.5-7B (same weights)  ->  parse each text, assemble debiased
              pseudo-deltas, run offline DPBR, compute AMCE + alignment.
 
-Both stages are resume-safe (Stage 1 dedupes JSONL rows; Stage 2 caches judge verdicts).
+Self-judge avoids the 72B GPTQ dependency chain (optimum / auto-gptq) and fits
+comfortably on a single 96 GB GPU. Both stages are resume-safe (Stage 1 dedupes
+JSONL rows; Stage 2 caches judge verdicts).
 
-Setup (same pattern as exp_paper_ablation_qwen25_7b.py):
+Setup:
     1. Upload cultural_alignment as Kaggle Dataset
-    2. Add Qwen2.5-7B-Instruct as Kaggle Model input
-    3. Add Qwen2.5-72B-Instruct-GPTQ-Int4 as Kaggle Model input
-    4. Add multitp-data dataset
-    5. Run with Internet OFF
+    2. Add Qwen2.5-7B-Instruct as Kaggle Model input (used for actor AND judge)
+    3. Add multitp-data dataset
+    4. Run with Internet OFF
 
 Usage:
     !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_openended_with_judge_llm.py
@@ -38,7 +39,7 @@ Environment variables:
     OPENENDED_JSONL_DIR        path                   (default: results/openended/stage1)
     OPENENDED_RESULTS_BASE     path                   (default: results/openended)
     ACTOR_LOAD_4BIT            "1" | "0"              (default: 0 — bf16 native)
-    JUDGE_LOAD_4BIT            "1" | "0"              (default: 0 — GPTQ-Int4 already quantised)
+    JUDGE_LOAD_4BIT            "1" | "0"              (default: 0 — bf16 native)
     EXP24_VAR_SCALE / EXP24_K_HALF / EXP24_ESS_ANCHOR_REG  (pass-through)
 """
 
@@ -58,7 +59,9 @@ from pathlib import Path
 PROJECT_DATASET_DIR = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
 PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
 ACTOR_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
-JUDGE_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/72b-instruct-gptq-int4/1"
+# Self-judge: same model as actor (Qwen2.5-7B BF16). Avoids 72B GPTQ deps
+# (optimum / auto-gptq) and fits a single 96 GB GPU comfortably.
+JUDGE_MODEL_LOCAL_PATH = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
 MULTITP_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
 WVS_DATA_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
 HUMAN_AMCE_PATH = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
@@ -137,7 +140,7 @@ def _resolve_model_path(base_path: str, label: str) -> str:
 
 print("=" * 70)
 print("  KAGGLE OFFLINE — Open-Ended SWA-DPBR")
-print("  Actor: Qwen2.5-7B-Instruct (bf16) | Judge: Qwen2.5-72B-Instruct-GPTQ-Int4")
+print("  Actor: Qwen2.5-7B-Instruct (bf16) | Judge: Qwen2.5-7B-Instruct (bf16, self-judge)")
 print("=" * 70)
 
 _setup_project()
@@ -147,13 +150,13 @@ JUDGE_MODEL_PATH = _resolve_model_path(JUDGE_MODEL_LOCAL_PATH, "JUDGE")
 print(f"[SETUP] Actor model path: {ACTOR_MODEL_PATH}")
 print(f"[SETUP] Judge model path: {JUDGE_MODEL_PATH}")
 
-# Offline dep fallback (uses Kaggle's pre-cached wheels; --no-index avoids network)
-# auto-gptq / optimum are needed for the 72B GPTQ-Int4 judge; if the Kaggle base
-# image doesn't ship them this is a no-op and the GPTQ load will fail loudly.
+# Offline dep fallback (uses Kaggle's pre-cached wheels; --no-index avoids network).
+# Self-judge uses the same Qwen2.5-7B BF16 weights as the actor, so no GPTQ deps
+# (auto-gptq / optimum) are required.
 if _on_kaggle():
     subprocess.run(
         "pip install -q --no-deps --no-index scipy tqdm sentencepiece protobuf "
-        "auto-gptq optimum 2>/dev/null || true",
+        "2>/dev/null || true",
         shell=True, check=False,
     )
 
@@ -233,12 +236,6 @@ def main() -> None:
 
     if stage in ("2", "both"):
         judge_4bit = _env_bool("JUDGE_LOAD_4BIT", False)
-        if judge_4bit and "gptq" in JUDGE_MODEL_PATH.lower():
-            print(
-                "[WARN] Judge weights are GPTQ-Int4 already; forcing JUDGE_LOAD_4BIT=0 "
-                "(BitsAndBytes 4bit on top of GPTQ would fail to load)."
-            )
-            judge_4bit = False
         s2 = Stage2Config(
             judge_model_name=JUDGE_MODEL_PATH,
             stage1_jsonl_dir=jsonl_dir,

@@ -129,11 +129,16 @@ def _judge_generate(
         {"role": "user", "content": build_judge_prompt(scenario_en, actor_text)},
     ]
     if hasattr(judge_tokenizer, "apply_chat_template"):
-        input_ids = judge_tokenizer.apply_chat_template(
+        templated = judge_tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
             return_tensors="pt",
-        ).to(device)
+        )
+        # Newer Transformers may return a BatchEncoding dict instead of a Tensor.
+        if isinstance(templated, torch.Tensor):
+            input_ids = templated.to(device)
+        else:
+            input_ids = templated["input_ids"].to(device)
     else:
         prompt = (
             f"{JUDGE_SYSTEM_PROMPT}\n\n"
