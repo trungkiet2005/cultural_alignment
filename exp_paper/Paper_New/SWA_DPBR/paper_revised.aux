@@ -358,49 +358,46 @@
 \def\@LN@column{1}
 \@writefile{toc}{\contentsline {section}{\numberline {A15}Pilot: Open-Ended Cultural QA (BLEnD)}{29}{appendix.O}\protected@file@percent }
 \newlabel{app:blend}{{A15}{29}{Pilot: Open-Ended Cultural QA (BLEnD)}{appendix.O}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces BLEnD pilot results (Phi-4 14B). SEM-B/W = Soft Exact Match between/within country (\%). $\Delta $ = change from vanilla baseline. Countries sorted by baseline SEM-B (descending). DISCA improves high-resource countries but degrades low-resource ones, yielding a net negative overall effect.}}{30}{table.caption.56}\protected@file@percent }
-\newlabel{tab:blend_results}{{18}{30}{BLEnD pilot results (Phi-4 14B). SEM-B/W = Soft Exact Match between/within country (\%). $\Delta $ = change from vanilla baseline. Countries sorted by baseline SEM-B (descending). DISCA improves high-resource countries but degrades low-resource ones, yielding a net negative overall effect}{table.caption.56}{}}
-\def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A16}Engineering Journey: Method Selection}{30}{appendix.P}\protected@file@percent }
-\newlabel{app:engineering}{{A16}{30}{Engineering Journey: Method Selection}{appendix.P}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage.}}{30}{table.caption.57}\protected@file@percent }
-\newlabel{tab:engineering}{{19}{30}{Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage}{table.caption.57}{}}
+\@writefile{toc}{\contentsline {paragraph}{Where DISCA transfers.}{29}{section*.56}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces BLEnD per-country gains (Phi-4 14B). The five countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). These are also the countries with the highest vanilla baseline, in which the cultural signal can refine an already-fluent generation surface rather than amplify decoding noise.}}{29}{table.caption.57}\protected@file@percent }
+\newlabel{tab:blend_wins}{{18}{29}{BLEnD per-country gains (Phi-4 14B). The five countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). These are also the countries with the highest vanilla baseline, in which the cultural signal can refine an already-fluent generation surface rather than amplify decoding noise}{table.caption.57}{}}
+\@writefile{toc}{\contentsline {paragraph}{Where the binary formulation breaks.}{29}{section*.58}\protected@file@percent }
 \citation{kwon2025dropouts}
 \citation{chen2025diffpo}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A17}Additional Inference-Time Baselines}{31}{appendix.Q}\protected@file@percent }
-\newlabel{app:r2_baselines}{{A17}{31}{Additional Inference-Time Baselines}{appendix.Q}{}}
-\@writefile{toc}{\contentsline {paragraph}{(6) MC-Dropout calibration.}{31}{section*.58}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling.}{31}{section*.59}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(8) DiffPO-binary.}{31}{section*.60}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Takeaway.}{31}{section*.61}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A16}Engineering Journey: Method Selection}{30}{appendix.P}\protected@file@percent }
+\newlabel{app:engineering}{{A16}{30}{Engineering Journey: Method Selection}{appendix.P}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage.}}{30}{table.caption.59}\protected@file@percent }
+\newlabel{tab:engineering}{{19}{30}{Method variant comparison on the 3-model $\times $ 5-country prototyping panel (15 rows). Mean MIS $\downarrow $. All variants share the same persona construction and debiasing; they differ in the IS/prior stage}{table.caption.59}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A17}Additional Inference-Time Baselines}{30}{appendix.Q}\protected@file@percent }
+\newlabel{app:r2_baselines}{{A17}{30}{Additional Inference-Time Baselines}{appendix.Q}{}}
+\@writefile{toc}{\contentsline {paragraph}{(6) MC-Dropout calibration.}{30}{section*.60}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling.}{30}{section*.61}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {paragraph}{(8) DiffPO-binary.}{31}{section*.62}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Takeaway.}{31}{section*.63}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {A18}Extended Hyperparameter Sensitivity}{31}{appendix.R}\protected@file@percent }
 \newlabel{app:r2_hparam_sensitivity}{{A18}{31}{Extended Hyperparameter Sensitivity}{appendix.R}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{31}{table.caption.62}\protected@file@percent }
-\newlabel{tab:r2_hparam_sensitivity}{{20}{31}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.62}{}}
-\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{31}{section*.63}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{31}{table.caption.64}\protected@file@percent }
+\newlabel{tab:r2_hparam_sensitivity}{{20}{31}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.64}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{31}{section*.65}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Additional round-3 sensitivity checks.}{31}{section*.66}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A19}Dual-Pass Reliability Audit}{31}{appendix.S}\protected@file@percent }
+\newlabel{app:r2_reliability_audit}{{A19}{31}{Dual-Pass Reliability Audit}{appendix.S}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}}{32}{table.caption.67}\protected@file@percent }
+\newlabel{tab:r3_persona_count}{{21}{32}{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit}{table.caption.67}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces IS-budget sweep ($K_{\text  {half}}$ samples per pass; total per scenario is $K_\text  {total}{=}2 K_\text  {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar  {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies.}}{32}{table.caption.68}\protected@file@percent }
+\newlabel{tab:r3_k_budget}{{22}{32}{IS-budget sweep ($K_{\text {half}}$ samples per pass; total per scenario is $K_\text {total}{=}2 K_\text {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies}{table.caption.68}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Additional round-3 sensitivity checks.}{32}{section*.64}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}}{32}{table.caption.65}\protected@file@percent }
-\newlabel{tab:r3_persona_count}{{21}{32}{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit}{table.caption.65}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces IS-budget sweep ($K_{\text  {half}}$ samples per pass; total per scenario is $K_\text  {total}{=}2 K_\text  {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar  {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies.}}{32}{table.caption.66}\protected@file@percent }
-\newlabel{tab:r3_k_budget}{{22}{32}{IS-budget sweep ($K_{\text {half}}$ samples per pass; total per scenario is $K_\text {total}{=}2 K_\text {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies}{table.caption.66}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A19}Dual-Pass Reliability Audit}{32}{appendix.S}\protected@file@percent }
-\newlabel{app:r2_reliability_audit}{{A19}{32}{Dual-Pass Reliability Audit}{appendix.S}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A20}Sensitivity to the Fourth Persona}{32}{appendix.T}\protected@file@percent }
+\newlabel{app:r2_persona_variant}{{A20}{32}{Sensitivity to the Fourth Persona}{appendix.T}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A21}Logit-Conditioning Diagnostic}{32}{appendix.U}\protected@file@percent }
+\newlabel{app:r2_logit_conditioning}{{A21}{32}{Logit-Conditioning Diagnostic}{appendix.U}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A20}WVS-to-Trolley Dimension Linkage Analysis}{33}{appendix.T}\protected@file@percent }
-\newlabel{app:r2_wvs_dropout}{{A20}{33}{WVS-to-Trolley Dimension Linkage Analysis}{appendix.T}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces WVS$\rightarrow $AMCE regression fit by moral dimension (20-country panel).}}{33}{table.caption.67}\protected@file@percent }
-\newlabel{tab:r2_wvs_regression}{{23}{33}{WVS$\rightarrow $AMCE regression fit by moral dimension (20-country panel)}{table.caption.67}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A21}Sensitivity to the Fourth Persona}{33}{appendix.U}\protected@file@percent }
-\newlabel{app:r2_persona_variant}{{A21}{33}{Sensitivity to the Fourth Persona}{appendix.U}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A22}Logit-Conditioning Diagnostic}{33}{appendix.V}\protected@file@percent }
-\newlabel{app:r2_logit_conditioning}{{A22}{33}{Logit-Conditioning Diagnostic}{appendix.V}{}}
-\def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A23}Rank-Based Dimension Agreement}{34}{appendix.W}\protected@file@percent }
-\newlabel{app:rank_agreement}{{A23}{34}{Rank-Based Dimension Agreement}{appendix.W}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A24}Cross-Model Ablation Breadth}{34}{appendix.X}\protected@file@percent }
-\newlabel{app:r2_ablation_breadth}{{A24}{34}{Cross-Model Ablation Breadth}{appendix.X}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A25}Scenario-Slice Release and Category-Cap Sensitivity}{34}{appendix.Y}\protected@file@percent }
-\newlabel{app:r2_oversampling}{{A25}{34}{Scenario-Slice Release and Category-Cap Sensitivity}{appendix.Y}{}}
-\gdef \@abspage@last{34}
+\@writefile{toc}{\contentsline {section}{\numberline {A22}Rank-Based Dimension Agreement}{33}{appendix.V}\protected@file@percent }
+\newlabel{app:rank_agreement}{{A22}{33}{Rank-Based Dimension Agreement}{appendix.V}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A23}Cross-Model Ablation Breadth}{33}{appendix.W}\protected@file@percent }
+\newlabel{app:r2_ablation_breadth}{{A23}{33}{Cross-Model Ablation Breadth}{appendix.W}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A24}Scenario-Slice Release and Category-Cap Sensitivity}{33}{appendix.X}\protected@file@percent }
+\newlabel{app:r2_oversampling}{{A24}{33}{Scenario-Slice Release and Category-Cap Sensitivity}{appendix.X}{}}
+\gdef \@abspage@last{33}

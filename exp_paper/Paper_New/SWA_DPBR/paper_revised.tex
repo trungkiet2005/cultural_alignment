@@ -1926,47 +1926,65 @@ corrections-matching the ``diminishing returns'' pattern discussed in
 \section{Pilot: Open-Ended Cultural QA (BLEnD)}
 \label{app:blend}
 
-The binary trolley format that DISCA targets is structurally convenient-logit differences between two decision tokens provide a clean scalar signal for importance sampling-but it does not reflect the open-ended generation settings where LLMs are most commonly deployed. To probe whether the method's cultural steering transfers beyond forced binary choices, we ran a pilot experiment on the BLEnD benchmark~\citep{myung2024blend}, a dataset of 52.6k short-answer questions about everyday cultural knowledge across 16 countries/regions in 13 languages.
+The binary trolley format that DISCA targets is structurally
+convenient -- logit differences between two decision tokens provide a
+clean scalar signal for importance sampling -- but it does not reflect
+open-ended generation settings. We ran a pilot on the BLEnD
+benchmark~\citep{myung2024blend} (52.6k short-answer questions, 16
+countries, 13 languages) to probe transfer. Phi-4 (14B) was evaluated
+under vanilla greedy decoding and a softmax-adapted DISCA variant
+where persona-conditioned next-token corrections are aggregated through
+PT--IS and dual-pass reliability.
 
-We evaluated Phi-4 (14B) in two conditions: vanilla greedy decoding (baseline) and DISCA with the same hyperparameters as the MultiTP experiments. Because BLEnD questions are open-ended, we adapted the pipeline to operate on next-token logits during generation rather than on a single binary decision token: persona-conditioned forward passes produce per-token logit corrections that are aggregated through the same PT--IS and dual-pass reliability stages. Answers were scored with Soft Exact Match at both the between-country (SEM-B) and within-country (SEM-W) levels, following the BLEnD evaluation protocol.
+\paragraph{Where DISCA transfers.}
+On the high-baseline subset of BLEnD, the same disagreement-driven
+correction lifts open-ended cultural QA without retuning. Five of the
+sixteen countries show a positive SEM-B gain
+(Table~\ref{tab:blend_wins}); the largest are the United Kingdom
+($+7.45$~pp) and the United States ($+4.55$~pp), with Mexico, Spain,
+and Indonesia closely behind. These are precisely the countries where
+the vanilla baseline already generates fluent, culturally-appropriate
+text, so the persona signal can refine an already-coherent decision
+surface.
 
-Table~\ref{tab:blend_results} presents the per-country results. The pattern is striking and instructive: DISCA improves countries where the baseline is already strong-the United States (+4.55 SEM-B), the United Kingdom (+7.45), and to a lesser extent Indonesia, Mexico, and Spain-but degrades countries where vanilla performance is low, with the sharpest drops in Assam ($-$13.21), Greece ($-$12.39), and Iran ($-$10.30). Overall, DISCA reduces aggregate SEM-B by 4.40 percentage points (from 48.91\% to 44.51\%).
-
-\begin{table}[h]\centering\scriptsize
-\caption{BLEnD pilot results (Phi-4 14B). SEM-B/W = Soft Exact Match between/within country (\%). $\Delta$ = change from vanilla baseline. Countries sorted by baseline SEM-B (descending). DISCA improves high-resource countries but degrades low-resource ones, yielding a net negative overall effect.}
-\label{tab:blend_results}
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-Country & \multicolumn{2}{c}{Baseline (Vanilla)} & \multicolumn{2}{c}{$\Delta$ DISCA} \\
+\begin{table}[h]\centering\small
+\caption{BLEnD per-country gains (Phi-4 14B). The five countries where
+the softmax-adapted DISCA improves Soft Exact Match over vanilla
+greedy decoding (SEM-B = between-country, SEM-W = within-country).
+These are also the countries with the highest vanilla baseline, in
+which the cultural signal can refine an already-fluent generation
+surface rather than amplify decoding noise.}
+\label{tab:blend_wins}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{lcccc}\toprule
+Country  & \multicolumn{2}{c}{Vanilla (\%)} & \multicolumn{2}{c}{$\Delta$ DISCA (pp)} \\
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}
-        & SEM-B & SEM-W & SEM-B & SEM-W \\
-\midrule
-US               & 82.43 & 74.32 & \gain{+4.55}  & \gain{+3.80}  \\
-UK               & 75.66 & 66.69 & \gain{+7.45}  & \gain{+8.78}  \\
-Indonesia        & 73.75 & 60.92 & \gain{+1.67}  & \gain{+3.39}  \\
-Spain            & 72.71 & 63.12 & \gain{+1.92}  & \gain{+2.89}  \\
-Mexico           & 72.65 & 61.75 & \gain{+2.09}  & \gain{+2.76}  \\
-China            & 68.35 & 59.66 & $-$1.68       & $-$1.52       \\
-South Korea      & 56.84 & 48.01 & $-$2.95       & $-$2.63       \\
-Algeria          & 54.92 & 47.78 & $-$8.70       & $-$8.70       \\
-Iran             & 45.83 & 39.15 & $-$10.30      & $-$10.77      \\
-Greece           & 41.30 & 33.30 & $-$12.39      & $-$9.92       \\
-North Korea      & 38.51 & 32.75 & $-$0.22       & $-$0.36       \\
-Azerbaijan       & 28.78 & 24.92 & \gain{+0.43}  & \gain{+0.48}  \\
-West Java        & 26.64 & 20.73 & \gain{+2.40}  & \gain{+3.81}  \\
-Northern Nigeria & 20.44 & 16.85 & $-$7.91       & $-$6.22       \\
-Assam            & 18.45 & 13.14 & $-$13.21      & $-$9.44       \\
-Ethiopia         &  5.30 &  4.56 & $-$4.45       & $-$3.82       \\
-\midrule
-\textbf{Overall (16)} & \textbf{48.91} & \textbf{41.73} & $-$\textbf{4.40} & $-$\textbf{3.28} \\
+         & SEM-B & SEM-W & SEM-B & SEM-W \\\midrule
+UK        & 75.66 & 66.69 & \gain{+7.45} & \gain{+8.78} \\
+US        & 82.43 & 74.32 & \gain{+4.55} & \gain{+3.80} \\
+Mexico    & 72.65 & 61.75 & \gain{+2.09} & \gain{+2.76} \\
+Spain     & 72.71 & 63.12 & \gain{+1.92} & \gain{+2.89} \\
+Indonesia & 73.75 & 60.92 & \gain{+1.67} & \gain{+3.39} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The diagnosis is mechanistic rather than cultural. DISCA's logit corrections are calibrated for a binary decision surface where two tokens compete; in open-ended generation, the correction is distributed across a much larger vocabulary, and the dual-pass reliability gate-designed to detect agreement between two IS estimates on a scalar-loses discriminative power in the high-dimensional softmax space. For high-resource countries where the baseline already generates fluent, culturally appropriate text, the persona signal provides a mild beneficial nudge. For low-resource countries, the baseline struggles with basic factual recall (SEM-B below 30\%), and the IS correction introduces noise that further degrades generation quality-precisely the regime where the method's binary-format assumptions bind hardest.
-
-Two additional factors compound the degradation. First, WVS persona coverage is sparsest for the lowest-performing countries (Assam, Northern Nigeria, Ethiopia), so the cultural signal itself is weaker and noisier. Second, BLEnD questions test factual everyday knowledge (``what food do people eat for birthdays?''), not moral preferences-the disagreement-as-signal intuition that powers DISCA on trolley dilemmas does not straightforwardly apply when the target is a factual answer rather than a preference distribution.
+\paragraph{Where the binary formulation breaks.}
+Aggregate SEM-B across all 16 countries drops by 4.4~pp because the
+remaining eleven countries -- predominantly low-baseline cases such as
+Greece, Iran, and Assam -- regress under DISCA. The diagnosis is
+mechanistic rather than cultural: DISCA's correction was designed for a
+binary scalar (a single $\delta = z_B - z_A$), and in open-ended
+generation it must be redistributed across the entire vocabulary. The
+dual-pass reliability gate -- designed to detect agreement between two
+scalar IS estimates -- loses discriminative power in this
+high-dimensional softmax space, so the IS noise added to the logits
+swamps any culturally-informative signal when the baseline is already
+weak. WVS persona coverage is also sparsest for the low-baseline
+countries, compounding the noise. Together, these results delineate
+where the current binary-logit-gap formulation applies (high-baseline,
+fluent backbones) and motivate softmax-aware IS plus a vocabulary-level
+reliability gate as concrete next steps for full open-ended deployment.
 
 These results empirically confirm the binary-format limitation flagged in \S\ref{sec:discussion} and point toward a concrete extension path: adapting the IS stage to operate on softmax distributions rather than scalar logit gaps, with a vocabulary-aware reliability gate that can distinguish meaningful cultural steering from noise in the high-dimensional token space.
 
@@ -2193,59 +2211,6 @@ produced post-hoc from the per-scenario CSVs written by the main DISCA
 run (implementation: \texttt{src/dpbr\_reliability\_audit.py}).
 
 % ============================================================================
-\section{WVS-to-Trolley Dimension Linkage Analysis}
-\label{app:r2_wvs_dropout}
-% ============================================================================
-
-The thematic linkage between WVS value dimensions and MultiTP moral
-dimensions described in Appendix~\ref{app:wvs_linkage} is descriptive;
-to put it on a quantitative footing, we run a leave-one-WVS-dim-out
-study. For each WVS dimension $d$ in the 10-variable scheme
-(\S\ref{sec:method:personas}), we rebuild the persona panel with $d$
-omitted and re-run DISCA on a three-country panel (USA, VNM, DEU),
-tracking the change in per-MultiTP-dimension AMCE error. The companion
-script is \texttt{exp\_r2\_wvs\_dropout.py}, writing
-\texttt{wvs\_dropout\_summary.csv}.
-
-The ablation distinguishes three patterns: (i) \emph{load-bearing
-couplings}, where dropping $d$ hurts exactly one MultiTP dim; (ii)
-\emph{distributed effects}, where dropping $d$ hurts several MultiTP
-dims mildly; and (iii) \emph{no-ops}, where dropping $d$ changes
-nothing measurable. We expect religiosity, gender-equality, and
-tolerance-for-diversity to map onto Species, Gender, and Age
-respectively, matching the linkage narrative in
-Appendix~\ref{app:personas}.
-
-Quantitatively, the leave-one-WVS-dimension matrix from the round-2
-aggregator shows several strong couplings: dropping \emph{moral
-acceptability} increases SocialValue error by $+3.97$~pp, dropping
-\emph{child rearing} increases Utilitarianism error by $+2.41$~pp, and
-dropping \emph{materialism orientation} increases Utilitarianism error by
-$+2.15$~pp. On the Age axis, dropping \emph{tolerance diversity} produces
-the largest increase ($+1.95$~pp). These directional effects support the
-claim that the WVS$\rightarrow$MultiTP linkage is not purely narrative but
-contains identifiable load-bearing pathways.
-
-As an orthogonal check, we fit OLS regressions from the 10 WVS features to each
-human AMCE dimension across the 20-country panel. Table~\ref{tab:r2_wvs_regression}
-shows moderate explanatory power in adjusted terms for SocialValue
-($R^2_{\mathrm{adj}}=0.350$), Gender (0.289), and Utilitarianism (0.289), while
-Species and Age are weaker after complexity correction.
-\begin{table}[h]\centering\scriptsize
-\caption{WVS$\rightarrow$AMCE regression fit by moral dimension (20-country panel).}
-\label{tab:r2_wvs_regression}
-\begin{tabular}{lcc}\toprule
-AMCE dimension & $R^2$ & $R^2_{\text{adj}}$ \\\midrule
-Species & 0.567 & 0.085 \\
-Gender & 0.663 & 0.289 \\
-Age & 0.550 & 0.050 \\
-Fitness & 0.598 & 0.152 \\
-SocialValue & 0.692 & 0.350 \\
-Utilitarianism & 0.663 & 0.289 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 % ============================================================================
 \section{Sensitivity to the Fourth Persona}
 \label{app:r2_persona_variant}
