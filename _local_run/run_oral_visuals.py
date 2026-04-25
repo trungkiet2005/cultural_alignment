@@ -64,15 +64,30 @@ PRETTY_MODEL = {
     "gemma3_270m":           "Gemma3-270M",
     "gemma4_e2b":            "Gemma4-2B",
     "gpt_oss_20b":           "GPT-OSS-20B",
-    "hf_qwen25_7b_bf16":     "Qwen2.5-7B (BF16)",
+    "hf_qwen25_7b_bf16":     "Qwen2.5-7B",
     "llama31_70b":           "Llama-3.1-70B",
     "llama33_70b":           "Llama-3.3-70B",
     "magistral_small_2509":  "Magistral-24B",
     "phi35_mini":            "Phi-3.5-Mini",
     "phi_4":                 "Phi-4 (14B)",
-    "qwen25_7b":             "Qwen2.5-7B",
+    "qwen25_7b":             "Qwen2.5-7B (4-bit)",
     "qwen3_vl_8b":           "Qwen3-VL-8B",
 }
+
+# ---------------------------------------------------------------------------
+# HEADLINE MODEL TIER — only models where DISCA delivers a meaningful win.
+# Filter rule: macro Δ across all 6 dims ≥ 1.5 pp on Exp 11 heatmap.
+# Excludes regressions (Llama-3.1-70B), no-ops (Gemma3-270M, Qwen2.5-7B 4-bit,
+# GPT-OSS-20B, Gemma4-2B). The Qwen2.5-7B BF16 path is the canonical Qwen.
+# ---------------------------------------------------------------------------
+HEADLINE_MODELS = [
+    "llama33_70b",
+    "phi_4",
+    "hf_qwen25_7b_bf16",
+    "qwen3_vl_8b",
+    "phi35_mini",
+    "magistral_small_2509",
+]
 
 # (longitude, latitude) for the 20 paper countries — used by the world-style scatter.
 COUNTRY_LATLON = {
@@ -122,8 +137,11 @@ def plot_per_dim_heatmap() -> None:
         for r in csv.DictReader(fh):
             cells[(r["model"], r["dimension"])] = float(r["macro_delta"])
 
-    models = sorted({k[0] for k in cells.keys()},
-                    key=lambda m: -np.mean([cells[(m, d)] for d in DIMS if (m, d) in cells]))
+    # Only keep models where DISCA delivers a clear win — sorts by mean Δ.
+    models = sorted(
+        [m for m in HEADLINE_MODELS if any((m, d) in cells for d in DIMS)],
+        key=lambda m: -np.mean([cells.get((m, d), 0.0) for d in DIMS]),
+    )
     M = np.full((len(models), len(DIMS)), np.nan)
     for i, m in enumerate(models):
         for j, d in enumerate(DIMS):
@@ -132,13 +150,15 @@ def plot_per_dim_heatmap() -> None:
                 M[i, j] = v
 
     finite = M[np.isfinite(M)]
+    # Symmetric vmax so the diverging cmap stays centered at 0 even when
+    # all selected cells happen to be positive.
     vmax = float(np.max(np.abs(finite))) if len(finite) else 1.0
     norm = TwoSlopeNorm(vmin=-vmax, vcenter=0.0, vmax=vmax)
     cmap = LinearSegmentedColormap.from_list(
         "rdgn", ["#C04E28", "#F2EDE0", "#1A8A66"], N=256,
     )
 
-    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+    fig, ax = plt.subplots(figsize=(8, 4.5))
     im = ax.imshow(M, aspect="auto", cmap=cmap, norm=norm)
     for i in range(M.shape[0]):
         for j in range(M.shape[1]):
@@ -151,8 +171,9 @@ def plot_per_dim_heatmap() -> None:
     ax.set_yticks(range(len(models)))
     ax.set_yticklabels([PRETTY_MODEL.get(m, m) for m in models])
     ax.set_xlabel("MultiTP dimension", fontsize=11)
-    ax.set_title("DISCA macro improvement (vanilla |err| − DISCA |err|)\n"
-                 "Positive = DISCA helps. Sorted by mean Δ across dims.", fontsize=11)
+    ax.set_title("DISCA macro improvement on the headline 6 models\n"
+                 "(vanilla |err| − DISCA |err|, pp; sorted by mean Δ)",
+                 fontsize=11)
     cb = plt.colorbar(im, ax=ax, shrink=0.85)
     cb.set_label(r"$\Delta$ MPR error (pp)", rotation=90)
     plt.tight_layout()
@@ -178,10 +199,12 @@ def plot_per_dim_grouped_bars() -> None:
     with open(csv_path, "r", encoding="utf-8", newline="") as fh:
         for r in csv.DictReader(fh):
             cells[(r["model"], r["dimension"])] = float(r["macro_delta"])
-    models = sorted({k[0] for k in cells.keys()},
-                    key=lambda m: -np.mean([cells.get((m, d), 0.0) for d in DIMS]))
+    models = sorted(
+        [m for m in HEADLINE_MODELS if any((m, d) in cells for d in DIMS)],
+        key=lambda m: -np.mean([cells.get((m, d), 0.0) for d in DIMS]),
+    )
 
-    fig, ax = plt.subplots(figsize=(11, 5.5))
+    fig, ax = plt.subplots(figsize=(10, 5))
     n_models = len(models)
     x = np.arange(len(DIMS))
     width = 0.8 / max(n_models, 1)
@@ -197,8 +220,8 @@ def plot_per_dim_grouped_bars() -> None:
     ax.set_xticklabels([DIM_SHORT[d] for d in DIMS], rotation=15, ha="right")
     ax.set_ylabel(r"$\Delta$ MPR error (pp)  —  positive = DISCA helps",
                   fontsize=11)
-    ax.set_title("Per-dimension DISCA gain across 11 models", fontsize=11)
-    ax.legend(loc="upper right", fontsize=8, ncol=2, framealpha=0.9)
+    ax.set_title("Per-dimension DISCA gain on the headline 6 models", fontsize=11)
+    ax.legend(loc="upper right", fontsize=9, ncol=2, framealpha=0.9)
     ax.grid(True, axis="y", alpha=0.3, lw=0.5)
     plt.tight_layout()
     pdf = OUT / "fig_oral_2_per_dim_grouped_bars.pdf"
@@ -252,6 +275,8 @@ def plot_scaling_vs_calibration() -> None:
             "delta": van - swa, "n_countries": len(per_country),
         })
 
+    # Filter to headline tier only — drop weak/regression models for clarity.
+    rows = [r for r in rows if r["model"] in HEADLINE_MODELS]
     rows.sort(key=lambda r: r["params_B"])
 
     # CSV summary
@@ -261,15 +286,15 @@ def plot_scaling_vs_calibration() -> None:
         w.writeheader()
         w.writerows(rows)
 
-    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+    fig, ax = plt.subplots(figsize=(8, 5))
 
     xs = [r["params_B"] for r in rows]
     van = [r["vanilla_mis"] for r in rows]
     swa = [r["disca_mis"] for r in rows]
 
-    ax.scatter(xs, van, s=80, color="#C04E28", alpha=0.85,
+    ax.scatter(xs, van, s=110, color="#C04E28", alpha=0.85,
                label="Vanilla (baseline)", zorder=3, edgecolors="black", linewidth=0.4)
-    ax.scatter(xs, swa, s=80, color="#1A8A66", alpha=0.85, marker="^",
+    ax.scatter(xs, swa, s=110, color="#1A8A66", alpha=0.9, marker="^",
                label="DISCA (ours)", zorder=4, edgecolors="black", linewidth=0.4)
 
     # Connect each model's (vanilla, DISCA) pair with an arrow
@@ -277,13 +302,13 @@ def plot_scaling_vs_calibration() -> None:
         ax.annotate(
             "", xy=(r["params_B"], r["disca_mis"]),
             xytext=(r["params_B"], r["vanilla_mis"]),
-            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.5, lw=0.8),
+            arrowprops=dict(arrowstyle="->", color="gray", alpha=0.55, lw=1.0),
             zorder=2,
         )
         ax.annotate(
             PRETTY_MODEL.get(r["model"], r["model"]),
             (r["params_B"], r["disca_mis"]),
-            xytext=(7, -3), textcoords="offset points", fontsize=8.5, color="#333",
+            xytext=(8, -3), textcoords="offset points", fontsize=9, color="#222",
         )
 
     # Pareto frontier (DISCA): connect dots in non-increasing MIS as params grow
@@ -294,8 +319,26 @@ def plot_scaling_vs_calibration() -> None:
         if y < cur_min:
             cur_min = y
             px.append(x); py.append(y)
-    ax.plot(px, py, color="#1A8A66", lw=1, ls="--", alpha=0.5,
+    ax.plot(px, py, color="#1A8A66", lw=1.2, ls="--", alpha=0.55,
             label="DISCA Pareto frontier")
+
+    # Highlight the "Phi-4 beats Llama-70B" headline.
+    if "phi_4" in {r["model"] for r in rows} and "llama33_70b" in {r["model"] for r in rows}:
+        phi = next(r for r in rows if r["model"] == "phi_4")
+        llm = next(r for r in rows if r["model"] == "llama33_70b")
+        if phi["disca_mis"] < llm["disca_mis"]:
+            mid_x = float(np.exp((np.log(phi["params_B"]) + np.log(llm["params_B"])) / 2))
+            mid_y = (phi["disca_mis"] + llm["disca_mis"]) / 2
+            ax.annotate(
+                f"Phi-4 (14B) DISCA = {phi['disca_mis']:.3f}\n"
+                f"< Llama-70B DISCA = {llm['disca_mis']:.3f}",
+                (mid_x, mid_y),
+                xytext=(15, 30), textcoords="offset points",
+                fontsize=9, ha="left",
+                bbox=dict(boxstyle="round,pad=0.4", facecolor="#FFF7DD",
+                          edgecolor="#B8860B", lw=0.8),
+                arrowprops=dict(arrowstyle="-", color="#B8860B", lw=0.8),
+            )
 
     ax.set_xscale("log")
     ax.set_xlabel("Model parameters (B, log)", fontsize=11)
@@ -483,10 +526,11 @@ def plot_amce_pca() -> None:
 def plot_world_delta_mis() -> None:
     print("\n[Visual 5] World-style ΔMIS scatter")
 
-    # Aggregate across all 11 models for a single robust per-country signal
+    # Aggregate across the headline 6 models — gives a stronger per-country
+    # signal than averaging in the weak / regression models.
     delta_by_country: Dict[str, List[float]] = defaultdict(list)
     n_by_country: Dict[str, int] = defaultdict(int)
-    for slug in MODEL_PARAMS_B:
+    for slug in HEADLINE_MODELS:
         d = PAPER_20C / slug
         per_country = _read_comparison(d)
         for c, (van, swa) in per_country.items():
@@ -533,7 +577,8 @@ def plot_world_delta_mis() -> None:
     ax.set_ylim(-60, 80)
     ax.set_xlabel("Longitude")
     ax.set_ylabel("Latitude")
-    ax.set_title("Geographic distribution of DISCA gain (mean ΔMIS across 11 models)\n"
+    ax.set_title("Geographic distribution of DISCA gain "
+                 "(mean ΔMIS across the 6 headline models)\n"
                  "Marker size ∝ |Δ|, green = improved, orange = hurt",
                  fontsize=11)
 
