@@ -161,6 +161,7 @@ if _on_kaggle():
 
 from exp_paper.openended.stage1_actor_phi4 import Stage1Config, run_stage1  # noqa: E402
 from exp_paper.openended.stage2_judge_qwen72b import Stage2Config, run_stage2  # noqa: E402
+from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 
 
 def _env_bool(name: str, default: bool = True) -> bool:
@@ -176,10 +177,38 @@ def _env_list(name: str, default: list[str]) -> list[str]:
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  HARDCODED RUN CONFIG — 3 countries × full 500 scenarios                   ║
-# ║  (Western / SE Asia / Western — diverse cultural sample)                   ║
+# ║  HARDCODED RUN CONFIG — 20 paper countries × full 500 scenarios            ║
+# ║  (PAPER_20_COUNTRIES: 5 continents × 6 language families)                  ║
+# ║                                                                            ║
+# ║  Batch presets (resume-safe — Stage1 dedupes by                            ║
+# ║  (country, scenario_id, agent_role, debias_variant); Stage2 caches by      ║
+# ║  sha1(scenario_en + actor_text)):                                          ║
+# ║    BATCH = "all"  -> all 20 countries  (won't fit a 12h Kaggle session)    ║
+# ║    BATCH = "b1"   -> first 10 countries                                    ║
+# ║    BATCH = "b2"   -> last 10 countries                                     ║
+# ║  Override via env var:  OPENENDED_BATCH=b1 | b2 | all                      ║
+# ║  Or pass explicit list: OPENENDED_COUNTRIES=USA,VNM,DEU                    ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-RUN_COUNTRIES: list[str] = ["USA", "VNM", "DEU"]
+RUN_BATCH: str = "b1"  # default to b1 for the SWA-DPBR run (10 countries / session)
+
+_PAPER_20: list[str] = list(PAPER_20_COUNTRIES)
+_BATCHES: dict[str, list[str]] = {
+    "all": _PAPER_20,
+    "b1": _PAPER_20[:10],   # USA GBR DEU ARG BRA MEX COL VNM MMR THA
+    "b2": _PAPER_20[10:],   # MYS IDN CHN JPN BGD IRN SRB ROU KGZ ETH
+}
+
+
+def _resolve_batch_countries() -> list[str]:
+    batch = os.environ.get("OPENENDED_BATCH", RUN_BATCH).strip().lower()
+    if batch not in _BATCHES:
+        raise ValueError(
+            f"OPENENDED_BATCH must be one of {sorted(_BATCHES)}, got {batch!r}"
+        )
+    return list(_BATCHES[batch])
+
+
+RUN_COUNTRIES: list[str] = _resolve_batch_countries()
 RUN_N_SCENARIOS: int = 500
 RUN_STAGE: str = "both"  # "1" | "2" | "both"
 RUN_MAX_NEW_TOKENS_ACTOR: int = 400

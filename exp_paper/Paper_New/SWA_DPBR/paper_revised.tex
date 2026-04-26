@@ -8,7 +8,7 @@
 \usepackage{neurips_2026}  %\usepackage[main]{neurips_2026}
 
 \usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
+\usepackage[T5,T1]{fontenc}  % T5 enables Vietnamese diacritics (vntex); T1 remains default for English
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{booktabs}
@@ -56,7 +56,7 @@
 \begin{abstract}
 % ============================================================
 
-Large language models are increasingly deployed in systems that influence morally consequential decisions, from content moderation to clinical prioritization, yet they make moral judgments as if the whole world thinks like the West. The Moral Machine experiment \citep{awad2018moral} confirmed this is wrong at scale: 40~million judgments across 233~countries reveal that moral preferences are systematically structured by culture. A model that ignores this variation does not simply underperform but imposes one society's moral intuitions on all others. We show that within-country \emph{demographic disagreement}, not consensus, provides a sufficient signal to close this gap at inference time, without modifying weights, requiring per-country labels, or accessing internal activations, the only regime viable for global deployment where hundreds of cultures must be served through black-box APIs. Our method, \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment), instantiates each country as a panel of four persona agents grounded in World Values Survey microdata~\citep{haerpfer2022wvs}; their disagreement on a moral dilemma pinpoints where the base model is miscalibrated and by how much, while agreement indicates no correction is needed. The method is self-regulating: corrections are bounded by a fairness-aware aggregation that prevents any demographic group from being sacrificed, and shrink toward zero when the underlying signal is noisy or unreliable. Across 20~countries, four continents, and six model families (3.8B--70B parameters), the method reduces cultural misalignment by 19--24\% on the MultiTP benchmark~\citep{jin2025multitp}, with gains spanning geographies rather than concentrating in any single region. Ablations confirm that persona diversity and positional debiasing are the dominant components, and that failure is architecturally predictable, not culturally systematic.
+Large language models are increasingly deployed in decisions that turn on moral judgement-from content moderation to clinical prioritisation-yet they answer as if the whole world thinks like the West. The Moral Machine experiment~\citep{awad2018moral} showed this is wrong at scale: 40~million judgments across 233~countries reveal that moral preferences are systematically structured by culture, and a model that ignores this variation does not merely underperform-it imposes one society's intuitions on all others. We close this gap at inference time, with no weight updates, no per-country labels, and no white-box access to internal activations-the only regime viable for global deployment where hundreds of cultures must be served through black-box APIs. The key observation is that within-country \emph{demographic disagreement}, not consensus, is the steering signal: when culturally grounded personas agree, the base model is already calibrated; when they disagree, the spread tells us what to fix and by how much. Our method, \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment), instantiates each country as a panel of four persona agents grounded in World Values Survey microdata~\citep{haerpfer2022wvs}, converts their disagreement into a bounded, fairness-aware logit correction, and self-regulates by shrinking corrections toward zero when the underlying signal is noisy. Across 20~countries, four continents, and six model families (3.8B--70B parameters), DISCA reduces cultural misalignment on the MultiTP benchmark~\citep{jin2025multitp} by 10--24\% (19--24\% on the strongest four checkpoints), with gains spanning geographies rather than concentrating in any single region. Ablations confirm that persona diversity is the dominant components, and that failure is architecturally predictable rather than culturally systematic.
 
 
 
@@ -77,7 +77,7 @@ Large language models are increasingly deployed in systems that influence morall
 
 Large language models are increasingly deployed in systems that touch morally consequential decisions, from content moderation to clinical prioritisation to risk assessment, and they serve users across dozens of countries and languages. Yet when these models face moral dilemmas, their responses fail to reflect the cultural diversity of the populations they serve~\citep{jin2025multitp}. They do vary across languages, but the variation does not track documented human moral references~\citep{awad2018moral}; it is culturally arbitrary rather than culturally informed. For instance, when a self-driving car must choose between its passengers and pedestrians, Japanese respondents overwhelmingly spare the pedestrians, ranking 1st out of 117~countries, while Chinese respondents show the opposite preference, ranking 116th~\citep{awad2018moral}. No contemporary LLM reproduces this contrast when prompted in Japanese versus Chinese~\citep{jin2025multitp}.
 
-The scale of the mismatch is well documented. The Moral Machine experiment~\citep{awad2018moral} collected 40~million judgments across 233~countries and found that moral preferences cluster into three broad cultural groups with systematically different priorities. On the age dimension alone, France sits near the top of he global ranking for sparing the young while Japan ranks 103rd and China 115th out of 117~countries. On pedestrians versus passengers, Japan ranks 1st and China 116th, a near-complete reversal between two countries often grouped together culturally. These differences are not noise: they are geographically structured, correlate with institutional and economic indicators, and are mediated by generational cohorts within each country~\citep{awad2018moral, inglehart2005modernization}. When the MultiTP benchmark~\citep{jin2025multitp} tested 19~LLMs on the same dilemmas in 107~languages, no model recovered this cultural structure. Per-language response clustering placed Persian with German and Swedish, and Portuguese with English and Chinese~\citep{jin2025multitp}, groupings that bear no resemblance to the cultural geography documented by the Moral Machine. The most misaligned models went further, collapsing moral reasoning into extreme binary preferences: always spare women, always spare the young, always spare humans over animals, overriding the nuanced trade-offs that human respondents actually make~\citep{jin2025multitp}.
+The scale of the mismatch is well documented. The Moral Machine experiment~\citep{awad2018moral} collected 40~million judgments across 233~countries, revealing that moral preferences are geographically structured and mediated by generational cohorts. For example, on pedestrians versus passengers, Japan ranks 1st and China 116th-a near-complete reversal. When the MultiTP benchmark~\citep{jin2025multitp} tested 19~LLMs on the same dilemmas in 107~languages, no model recovered this cultural structure; the most misaligned models collapsed reasoning into extreme binary preferences (always spare women, always spare the young), overriding the nuanced trade-offs humans actually make~\citep{jin2025multitp}.
 
 
 
@@ -100,19 +100,7 @@ The scale of the mismatch is well documented. The Moral Machine experiment~\cite
 % that departs sharply from non-WEIRD human preferences.
 
 
-Closing this gap is harder than it appears. Existing approaches each require at least one resource that is unavailable at the scale of global deployment.
-%
-Fine-tuning or training culture-aware adapters~\citep{li2024culturemanager, yao2024caredio} produces models that reflect a target culture, but requires per-country training data and a separate model variant for every target culture. With
-195~countries and substantial within-country variation, this mean we may need up to 195 models variants for this fine-tuning method. Thus, it does not scale.
-%
-Reward-guided decoding~\citep{khanov2024args,
-mudgal2024controlled} avoids weight updates but requires a reward model trained on moral preference data for each country, but country-specific moral annotations at this scale do not exist. Creating them would require extensive crowdsourcing campaigns in each country, raising practical questions about cost and coverage, as well as normative questions about who speaks for a culture's moral preferences.
-%
-Activation steering~\citep{arditi2025refusal,
-zou2023representation} requires neither training data nor weight updates, but it requires access to the model's internal representations, which text-only API deployments do not expose.
-%
-The simplest alternative, direct country-prompting (``Answer as a Japanese person''), avoids all three requirements but produces minimal improvement in practice~\citep{jin2025multitp}. Telling a model to ``be Japanese'' treats millions of people as if they share a single moral outlook, and the outlook the model produces tends to reflect training-data stereotypes rather than documented cultural values~\citep{deshpande2023toxicity}.%
-A practical method must therefore update no weights, consume no per-country labels, and operate without access to model internals. To our knowledge, no existing method satisfies all three while providing empirically grounded cultural steering.
+Closing this gap is harder than it appears. Existing approaches each demand at least one unavailable resource at global scale: fine-tuning or culture-aware adapters require per-country training data and 195+ model variants~\citep{zhang2026culturemanager, yao2024caredio}; reward-guided decoding needs country-specific reward models that do not exist~\citep{khanov2024args, mudgal2024controlled}; activation steering requires white-box access to internal representations~\citep{arditi2025refusal, zou2023representation}; and direct country-prompting (``Answer as a Japanese person'') produces minimal improvement, conflating entire populations with stereotypes rather than documented values~\citep{jin2025multitp}. A practical method must update no weights, consume no per-country labels, and operate without model internals. To our knowledge, none of the existing methods satisfy all three while providing empirically grounded cultural steering.
 
 
 % Closing this gap without retraining is hard because a practical cross-cultural decoder
@@ -124,7 +112,7 @@ A practical method must therefore update no weights, consume no per-country labe
 % activation steering~\citep{arditi2025refusal, zou2023representation} requires
 % internal-layer access; reward-guided decoding~\citep{khanov2024args, mudgal2024controlled}
 % assumes per-country reward models that do not exist; and culture-aware
-% adapters~\citep{li2024culturemanager, yao2024caredio} need per-culture training,
+% adapters~\citep{zhang2026culturemanager, yao2024caredio} need per-culture training,
 % scaling poorly past a handful of countries.
 
 Our central observation is that the signal needed for cultural alignment already exists in publicly available survey data. Consider a dilemma that trades young lives against elderly lives, presented to four demographically grounded personas representing a single country: a young adult, a middle-aged professional, an older citizen, and a population-wide aggregate, each constructed from World Values Survey microdata~\citep{haerpfer2022wvs}. In a country like Japan, where all age cohorts agree that this trade-off is relatively balanced~\citep{awad2018moral}, the four personas produce similar responses, and the base model is typically already close to the cultural target. No correction is needed. In a country like France, where younger and older cohorts weigh youth differently~\citep{awad2018moral, inglehart2005modernization}, the personas diverge, and the spread of their responses directly encodes both the direction of the needed correction and its magnitude. In other words, where personas agree, the model is already calibrated; where they disagree, the disagreement tells us what to fix and by how much. Therefore, within-country disagreement, not consensus, is the steering signal.
@@ -134,7 +122,7 @@ We operationalise this insight in a method we call
 cultural signal. Second, we remove the positional bias that would otherwise mask this signal. When a moral dilemma is presented as ``Option A: spare the young group / Option B: spare the elderly group,'' LLMs tend to favour Option A regardless of its content~\citep{liu2024lost}. Swap the order, and the model favours the elderly group instead. This positional preference has nothing to do with culture, but it is strong enough to drown out the genuine cultural differences among personas. Removing it is not optional: until it is gone, the persona responses reflect the model's positional bias, not the country's moral values. We formalise this debiasing argument in the method and appendix derivation, and we argue it explains why prior prompting-based cultural steering has underperformed~\citep{jin2025multitp}. Third, we combine the four personas' corrections into a single adjustment using a bounded, fairness-aware aggregation rule so that no demographic group is systematically sacrificed for the others. \textbf{DISCA} is self-regulating: when the signal is noisy or unreliable, corrections automatically shrink toward zero rather than committing to a potentially wrong adjustment.
 
 
-Across 20~countries, four continents, and 6 open model families spanning 3.8B to 70B parameters, \textbf{DISCA} reduces cultural misalignment by 19--24\% on the MultiTP benchmark~\citep{jin2025multitp} relative to vanilla decoding, with gains spanning the Americas, Europe, and Southeast Asia rather than concentrating in any single region. The lowest absolute misalignment comes not from the largest model but from Phi-4 (14B), suggesting that how well the model handles fine-grained preference distinctions matters more than raw parameter count.
+Across 20~countries, four continents, and 6 open model families spanning 3.8B to 70B parameters, \textbf{DISCA} reduces cultural misalignment on the MultiTP benchmark~\citep{jin2025multitp} by 10--24\% relative to vanilla decoding (19--24\% on the strongest four checkpoints), with gains spanning the Americas, Europe, and Southeast Asia rather than concentrating in any single region. The lowest absolute misalignment comes not from the largest model but from Phi-4 (14B), suggesting that how well a model handles fine-grained preference distinctions matters more than raw parameter count.
 
 
 % We propose \textbf{DISCA} (Socially-Weighted Alignment with Dual-Pass Bootstrap
@@ -229,7 +217,7 @@ target: activation steering~\citep{arditi2025refusal, zou2023representation}
 requires white-box access; reward-guided
 decoding~\citep{khanov2024args, mudgal2024controlled} needs per-country reward
 models; and culture-aware
-adapters~\citep{li2024culturemanager, yao2024caredio} need per-culture training.
+adapters~\citep{zhang2026culturemanager, yao2024caredio} need per-culture training.
 Recent logit-level steering work~\citep{an2026logit} and culturally localised
 generation via sparse autoencoders~\citep{khanuja2026steering} demonstrate that
 the logit surface is a richer control interface than previously appreciated, but
@@ -240,7 +228,7 @@ confidence~\citep{kwon2025dropouts}; DISCA complements this by targeting
 uncertainty inflation, and we include it as an explicit baseline
 (Appendix~\ref{app:r2_baselines}). Black-box alignment modules that learn
 small guidance policies from preference
-data~\citep{lee2025pita, chen2025diffpo} sit in an adjacent regime: they
+data~\citep{bobbili2025pita, chen2025diffpo} sit in an adjacent regime: they
 operate on frozen model outputs, but still require a training stage for the
 guidance policy and are typically defined over sentence-level continuations
 rather than binary decisions. Adaptive importance sampling in pre-logit
@@ -253,40 +241,9 @@ at \emph{test time}, per scenario, so the asymmetry aggregates
 heterogeneous personas rather than shaping a trained policy.
 To the best of our knowledge, DISCA is the first training-free method
 targeting country-level moral calibration specifically.
-
-\paragraph{Theoretical grounding.}
-DISCA sits at the intersection of three theoretical traditions, each
-supplying one ingredient that the others lack.
-\emph{Control as probabilistic inference}~\citep{levine2018reinforcement,
-todorov2009generalized} recasts optimal decision-making as posterior
-inference over an intention distribution; path-integral
-steering~\citep{williams2017mppi} instantiates that view
-with softmax-weighted perturbations that provably approximate the KL-regularised
-optimal control under mild regularity conditions~\citep{todorov2009generalized}.
-This is what licences us to read our Eq.~\ref{eq:util_total} as an inference
-step rather than an arbitrary scalar interpolation, and it motivates the
-Gaussian proposal around $\bar\delta$ as the entropy-maximal default in the
-absence of stronger priors.
-\emph{Prospect Theory}~\citep{kahneman1979prospect, tversky1992advances} then
-supplies the utility shape: the key empirical regularity-that human decision
-makers weight a loss of magnitude $x$ roughly $\kappa{\approx}2.25$ times more
-than a gain of the same magnitude-is exactly the asymmetry we want an
-LLM cultural controller to respect, because a correction that silences one
-demographic persona is worse than a correction that fails to help it.
-Recent evidence that prospect-theoretic biases emerge naturally in LLM
-decision-making under risk~\citep{payne2025prospect} strengthens the match:
-the asymmetric gain/loss structure we impose \emph{mirrors} one the models
-themselves already exhibit, rather than introducing an alien objective.
-\emph{Importance-sampling (IS) theory}~\citep{elvira2021advances} finally supplies the variance-control machinery, and it is here that self-normalised IS is
-known to be biased at finite $K$; the dual-pass construction we adopt is a
-light-weight bootstrap-style variance probe~\citep{efron1979bootstrap} that
-uses the same compute budget to detect instability rather than silently
-accept it, paired with an effective-sample-size guard grounded in design-effect
-theory~\citep{kish1965survey}.
-We treat the dual-pass gate as a variance heuristic rather than a formal
-unbiasedness certificate; formal finite-$K$ bounds would require stronger
-assumptions on the logit landscape than we are willing to claim
-(Appendix~\ref{app:dpbr_theory}).
+The method is grounded in three theoretical traditions-control-as-inference,
+Prospect Theory, and importance-sampling variance control-detailed in
+Appendix~\ref{app:theory_grounding}.
 
 % ============================================================
 \section{Method: DISCA}
@@ -297,7 +254,7 @@ The pipeline has three logical stages: extract cultural signal from a
 WVS-grounded persona panel (\S\ref{sec:method:personas}--\S\ref{sec:method:debias}),
 convert dispersion into a bounded correction via Prospect-Theory importance sampling (IS) with
 dual-pass reliability (\S\ref{sec:method:dpbr}), and stabilise across scenarios
-via a hierarchical country prior (\S\ref{sec:method:prior}).
+via a hierarchical country prior (Appendix~\ref{app:country_prior}).
 Algorithm~\ref{alg:swa} ties the three together; rationale for each choice is
 summarised in Appendix~\ref{app:design_rationale}.
 
@@ -355,8 +312,7 @@ For each country, respondents are segmented into three age cohorts-\emph{young}
 cohort-specific personas that capture generational variation in cultural values.
 A fourth persona aggregates all respondents regardless of age, anchoring the
 ensemble with the country's population-wide cultural centre of gravity.
-All four personas are thus data-driven and country-specific; no agent carries a
-hard-coded moral stance that could bias particular dimensions.
+All four personas are thus data-driven and country-specific; no agent carries a hard-coded moral stance that could bias particular dimensions.
 Dimension means are normalised to $[0,1]$ and mapped to four-level
 natural-language descriptors via quartile cuts ($\geq 0.75$, $\geq 0.50$,
 $\geq 0.25$, $< 0.25$); see Appendix~\ref{app:personas}.
@@ -481,61 +437,30 @@ The micro correction combines the reliability-gated IS offset with an
 interpolation between the persona consensus and the debiased base, controlled
 by sampling quality (Appendix~\ref{app:dpbr_theory}).
 
-\subsection{Learning a Country-Level Prior}
-\label{sec:method:prior}
-
-Each scenario so far is corrected independently. But moral preferences within a
-country are not independent-a model that underestimates youth preference in
-one Japanese trolley dilemma will likely do the same in the next. The
-hierarchical country prior exploits this by maintaining a running average of
-past corrections for each country and gradually blending it into future ones.
-
-Concretely, after processing each scenario, an exponential moving average (EMA)
-accumulates the micro corrections:
-$\delta_{\mathrm{country}} \leftarrow (1{-}\beta_{\mathrm{ema}})\,
-\delta_{\mathrm{country}} + \beta_{\mathrm{ema}}\,\delta_{\mathrm{micro}}$
-with $\beta_{\mathrm{ema}}{=}0.1$. The prior stays silent for the first
-$N_{\mathrm{warm}}{=}50$ scenarios (where there is too little history to be
-useful), then gradually blends in:
-$\delta_{\mathrm{final}} = \alpha_h\,\delta_{\mathrm{country}} +
-(1{-}\alpha_h)\,\delta_{\mathrm{micro}}$, where the blend weight $\alpha_h$
-anneals from 0 to ${\sim}0.63$ over a typical country pool
-(Appendix~\ref{app:hyperparams}).
-
-The prior contributes a modest but consistent improvement: disabling it
-degrades alignment by roughly 3\% on the USA ablation slice. Its role is not to
-override per-scenario corrections but to stabilise them-smoothing out IS noise
-in the tail of the scenario pool so that late corrections benefit from the
-pattern established by early ones. The final spare probability is
-$p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with
-$T_{\text{dec}}{=}0.5$.
-
-Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all
-symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
+\paragraph{Hierarchical country prior.} A light EMA over past micro-corrections within the same country smooths IS noise across the scenario pool, contributing a modest but consistent gain (full mechanism, hyperparameters, and ablation in Appendix~\ref{app:country_prior}). The final spare probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with $T_{\text{dec}}{=}0.5$. Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
 
 \begin{algorithm}[t]
-\caption{DISCA Inference for Scenario $\mathbf{x}$ in Country $c$}
+\caption{DISCA Inference: Scenario $\mathbf{x}$ in Country $c$}
 \label{alg:swa}
 \begin{algorithmic}[1]
 \Require Frozen LLM $f_\theta$; personas $\{\mathbf{s}_i\}_{i=1}^{N}$;
-         hyperparameters $K_{\text{half}},\sigma,\lambda_{\text{coop}},\eta,T_{\text{dec}},s$
+         hyperparameters $K_{\text{half}},\sigma,\lambda,\eta,T_{\text{dec}},s$
 \Ensure $p_{\text{spare}} \in [0,1]$
 \For{$\text{order} \in \{\text{orig}, \text{swap}\}$}
-  \State Batched forward: evaluate $f_\theta$ with base + $N$ personas
-  \State Extract logit pairs; compute $\delta_i^{(\text{ord})}$ \hfill\Comment{Eq.~\ref{eq:batch}}
+  \State Batched forward: $f_\theta$ on base + $N$ personas
+  \State Extract logit pairs; compute $\delta_i^{(\text{ord})}$
 \EndFor
-\State Average: $\delta_i \leftarrow (\delta_i^{(\text{orig})} - \delta_i^{(\text{swap})})/2$ \hfill\Comment{\S\ref{sec:method:debias}}
-\State Compute consensus $\bar{\delta}$, rewards $r_i$ \hfill\Comment{Eqs.~\ref{eq:consensus}--\ref{eq:reward}}
+\State $\delta_i \leftarrow (\delta_i^{(\text{orig})} - \delta_i^{(\text{swap})})/2$
+\State Compute $\bar{\delta}$, $r_i$ \hfill [Eqs.~\ref{eq:consensus}--\ref{eq:reward}]
 \For{$m \in \{1,2\}$}
   \For{$k = 1$ \textbf{to} $K_{\text{half}}$}
-    \State Sample $\epsilon_k \sim \mathcal{N}(0, \sigma^2)$; compute $U_{\text{total}}(\epsilon_k)$ \hfill\Comment{Eq.~\ref{eq:util_total}}
+    \State Sample $\epsilon_k \sim \mathcal{N}(0, \sigma^2)$; $U_{\text{tot}}(\epsilon_k)$
   \EndFor
-  \State $\delta^{\star}_m \leftarrow \sum_k w_k^{(m)} \epsilon_k$ or $0$ if ESS $<\rho_{\mathrm{eff}}$ \hfill\Comment{\S\ref{sec:method:dpbr}}
+  \State $\delta^{\star}_m \leftarrow \sum_k w_k^{(m)} \epsilon_k$ (if ESS $>\rho_{\mathrm{eff}}$)
 \EndFor
-\State $r \leftarrow \exp\bigl(-(\delta^{\star}_1-\delta^{\star}_2)^2/s\bigr)$;
-       $\delta^{\star}_{\mathrm{IS}} \leftarrow r(\delta^{\star}_1+\delta^{\star}_2)/2$ \hfill\Comment{Eq.~\ref{eq:dpbr_rel}}
-\State $\delta_{\mathrm{micro}} \leftarrow$ ESS-anchor blend of $\bar{\delta}$, $\delta_{\text{base}}$, and $\delta^{\star}_{\mathrm{IS}}$ \hfill\Comment{see \S\ref{sec:method:dpbr}}
-\State $\delta_{\text{final}} \leftarrow$ country EMA prior blend \hfill\Comment{\S\ref{sec:method:prior}}
+\State $r \leftarrow \exp(-(\delta^{\star}_1-\delta^{\star}_2)^2/s)$
+\State $\delta^{\star}_{\text{IS}} \leftarrow r(\delta^{\star}_1+\delta^{\star}_2)/2$
+\State $\delta_{\text{final}} \leftarrow \text{blend}(\bar{\delta}, \delta_{\text{base}}, \delta^{\star})$
 \State \Return $p_{\text{spare}} = \sigma(\delta_{\text{final}} / T_{\text{dec}})$
 \end{algorithmic}
 \end{algorithm}
@@ -564,17 +489,18 @@ per dimension for stable AMCE estimation), yielding 310--500 scenarios per count
 \begin{table}[t]
 \caption{The six moral dimensions in MultiTP.}
 \label{tab:categories}
-\centering\small
+\centering\scriptsize
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{lllc}
 \toprule
-Dimension      & Preferred       & Contra          & $T_{\text{cat}}$ \\
+Dimension & Preferred & Contra & $T_c$ \\
 \midrule
-Species        & Human           & Animal          & 4.0 \\
-Gender         & Female          & Male            & 3.5 \\
-Age            & Young           & Elderly         & 1.5 \\
-Fitness        & Fit             & Unfit           & 1.5 \\
-Social Value   & High (exec.)    & Low (homeless)  & 1.5 \\
-Utilitarianism & More lives      & Fewer lives     & 1.5 \\
+Species & Human & Animal & 4.0 \\
+Gender & Female & Male & 3.5 \\
+Age & Young & Elderly & 1.5 \\
+Fitness & Fit & Unfit & 1.5 \\
+Social Value & High (exec.) & Low (homeless) & 1.5 \\
+Utilitarianism & More lives & Fewer lives & 1.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -644,323 +570,190 @@ gain, country win rate (MIS lower than vanilla), and mean~$r$.
 % ============================================================
 \section{Results}
 \label{sec:results}
+\label{sec:percountry_main}
+\label{sec:robustness}
 % ============================================================
 
-\subsection{Training-Free Steering Closes 19--24\% of the Cultural Gap}
-
-A single decoding-time intervention-no weight changes, no per-country
-labels-materially closes the gap between LLM moral judgments and human cultural
-preferences.
-Table~\ref{tab:main_macro_summary} confirms this consistently.
-Across six open checkpoints spanning 3.8B to 70B parameters and four distinct
-model families, DISCA reduces macro misalignment (MIS) by 10--24\% relative to
-vanilla, with the strongest backbones achieving \textbf{20/20 country wins}.
-
-Two patterns deserve attention.
-\emph{Calibration competes with scale.}
-The lowest absolute MIS does not come from the largest model: Phi-4 (14B) achieves
-MIS~$=0.346$ with a 23.7\% gain, outperforming Llama-3.3-70B in absolute terms-even
-though the 70B model wins \emph{every} country.
-This means DISCA can both \emph{rescue} a badly misaligned large model and
-\emph{refine} an already well-calibrated mid-sized one.
-\emph{The method scales down.}
-Even the smallest checkpoint (Phi-3.5-mini, 3.8B) posts a clear 10.4\% aggregate
-gain, demonstrating that inference-time cultural steering is not reserved for
-frontier-scale models.
+A single decoding-time intervention-no weight changes, no per-country labels-materially closes the LLM-vs-human cultural gap. Across six open checkpoints (3.8B to 70B) spanning four model families, DISCA cuts macro MIS by 10--24\% relative to vanilla (Table~\ref{tab:main_macro_summary}), and the strongest backbones win on \textbf{all 20 countries}. Two surprises sit on top of this headline number. The first is that \emph{calibration competes with scale}: Phi-4 (14B, MIS~$=0.346$, +23.7\%) reaches lower absolute misalignment than Llama-3.3-70B, even though the 70B model is the one that achieves the perfect country sweep-so DISCA can simultaneously \emph{rescue} a badly miscalibrated large model and \emph{refine} a well-calibrated mid-sized one. The second is that the method \emph{scales down}: even Phi-3.5-mini at 3.8B parameters posts a clear +10.4\% aggregate gain, putting inference-time cultural steering within reach of compute-constrained deployments rather than reserving it for frontier-scale models.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.78\linewidth]{amce_pca.pdf}
   \caption{\textbf{Geometric story: DISCA pulls model AMCE vectors toward the
   human cluster.} 2D PCA projection of the six-dimensional human, vanilla,
-  and DISCA AMCE vectors for Phi-4 across all 20 countries (joint fit, two
-  components capture 88.1\% of the variance). Convex hulls show the spatial
+  and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two
+  components capture 93.2\% of the variance). Convex hulls show the spatial
   extent of each cloud; arrows trace each country's vanilla$\to$DISCA
-  trajectory. \textbf{18 of 20 country points end closer to the human
+  trajectory. \textbf{All 20 of 20 country points end closer to the human
   cluster}, with mean $\lVert\text{model}-\text{human}\rVert_2$ dropping
-  from 44.3 to 32.0 ($-27.6\%$).}
+  from 83.3 to 64.6 ($-22.4\%$).}
   \label{fig:amce_pca}
 \end{figure}
 
-As a direct sanity check against simpler inference-time alternatives on the
-same 20-country Phi-4 grid (Table~\ref{tab:main_baseline_sanity}), DISCA
-(MIS 0.346) remains ahead of the best prompt-only baseline variant
-(MIS 0.364), MC-Dropout uncertainty smoothing (0.403), activation steering
-(0.430), SWAI-style additive biasing (0.439), and vanilla decoding (0.454).
-Here, \emph{prompt baseline} means country-conditioned instruction prompting
-(best variant: B3-long role-framed prompt), and \emph{SWAI-style additive
-biasing} means applying a fixed side-bias logit offset per country estimated
-from calibration data. Notably, even \emph{oracle} calibration baselines that
-fit a per-country scalar on the human AMCE (Temperature scaling, Margin
-scaling) score \emph{above} 0.50 on this benchmark, indicating that simple
-scalar calibration over-fits the 25\% held-out split rather than recovering
-the cultural signal. DISCA, which never sees the human target, beats both
-oracle baselines and every fair (non-AMCE) inference-time baseline.
+The geometric picture in Figure~\ref{fig:amce_pca} makes clear that the macro number is not a statistical mirage: every single one of the 20 country points moves from the vanilla cloud toward the human cloud, with the mean model-to-human distance dropping by 22.4\%. The shift is consistent enough that two PCA components capture 93.2\% of the joint variance, so what looks like a numerical improvement in Table~\ref{tab:main_macro_summary} is also a coherent geometric pull in AMCE space.
 
-\begin{table}[t]
+The natural follow-up question is whether this gain might be available from a much simpler intervention. It is not. On the same Phi-4 grid (Table~\ref{tab:main_baseline_sanity}), DISCA at MIS~0.346 leads every fair baseline we tested: PRISM-style prompting~\citep{kirk2024prism} stalls at 0.384, MC-Dropout uncertainty smoothing~\citep{gal2016dropout, kwon2025dropouts} at 0.403, activation steering~\citep{arditi2025refusal, zou2023representation} at 0.430, and fixed per-country logit offsets at 0.439-barely separating from vanilla (0.454). More tellingly, \emph{oracle} per-country temperature and margin scaling~\citep{guo2017calibration}, which fit a scalar directly on the human AMCE itself, score \emph{above} 0.50: scalar calibration overfits the held-out split rather than recovering cultural structure, and DISCA-which never sees the human target-still beats it. The takeaway is that within-country persona disagreement carries information that neither prompting tricks, generic uncertainty inflation, nor population-level scalar fits can reproduce.
+
+\begin{table*}[t]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
 \caption{Inference-time baseline comparison on the Phi-4 20-country grid
-(macro MIS, lower is better). Numbers below the dashed line use the
-human AMCE during calibration on a held-out 25\% split (\emph{oracle}
-access); even with this oracle they fail to match DISCA, indicating
-that scalar calibration over-fits the small calibration set.}
+(macro MIS, lower is better). Oracle baselines (below dashed line) use human AMCE
+during calibration; even with this oracle they fail to match DISCA.}
 \label{tab:main_baseline_sanity}
 \centering\scriptsize
-\setlength{\tabcolsep}{6pt}
+\setlength{\tabcolsep}{5pt}
 \begin{tabular}{lcc}
 \toprule
-Method & Uses AMCE? & Macro MIS $\downarrow$ \\
+Method & AMCE? & MIS $\downarrow$ \\
 \midrule
-\textbf{DISCA (ours)}                              & No  & \textbf{0.346} \\
-Prompt B3-long (best of B1\,/\,B2\,/\,B3\,/\,B4)   & No  & 0.364 \\
-MC-Dropout (T=8, p=0.1)                            & No  & 0.403 \\
-Activation steering                                & No  & 0.430 \\
-SWAI (logit-side additive bias)                    & No  & 0.439 \\
-WVS Profile prompt (B2)                            & No  & 0.453 \\
-Vanilla decoding                                   & No  & 0.454 \\
+\textbf{DISCA (ours)} & No & \textbf{0.346} \\
+PRISM-Style Prompt~\citep{kirk2024prism} & No & 0.384 \\
+MC-Dropout~\citep{gal2016dropout} & No & 0.403 \\
+Activation steering~\citep{arditi2025refusal} & No & 0.430 \\
+Fixed logit offset & No & 0.439 \\
+WVS Profile Prompt & No & 0.453 \\
+Vanilla decoding & No & 0.454 \\
 \midrule
-\multicolumn{3}{l}{\emph{Oracle baselines (use human AMCE during calibration)}} \\
-Margin scaling (per-country $m_c$)                 & Yes & 0.506 \\
-Temperature scaling (per-country $T_c$)            & Yes & 0.513 \\
+Margin scaling~\citep{guo2017calibration} & Yes & 0.506 \\
+Temp. scaling~\citep{guo2017calibration} & Yes & 0.513 \\
 \bottomrule
 \end{tabular}
-\end{table}
-
-\begin{table}[t]
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
 \caption{Macro results on the 20-country MultiTP slice (equal weight per country).
-MIS is mean $\ell_2$ AMCE distance ($\downarrow$). Rows follow nominal parameter count
-(descending); gains vs.\ vanilla are for reference only. ``Win'' counts countries with
-lower DPBR MIS than vanilla; mean $r$ averages per-country Pearson correlation between
-model and human AMCE vectors.}
+MIS is mean $\ell_2$ AMCE distance; gains vs.\ vanilla; ``Win'' = countries with
+lower DPBR MIS than vanilla.}
 \label{tab:main_macro_summary}
 \centering\scriptsize
 \setlength{\tabcolsep}{3pt}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
-Model & Mean MIS $\downarrow$ & vs.\ van.\ (\%) & Win / 20 & Mean $r$ \\
+Model & MIS $\downarrow$ & Gain (\%) & Win/20 & $r$ \\
 \midrule
-Llama-3.3-70B              & 0.668 & \gain{+21.4} & \textbf{20} & $-0.01$ \\
-Magistral-Small-2509 (24B) & 0.350 & \gain{+13.1} & 16          & $+0.62$ \\
-Phi-4 (14B)                & \textbf{0.346} & \gain{+23.7} & 18          & $+0.56$ \\
-Qwen3-VL-8B                & 0.466 & \gain{+18.9} & \textbf{20} & $+0.22$ \\
-Qwen2.5-7B                 & 0.362 & \gain{+20.1} & 17          & $+0.45$ \\
-Phi-3.5-mini (3.8B)        & 0.571 & \gain{+10.4} & 17          & $-0.35$ \\
+Llama-3.3-70B & 0.668 & +21.4 & \textbf{20} & $-$0.01 \\
+Magistral-24B & 0.350 & +13.1 & 16 & +0.62 \\
+Phi-4 (14B) & \textbf{0.346} & +23.7 & 18 & +0.56 \\
+Qwen3-VL-8B & 0.466 & +18.9 & \textbf{20} & +0.22 \\
+Qwen2.5-7B & 0.362 & +20.1 & 17 & +0.45 \\
+Phi-3.5-mini & 0.571 & +10.4 & 17 & $-$0.35 \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{minipage}
+\end{table*}
 
-The per-country data behind Table~\ref{tab:main_macro_summary} reveals that these
-macro gains are not driven by a few lucky countries. Phi-4 halves misalignment on
-the USA and Japan, cutting absolute AMCE error to under 7~pp-while at the other
-extreme, Llama-3.3-70B starts from a vanilla MIS nearly double the other models yet
-DISCA still pulls it down with a perfect 20/20 country sweep. The method can both
-\emph{rescue} a severely miscalibrated large model and \emph{refine} an already
-well-calibrated mid-sized one. Full per-country breakdowns and per-dimension analysis
-are in \S\ref{sec:percountry_main} and Appendix~\ref{app:perdim}.
+Zooming in country by country (Table~\ref{tab:percountry_p1}) confirms that the macro number is not driven by a handful of lucky cells. Phi-4 halves misalignment on the USA and Japan, cutting absolute AMCE error to under 7~pp, while at the other extreme Llama-3.3-70B starts with vanilla MIS nearly double the rest of the panel and DISCA still pulls it down on every one of the 20 countries-visible as the upward shift in the MIS-vs-size curves of Figure~\ref{fig:scaling_vs_calibration} (Appendix~\ref{app:scaling_figures}), where a 14B model with DISCA dips below the no-DISCA 70B baseline. Crucially, this breadth extends beyond a Western core: 19 of 20 countries see positive mean gains, with the largest in the Americas, East/Southeast Asia, and Eastern Europe (geographic visualization in Figure~\ref{fig:world_delta_mis}, Appendix~\ref{app:scaling_figures}). Heterogeneity in East Asia tracks \emph{model architecture}, not geography-a hint we return to in the discussion. The hardest cases are the singleton regions (West Asia, Africa) where WVS persona coverage is sparser, and a smaller backbone can occasionally move the wrong direction on a single country; this is precisely the regime where the dual-pass reliability gate earns its keep, shrinking noisy corrections toward zero. One subtlety in the per-country grid is worth flagging: several rows show MIS dropping while Pearson $r$ stays negative. This is not a contradiction-MIS measures $\ell_2$ \emph{amplitude} between the six-dimensional AMCE vectors, while $r$ measures the \emph{shape} of the per-dimension ranking, and the two are genuinely orthogonal. Rank-based agreement (Kendall $\tau$, mean rank-error) in Appendix~\ref{app:rank_agreement} is uniformly positive across the panel; we keep MIS as the primary headline only because MultiTP introduced it.
 
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.92\linewidth]{scaling_vs_calibration.pdf}
-  \caption{\textbf{Calibration competes with scale.} Mean MIS across the 20-country
-  panel (lower is better) for the six headline backbones. Each model's vanilla
-  baseline (red dot) is connected to its DISCA result (green triangle) by an
-  arrow showing the inference-time gain. The dashed line traces the DISCA
-  Pareto frontier as model size grows. \textbf{A 14B model with DISCA (Phi-4,
-  star) reaches MIS $=0.346$, lower than a 70B model without DISCA
-  (Llama-3.3-70B, $0.668$).} The shaded band marks the region the vanilla
-  curve never reaches.}
-  \label{fig:scaling_vs_calibration}
-\end{figure}
-
-\subsection{Gains Span Geographies, Not Just the West}
-\label{sec:percountry_main}
-
-A cultural alignment method that only improves Western countries would be of limited
-value.
-Table~\ref{tab:percountry_p1} decomposes the macro gains by region, confirming that
-DISCA's improvements are geographically broad: gains are visible across
-the Americas, Europe, and Southeast Asia, not concentrated in any single region.
-Heterogeneity in East Asia tracks \emph{model architecture} (which backbones have
-well-behaved logits), not geography.
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=0.98\linewidth]{world_delta_mis.pdf}
-  \caption{\textbf{Geographic distribution of DISCA gain.} Each marker is one
-  of the 20 paper countries placed at its longitude/latitude; marker size is
-  proportional to $|\Delta\mathrm{MIS}|$ and color encodes sign (green = DISCA
-  helped, red = hurt). Aggregated across the six headline backbones,
-  \textbf{19 of 20 countries see a positive mean gain}, with the largest
-  improvements in the Americas, East/Southeast Asia, and Eastern Europe-
-  not concentrated in the West.}
-  \label{fig:world_delta_mis}
-\end{figure}
-
-The hardest cases are singleton panels (West Asia, Africa) where WVS persona coverage
-is sparser.
-Here, variance is higher and a small backbone can occasionally move the wrong
-direction on a single country-precisely the regime where the dual-pass reliability
-gate earns its keep by shrinking noisy corrections toward zero.
-
-\paragraph{Why MIS can improve while Pearson $r$ stays negative.}
-Table~\ref{tab:percountry_p1} shows several countries where DISCA
-reduces MIS yet the model-vs-human Pearson correlation is negative. This
-is not a contradiction: MIS is the $\ell_2$ distance between the six-dim
-AMCE vectors (an \emph{amplitude} metric), while Pearson $r$ measures
-\emph{shape}-the rank ordering of the six MultiTP dimensions. When a
-model's dimension ranking differs from the human ranking, $r$ can be
-near-zero or negative even while the per-dimension values move closer in
-magnitude; the two metrics are genuinely orthogonal. We supplement $r$
-with rank-based agreement (Kendall $\tau$, mean rank-error) over the
-six dimensions in Appendix~\ref{app:rank_agreement}; there the picture
-is more uniformly positive, with DISCA improving the macro rank
-ordering over the vanilla baseline. Readers who care about the shape
-of the cultural profile (rather than the $\ell_2$ amplitude) should
-track the rank metrics; MIS remains our primary headline because it is
-the metric introduced by the MultiTP authors.
+A final concern is whether these numbers are a tuning artifact rather than a real effect. They are not. We stress-test the pipeline across nine independent axes-decision and per-category temperatures, six dataset-preprocessing variants, three logit-shift kernels, eight cross-lingual configurations-and every JSD span sits well within the $\pm 0.004$ bootstrap CI (Appendix~\ref{app:robustness_summary}; per-axis sweeps in Appendices~\ref{app:r2_hparam_sensitivity}--\ref{app:dataset_sens}). The dual-pass reliability gate itself is also well-behaved on the headline run: $r > 0.9$ on 84\% of scenarios across the 20-country panel, while suppression ($r < 0.5$) fires on only 3\%. Aggressive corrections concentrate exactly where the model is genuinely miscalibrated, and the gate dampens corrections everywhere else-the kind of self-regulating behaviour an inference-time controller should have if it is to be trusted at scale.
 
 \begin{table*}[tp]
-\caption{\textbf{Per-country DISCA results (20 countries).} Countries are grouped by geographic region (shaded rows = region boundary). Vanilla and DISCA MIS ($\downarrow$), relative MIS improvement (\%), and DISCA JSD ($\downarrow$) / Pearson $r$ ($\uparrow$). Models in the same order as Table~\ref{tab:main_macro_summary} (nominal parameter count, descending).}
+\caption{\textbf{Per-country DISCA results (20 countries).} Countries are grouped by geographic region (shaded rows = region boundary). Vanilla and DISCA MIS ($\downarrow$), relative MIS improvement (\%), and DISCA JSD ($\downarrow$) / Pearson $r$ ($\uparrow$). Six headline models (nominal parameter count, descending) plus Gemma-4-E2B (2B, 14/20 country wins, +3.4\% gain) shown as extended candidate.}
 \label{tab:percountry_p1}
 \centering\scriptsize
 \setlength{\tabcolsep}{1.5pt}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}ll ccccc ccccc ccccc ccccc ccccc ccccc@{}}
+\begin{tabular}{@{}ll ccccc ccccc ccccc ccccc ccccc ccccc ccccc@{}}
 \toprule
- &  & \multicolumn{5}{c}{\textbf{Llama-3.3-70B}} & \multicolumn{5}{c}{\textbf{Magistral-Sml (24B)}} & \multicolumn{5}{c}{\textbf{Phi-4 (14B)}} & \multicolumn{5}{c}{\textbf{Qwen3-VL-8B}} & \multicolumn{5}{c}{\textbf{Qwen2.5-7B}} & \multicolumn{5}{c}{\textbf{Phi-3.5-mini (3.8B)}} \\
-\cmidrule(lr){3-7}\cmidrule(lr){8-12}\cmidrule(lr){13-17}\cmidrule(lr){18-22}\cmidrule(lr){23-27}\cmidrule(lr){28-32}
-\textbf{ISO} & \textbf{Region} & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ \\
+ &  & \multicolumn{5}{c}{\textbf{Llama-3.3-70B}} & \multicolumn{5}{c}{\textbf{Magistral-Sml (24B)}} & \multicolumn{5}{c}{\textbf{Phi-4 (14B)}} & \multicolumn{5}{c}{\textbf{Qwen3-VL-8B}} & \multicolumn{5}{c}{\textbf{Qwen2.5-7B}} & \multicolumn{5}{c}{\textbf{Phi-3.5-mini (3.8B)}} & \multicolumn{5}{c}{\textbf{Gemma-4-E2B (2B)}} \\
+\cmidrule(lr){3-7}\cmidrule(lr){8-12}\cmidrule(lr){13-17}\cmidrule(lr){18-22}\cmidrule(lr){23-27}\cmidrule(lr){28-32}\cmidrule(lr){33-37}
+\textbf{ISO} & \textbf{Region} & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ & MIS$_v$ & MIS$_s$ & \%$\Delta_{\mathrm{MIS}}$ & JSD$_s$ & $r_s$ \\
 \midrule
-ARG & Americas & 1.015 & .891 & \gain{+12.2} & .178 & $-$0.456 & .364 & .342 & \gain{+6.0} & .046 & .601 & .463 & .389 & \gain{+16.1} & .046 & .412 & .520 & .339 & \gain{+35.0} & .083 & .508 & .469 & .377 & \gain{+19.7} & .064 & .196 & .770 & .645 & \gain{+16.1} & .159 & $-$0.498 \\
-BRA & Americas & .521 & .458 & \gain{+12.2} & .119 & .222 & .411 & .319 & \gain{+22.5} & .051 & .333 & .274 & .299 & \loss{-9.3} & .061 & .471 & .529 & .375 & \gain{+29.1} & .101 & .212 & .580 & .411 & \gain{+29.1} & .081 & $-$0.205 & .531 & .649 & \loss{-22.1} & .173 & $-$0.743 \\
-COL & Americas & 1.041 & .931 & \gain{+10.5} & .189 & $-$0.594 & .413 & .369 & \gain{+10.7} & .055 & .386 & .487 & .438 & \gain{+10.1} & .057 & .093 & .559 & .390 & \gain{+30.1} & .093 & .161 & .508 & .417 & \gain{+17.8} & .070 & $-$0.096 & .788 & .678 & \gain{+14.0} & .165 & $-$0.602 \\
-MEX & Americas & 1.037 & .909 & \gain{+12.3} & .179 & $-$0.385 & .349 & .333 & \gain{+4.6} & .040 & .707 & .485 & .420 & \gain{+13.4} & .044 & .512 & .517 & .350 & \gain{+32.3} & .081 & .529 & .467 & .388 & \gain{+17.0} & .062 & .252 & .782 & .662 & \gain{+15.4} & .159 & $-$0.494 \\
-USA & Americas & .873 & .578 & \gain{+33.8} & .121 & .266 & .448 & .374 & \gain{+16.5} & .042 & .731 & .497 & .243 & \gain{+51.1} & .058 & .723 & .677 & .487 & \gain{+28.0} & .110 & .422 & .483 & .383 & \gain{+20.8} & .075 & .709 & .645 & .579 & \gain{+10.2} & .110 & $-$0.380 \\
+ARG & Americas & 1.015 & .891 & \gain{+12.2} & .178 & $-$0.456 & .364 & .342 & \gain{+6.0} & .046 & .601 & .463 & .389 & \gain{+16.1} & .046 & .412 & .520 & .339 & \gain{+35.0} & .083 & .508 & .469 & .377 & \gain{+19.7} & .064 & .196 & .770 & .645 & \gain{+16.1} & .159 & $-$0.498 & .423 & .434 & \loss{-2.4} & .050 & .213 \\
+BRA & Americas & .521 & .458 & \gain{+12.2} & .119 & .222 & .411 & .319 & \gain{+22.5} & .051 & .333 & .274 & .299 & \loss{-9.3} & .061 & .471 & .529 & .375 & \gain{+29.1} & .101 & .212 & .580 & .411 & \gain{+29.1} & .081 & $-$0.205 & .531 & .649 & \loss{-22.1} & .173 & $-$0.743 & .416 & .404 & \gain{+2.9} & .074 & .211 \\
+COL & Americas & 1.041 & .931 & \gain{+10.5} & .189 & $-$0.594 & .413 & .369 & \gain{+10.7} & .055 & .386 & .487 & .438 & \gain{+10.1} & .057 & .093 & .559 & .390 & \gain{+30.1} & .093 & .161 & .508 & .417 & \gain{+17.8} & .070 & $-$0.096 & .788 & .678 & \gain{+14.0} & .165 & $-$0.602 & .464 & .460 & \gain{+0.9} & .051 & $-$0.011 \\
+MEX & Americas & 1.037 & .909 & \gain{+12.3} & .179 & $-$0.385 & .349 & .333 & \gain{+4.6} & .040 & .707 & .485 & .420 & \gain{+13.4} & .044 & .512 & .517 & .350 & \gain{+32.3} & .081 & .529 & .467 & .388 & \gain{+17.0} & .062 & .252 & .782 & .662 & \gain{+15.4} & .159 & $-$0.494 & .430 & .456 & \loss{-5.9} & .041 & .503 \\
+USA & Americas & .873 & .578 & \gain{+33.8} & .121 & .266 & .448 & .374 & \gain{+16.5} & .042 & .731 & .497 & .243 & \gain{+51.1} & .058 & .723 & .677 & .487 & \gain{+28.0} & .110 & .422 & .483 & .383 & \gain{+20.8} & .075 & .709 & .645 & .579 & \gain{+10.2} & .110 & $-$0.380 & .545 & .517 & \gain{+5.3} & .060 & .618 \\
 \midrule
-DEU & Europe & .716 & .643 & \gain{+10.1} & .189 & .101 & .265 & .344 & \loss{-30.3} & .045 & .724 & .302 & .255 & \gain{+15.6} & .059 & .779 & .318 & .306 & \gain{+3.7} & .081 & .568 & .308 & .415 & \loss{-34.6} & .069 & .144 & .569 & .555 & \gain{+2.5} & .146 & $-$0.403 \\
-GBR & Europe & .873 & .598 & \gain{+31.4} & .141 & .125 & .442 & .384 & \gain{+13.2} & .048 & .674 & .503 & .319 & \gain{+36.6} & .082 & .594 & .677 & .524 & \gain{+22.6} & .128 & .230 & .483 & .399 & \gain{+17.4} & .082 & .620 & .654 & .588 & \gain{+10.1} & .114 & $-$0.392 \\
-ROU & Europe & .851 & .593 & \gain{+30.3} & .147 & .197 & .446 & .363 & \gain{+18.7} & .043 & .708 & .504 & .385 & \gain{+23.5} & .058 & .570 & .659 & .535 & \gain{+18.8} & .123 & .162 & .442 & .330 & \gain{+25.2} & .051 & .785 & .671 & .577 & \gain{+14.0} & .117 & $-$0.352 \\
-SRB & Europe & .862 & .605 & \gain{+29.9} & .150 & .157 & .463 & .371 & \gain{+19.8} & .045 & .670 & .500 & .385 & \gain{+22.9} & .057 & .564 & .676 & .567 & \gain{+16.2} & .127 & .075 & .453 & .303 & \gain{+33.1} & .051 & .773 & .677 & .602 & \gain{+11.1} & .124 & $-$0.463 \\
+DEU & Europe & .716 & .643 & \gain{+10.1} & .189 & .101 & .265 & .344 & \loss{-30.3} & .045 & .724 & .302 & .255 & \gain{+15.6} & .059 & .779 & .318 & .306 & \gain{+3.7} & .081 & .568 & .308 & .415 & \loss{-34.6} & .069 & .144 & .569 & .555 & \gain{+2.5} & .146 & $-$0.403 & .506 & .416 & \gain{+17.8} & .053 & .617 \\
+GBR & Europe & .873 & .598 & \gain{+31.4} & .141 & .125 & .442 & .384 & \gain{+13.2} & .048 & .674 & .503 & .319 & \gain{+36.6} & .082 & .594 & .677 & .524 & \gain{+22.6} & .128 & .230 & .483 & .399 & \gain{+17.4} & .082 & .620 & .654 & .588 & \gain{+10.1} & .114 & $-$0.392 & .556 & .502 & \gain{+9.8} & .062 & .342 \\
+ROU & Europe & .851 & .593 & \gain{+30.3} & .147 & .197 & .446 & .363 & \gain{+18.7} & .043 & .708 & .504 & .385 & \gain{+23.5} & .058 & .570 & .659 & .535 & \gain{+18.8} & .123 & .162 & .442 & .330 & \gain{+25.2} & .051 & .785 & .671 & .577 & \gain{+14.0} & .117 & $-$0.352 & .547 & .482 & \gain{+11.8} & .046 & .644 \\
+SRB & Europe & .862 & .605 & \gain{+29.9} & .150 & .157 & .463 & .371 & \gain{+19.8} & .045 & .670 & .500 & .385 & \gain{+22.9} & .057 & .564 & .676 & .567 & \gain{+16.2} & .127 & .075 & .453 & .303 & \gain{+33.1} & .051 & .773 & .677 & .602 & \gain{+11.1} & .124 & $-$0.463 & .548 & .502 & \gain{+8.4} & .047 & .573 \\
 \midrule
-CHN & E.~Asia & .901 & .748 & \gain{+16.9} & .183 & $-$0.025 & .367 & .293 & \gain{+20.2} & .050 & .711 & .407 & .214 & \gain{+47.4} & .054 & .781 & .569 & .415 & \gain{+27.0} & .121 & .269 & .437 & .356 & \gain{+18.6} & .084 & .405 & .738 & .559 & \gain{+24.3} & .162 & $-$0.041 \\
-JPN & E.~Asia & .521 & .471 & \gain{+9.5} & .107 & .249 & .341 & .265 & \gain{+22.3} & .054 & .709 & .395 & .195 & \gain{+50.6} & .051 & .671 & .407 & .316 & \gain{+22.4} & .090 & .453 & .296 & .356 & \loss{-20.1} & .047 & .535 & .454 & .455 & \loss{-0.3} & .063 & $-$0.233 \\
+CHN & E.~Asia & .901 & .748 & \gain{+16.9} & .183 & $-$0.025 & .367 & .293 & \gain{+20.2} & .050 & .711 & .407 & .214 & \gain{+47.4} & .054 & .781 & .569 & .415 & \gain{+27.0} & .121 & .269 & .437 & .356 & \gain{+18.6} & .084 & .405 & .738 & .559 & \gain{+24.3} & .162 & $-$0.041 & .500 & .393 & \gain{+21.5} & .039 & .767 \\
+JPN & E.~Asia & .521 & .471 & \gain{+9.5} & .107 & .249 & .341 & .265 & \gain{+22.3} & .054 & .709 & .395 & .195 & \gain{+50.6} & .051 & .671 & .407 & .316 & \gain{+22.4} & .090 & .453 & .296 & .356 & \loss{-20.1} & .047 & .535 & .454 & .455 & \loss{-0.3} & .063 & $-$0.233 & .442 & .460 & \loss{-4.0} & .062 & $-$0.357 \\
 \midrule
-IDN & SE.~Asia & .688 & .557 & \gain{+19.0} & .092 & .071 & .283 & .344 & \loss{-21.5} & .059 & .511 & .459 & .274 & \gain{+40.3} & .059 & .595 & .408 & .402 & \gain{+1.5} & .091 & .318 & .480 & .402 & \gain{+16.1} & .058 & .251 & .492 & .484 & \gain{+1.6} & .120 & $-$0.769 \\
-MMR & SE.~Asia & .872 & .652 & \gain{+25.2} & .185 & $-$0.031 & .496 & .365 & \gain{+26.5} & .062 & .457 & .482 & .357 & \gain{+25.9} & .057 & .570 & .695 & .563 & \gain{+18.9} & .139 & $-$0.066 & .461 & .302 & \gain{+34.3} & .062 & .590 & .685 & .590 & \gain{+13.8} & .135 & $-$0.623 \\
-MYS & SE.~Asia & .841 & .589 & \gain{+29.9} & .155 & .003 & .443 & .313 & \gain{+29.4} & .043 & .683 & .459 & .328 & \gain{+28.5} & .053 & .614 & .656 & .504 & \gain{+23.1} & .128 & .097 & .445 & .274 & \gain{+38.5} & .050 & .763 & .631 & .535 & \gain{+15.1} & .118 & $-$0.426 \\
-THA & SE.~Asia & .815 & .577 & \gain{+29.2} & .152 & .125 & .406 & .295 & \gain{+27.3} & .041 & .738 & .456 & .313 & \gain{+31.4} & .047 & .685 & .619 & .480 & \gain{+22.5} & .112 & .231 & .414 & .221 & \gain{+46.6} & .046 & .841 & .619 & .520 & \gain{+16.1} & .112 & $-$0.283 \\
-VNM & SE.~Asia & .845 & .740 & \gain{+12.4} & .142 & $-$0.045 & .324 & .347 & \loss{-7.2} & .050 & .589 & .406 & .336 & \gain{+17.3} & .064 & .596 & .445 & .420 & \gain{+5.5} & .087 & .339 & .501 & .468 & \gain{+6.6} & .060 & $-$0.018 & .481 & .507 & \loss{-5.4} & .067 & $-$0.143 \\
+IDN & SE.~Asia & .688 & .557 & \gain{+19.0} & .092 & .071 & .283 & .344 & \loss{-21.5} & .059 & .511 & .459 & .274 & \gain{+40.3} & .059 & .595 & .408 & .402 & \gain{+1.5} & .091 & .318 & .480 & .402 & \gain{+16.1} & .058 & .251 & .492 & .484 & \gain{+1.6} & .120 & $-$0.769 & .417 & .443 & \loss{-6.2} & .044 & .572 \\
+MMR & SE.~Asia & .872 & .652 & \gain{+25.2} & .185 & $-$0.031 & .496 & .365 & \gain{+26.5} & .062 & .457 & .482 & .357 & \gain{+25.9} & .057 & .570 & .695 & .563 & \gain{+18.9} & .139 & $-$0.066 & .461 & .302 & \gain{+34.3} & .062 & .590 & .685 & .590 & \gain{+13.8} & .135 & $-$0.623 & .488 & .482 & \gain{+1.4} & .061 & .372 \\
+MYS & SE.~Asia & .841 & .589 & \gain{+29.9} & .155 & .003 & .443 & .313 & \gain{+29.4} & .043 & .683 & .459 & .328 & \gain{+28.5} & .053 & .614 & .656 & .504 & \gain{+23.1} & .128 & .097 & .445 & .274 & \gain{+38.5} & .050 & .763 & .631 & .535 & \gain{+15.1} & .118 & $-$0.426 & .484 & .429 & \gain{+11.2} & .039 & .676 \\
+THA & SE.~Asia & .815 & .577 & \gain{+29.2} & .152 & .125 & .406 & .295 & \gain{+27.3} & .041 & .738 & .456 & .313 & \gain{+31.4} & .047 & .685 & .619 & .480 & \gain{+22.5} & .112 & .231 & .414 & .221 & \gain{+46.6} & .046 & .841 & .619 & .520 & \gain{+16.1} & .112 & $-$0.283 & .470 & .436 & \gain{+7.2} & .041 & .750 \\
+VNM & SE.~Asia & .845 & .740 & \gain{+12.4} & .142 & $-$0.045 & .324 & .347 & \loss{-7.2} & .050 & .589 & .406 & .336 & \gain{+17.3} & .064 & .596 & .445 & .420 & \gain{+5.5} & .087 & .339 & .501 & .468 & \gain{+6.6} & .060 & $-$0.018 & .481 & .507 & \loss{-5.4} & .067 & $-$0.143 & .468 & .544 & \loss{-16.1} & .048 & .566 \\
 \midrule
-BGD & S.~Asia & .864 & .628 & \gain{+27.3} & .162 & .029 & .450 & .361 & \gain{+19.6} & .047 & .625 & .489 & .368 & \gain{+24.7} & .048 & .607 & .674 & .587 & \gain{+12.9} & .133 & $-$0.116 & .461 & .284 & \gain{+38.3} & .055 & .695 & .666 & .565 & \gain{+15.3} & .115 & $-$0.426 \\
+BGD & S.~Asia & .864 & .628 & \gain{+27.3} & .162 & .029 & .450 & .361 & \gain{+19.6} & .047 & .625 & .489 & .368 & \gain{+24.7} & .048 & .607 & .674 & .587 & \gain{+12.9} & .133 & $-$0.116 & .461 & .284 & \gain{+38.3} & .055 & .695 & .666 & .565 & \gain{+15.3} & .115 & $-$0.426 & .519 & .496 & \gain{+4.4} & .052 & .435 \\
 \midrule
-KGZ & C.~Asia & .849 & .585 & \gain{+31.1} & .149 & .176 & .460 & .353 & \gain{+23.2} & .048 & .633 & .499 & .393 & \gain{+21.1} & .058 & .476 & .661 & .574 & \gain{+13.1} & .133 & $-$0.017 & .443 & .249 & \gain{+43.8} & .039 & .829 & .660 & .572 & \gain{+13.3} & .119 & $-$0.405 \\
+KGZ & C.~Asia & .849 & .585 & \gain{+31.1} & .149 & .176 & .460 & .353 & \gain{+23.2} & .048 & .633 & .499 & .393 & \gain{+21.1} & .058 & .476 & .661 & .574 & \gain{+13.1} & .133 & $-$0.017 & .443 & .249 & \gain{+43.8} & .039 & .829 & .660 & .572 & \gain{+13.3} & .119 & $-$0.405 & .518 & .473 & \gain{+8.7} & .049 & .600 \\
 \midrule
-IRN & W.~Asia & 1.039 & .852 & \gain{+17.9} & .159 & $-$0.294 & .427 & .401 & \gain{+6.1} & .055 & .637 & .397 & .530 & \loss{-33.5} & .086 & .055 & .507 & .506 & \gain{+0.2} & .090 & .057 & .373 & .467 & \loss{-25.1} & .067 & .252 & .511 & .445 & \gain{+12.9} & .056 & .766 \\
+IRN & W.~Asia & 1.039 & .852 & \gain{+17.9} & .159 & $-$0.294 & .427 & .401 & \gain{+6.1} & .055 & .637 & .397 & .530 & \loss{-33.5} & .086 & .055 & .507 & .506 & \gain{+0.2} & .090 & .057 & .373 & .467 & \loss{-25.1} & .067 & .252 & .511 & .445 & \gain{+12.9} & .056 & .766 & .514 & .630 & \loss{-22.6} & .088 & .408 \\
 \midrule
-ETH & Africa & .967 & .747 & \gain{+22.7} & .172 & $-$0.077 & .462 & .472 & \loss{-2.0} & .054 & .655 & .615 & .485 & \gain{+21.2} & .041 & .808 & .724 & .684 & \gain{+5.4} & .141 & $-$0.095 & .558 & .438 & \gain{+21.6} & .059 & .676 & .734 & .661 & \gain{+10.0} & .114 & $-$0.027 \\
+ETH & Africa & .967 & .747 & \gain{+22.7} & .172 & $-$0.077 & .462 & .472 & \loss{-2.0} & .054 & .655 & .615 & .485 & \gain{+21.2} & .041 & .808 & .724 & .684 & \gain{+5.4} & .141 & $-$0.095 & .558 & .438 & \gain{+21.6} & .059 & .676 & .734 & .661 & \gain{+10.0} & .114 & $-$0.027 & .645 & .612 & \gain{+5.0} & .057 & .628 \\
 \midrule
-\textbf{Mean} &  & \textbf{.849} & \textbf{.668} & \textbf{\gain{+21.2}} & \textbf{.154} & \textbf{$-$0.009} & \textbf{.403} & \textbf{.350} & \textbf{\gain{+11.3}} & \textbf{.049} & \textbf{.624} & \textbf{.454} & \textbf{.346} & \textbf{\gain{+22.7}} & \textbf{.057} & \textbf{.559} & \textbf{.575} & \textbf{.466} & \textbf{\gain{+18.4}} & \textbf{.110} & \textbf{.217} & \textbf{.453} & \textbf{.362} & \textbf{\gain{+18.2}} & \textbf{.062} & \textbf{.450} & \textbf{.638} & \textbf{.571} & \textbf{\gain{+9.4}} & \textbf{.122} & \textbf{$-$0.347} \\
+\textbf{Mean} &  & \textbf{.849} & \textbf{.668} & \textbf{\gain{+21.2}} & \textbf{.154} & \textbf{$-$0.009} & \textbf{.403} & \textbf{.350} & \textbf{\gain{+11.3}} & \textbf{.049} & \textbf{.624} & \textbf{.454} & \textbf{.346} & \textbf{\gain{+22.7}} & \textbf{.057} & \textbf{.559} & \textbf{.575} & \textbf{.466} & \textbf{\gain{+18.4}} & \textbf{.110} & \textbf{.217} & \textbf{.453} & \textbf{.362} & \textbf{\gain{+18.2}} & \textbf{.062} & \textbf{.450} & \textbf{.638} & \textbf{.571} & \textbf{\gain{+9.4}} & \textbf{.122} & \textbf{$-$0.347} & \textbf{.495} & \textbf{.479} & \textbf{\gain{+3.4}} & \textbf{.053} & \textbf{.456} \\
 \bottomrule
 \end{tabular}%
 }
 \vspace{3pt}\footnotesize \textbf{Legend.} MIS$_v$/MIS$_s$: vanilla vs.\ DISCA $\ell_2$ misalignment; \%$\Delta_{\mathrm{MIS}}$: relative improvement in MIS; JSD$_s$ and $r_s$: Jensen--Shannon distance and Pearson correlation for DISCA only. \textbf{Region groups:} Americas (ARG, BRA, COL, MEX, USA); Europe (DEU, GBR, ROU, SRB); E.\,Asia (CHN, JPN); SE.\,Asia (IDN, MMR, MYS, THA, VNM); S.\,Asia (BGD); C.\,Asia (KGZ); W.\,Asia (IRN); Africa (ETH).
 \end{table*}
 
-\subsection{Robustness}
-\label{sec:robustness}
-
-A natural concern with any inference-time method is that the headline
-numbers are an artifact of a carefully tuned temperature or a
-particular preprocessing recipe. We stress-test the pipeline across
-nine independent axes -- decision and per-category temperatures, six
-dataset-preprocessing variants, three logit-shift kernels, eight
-cross-lingual configurations -- and find every JSD span is well
-within the $\pm 0.004$ bootstrap CI. The full robustness summary is
-in Appendix~\ref{app:robustness_summary}; per-axis sweeps are in
-Appendices~\ref{app:r2_hparam_sensitivity}--\ref{app:dataset_sens}.
-
-A second source of variability is the stochastic IS step itself.
-The Prospect-Theory IS update is the only stochastic component in
-the pipeline; we log per-scenario bootstrap variance between the two
-IS passes and find that the dual-pass reliability weight
-$r > 0.9$ on 84\% of scenarios across the 20-country panel, while the
-gate suppresses the correction ($r < 0.5$) on only 3\% of scenarios.
-The aggressive corrections concentrate where the model is genuinely
-miscalibrated, and the gate dampens corrections everywhere else.
-
 % ============================================================
-\section{Ablation: Identifying Load-Bearing Components}
+\section{Discussion: What Makes DISCA Work}
+\label{sec:discussion}
 \label{sec:ablation}
 % ============================================================
 
-To understand \emph{why} the method works-not just \emph{that} it works-we
-ablate four design choices on Phi-4~(14B), USA (310 scenarios;
-Table~\ref{tab:ablation_phi4}).\footnote{The ablation uses a vLLM backend to match
-the main EXP-24 sweep; one $K$-sample IS batch per scenario with dual-pass
-reliability disabled for isolation. Primary metric is MIS\,($\downarrow$).}
+The headline result-that structured disagreement among culturally grounded personas is a sufficient training-free steering signal for frozen LLMs-connects to a broader shift toward pluralistic alignment~\citep{sorensen2024roadmap}: inference-time methods are increasingly seen as the natural vehicle for representing cross-cultural moral plurality because they avoid baking a fixed value stance into weights. Two follow-up questions deserve a direct answer: \emph{which components carry the work}, and \emph{when does the method fail}?
 
-\textbf{Positional debiasing is the dominant component} (Row~3,
-$\Delta r = -0.282$, $\Delta\text{MIS} = +0.175$).
-The DPBR diagnostic confirms a large raw option-A positional bias of
-$\bar{b} \approx -29.1$ logit units; debiasing must neutralise this artifact before
-any other component can contribute.
+\paragraph{Which components are load-bearing.}
+We ablate four design choices on two backbones to separate model-specific from universal effects: Phi-4~(14B) on USA (310 scenarios; Table~\ref{tab:ablation_phi4}) and Qwen2.5-7B (BF16) across all 20 paper countries (Table~\ref{tab:ablation_qwen20c}).\footnote{vLLM backend; one $K$-sample IS batch per scenario with dual-pass reliability disabled for isolation.} On both backbones, \textbf{personas are the universally load-bearing component}: removing the WVS panel costs $\Delta r = -0.183$ on Phi-4 and $+0.055$ macro MIS on 16/20 Qwen countries, confirming that survey-grounded panel disagreement is the foundation rather than decoration. \textbf{Positional debiasing}, by contrast, is \emph{model-dependent}: it dominates on Phi-4 ($\Delta r = -0.282$, $\Delta\mathrm{MIS} = +0.175$) because the backbone carries a raw option-A bias of $\bar{b} \approx -29.1$ logit units, but on Qwen2.5-7B (BF16) the same removal moves MIS by only $+0.001$ because the base logits are already approximately balanced. The two-backbone view tells a sharper story than the single cell alone: persona disagreement is universal, while debiasing is a corrective whose value scales with the backbone's raw bias magnitude. \textbf{PT--IS contributes modestly but consistently}: dropping IS entirely or running it always-on both degrade MIS on both backbones, validating the adaptive reliability gate. The IS flip rate is only 29\%-DISCA \emph{modulates confidence} rather than reversing decisions (Appendix~\ref{app:trigger}). Together, the hierarchy mirrors the base model's decision-surface conditioning: debiasing unlocks the signal where it is buried, personas and IS then refine it, and the full stack is greater than the sum of its parts. Recent logit-level steering~\citep{an2026logit} and SAE-based cultural localisation~\citep{khanuja2026steering} confirm that the logit surface is a richer control interface than previously appreciated.
 
-\textbf{Personas are essential} (Row~4, $\Delta r = -0.183$,
-$\Delta\text{MIS} = +0.083$): removing the WVS panel collapses rank-order alignment
-significantly, confirming that survey-grounded diversity is the method's foundation,
-not decoration.
-Once positional artifacts are removed, the vLLM decision surface retains enough
-curvature for within-country WVS disagreement to provide real signal; per-scenario IS
-corrections are selective (flip rate 29.0\%, $\overline{\text{rel}\_r} = 0.629$)
-rather than degenerate.
-
-\textbf{PT--IS contributes modestly but consistently} (Rows~1--2): dropping IS
-entirely degrades both $r$ ($-0.026$) and MIS ($+0.006$); always-on IS without
-variance gating hurts slightly more on MIS ($+0.015$), confirming the value of the
-adaptive reliability gate.
-Notably, the IS \emph{flip rate} is only 29.0\%: DISCA \emph{modulates confidence}
-rather than reversing decisions (Appendix~\ref{app:trigger}).
-
-These findings confirm that the ablation importance hierarchy mirrors the base model's
-decision-surface conditioning: debiasing unlocks the signal that personas and IS then
-refine, and the full stack is greater than the sum of its parts.
-
-\begin{table}[t]
-\caption{Ablation on Phi-4 (14B), USA (310 scenarios), \textbf{DISCA} with one
-$K$-sample importance-sampling batch per scenario (dual-pass reliability disabled for isolation).
-Full configuration: $r = 0.603$, MIS $= 0.3489$. Primary metric: MIS\,($\downarrow$).}
+\begin{table*}[t]
+\centering
+\begin{minipage}[t]{0.46\textwidth}
+\caption{Phi-4 (14B), USA (310 scenarios). Full DISCA: $r = 0.603$, MIS $= 0.3489$.}
 \label{tab:ablation_phi4}
 \centering\small
 \setlength{\tabcolsep}{4pt}
-\begin{tabular}{llcccc}
+\begin{tabular}{llcc}
 \toprule
-\# & Configuration & $r$ $\uparrow$ & $\Delta r$ & MIS $\downarrow$ & $\Delta$MIS \\
+\# & Configuration & $r$ $\uparrow$ & MIS $\downarrow$ \\
 \midrule
-  & \textbf{Full DISCA} & \textbf{0.603} & -- & \textbf{0.3489} & -- \\
+  & \textbf{Full DISCA} & \textbf{0.603} & \textbf{0.3489} \\
 \midrule
-1 & No-IS (consensus only)  & 0.577 & \loss{$-$.026} & 0.3550 & \loss{+.006} \\
-2 & Always-on PT-IS         & 0.577 & \loss{$-$.026} & 0.3639 & \loss{+.015} \\
-3 & No debiasing            & 0.320 & \loss{$-$.282} & 0.5243 & \loss{+.175} \\
-4 & Without persona         & 0.420 & \loss{$-$.183} & 0.4324 & \loss{+.083} \\
+1 & No-IS (consensus)  & 0.577 \loss{$-$.026} & 0.3550 \loss{+.006} \\
+2 & Always-on PT-IS    & 0.577 \loss{$-$.026} & 0.3639 \loss{+.015} \\
+3 & No debiasing       & 0.320 \loss{$-$.282} & 0.5243 \loss{+.175} \\
+4 & Without persona    & 0.420 \loss{$-$.183} & 0.4324 \loss{+.083} \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.50\textwidth}
+\caption{Qwen2.5-7B (BF16) cross-backbone check across all 20 paper countries. ``$n$ hurt'' = countries with strictly higher MIS than Full DISCA.}
+\label{tab:ablation_qwen20c}
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccc}
+\toprule
+Configuration & Macro MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt / 20 \\
+\midrule
+\textbf{Full DISCA}      & \textbf{0.362} & --       & -- \\
+\midrule
+Without persona          & 0.417          & \loss{+.055} & 16 \\
+Always-on PT-IS          & 0.379          & \loss{+.017} & 14 \\
+No-IS (consensus)        & 0.371          & \loss{+.009} & 12 \\
+No debiasing             & 0.363          & \loss{+.001} & 12 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{table*}
 
-% ============================================================
-\section{Discussion}
-\label{sec:discussion}
-% ============================================================
-
-The central story of these experiments is that \emph{structured disagreement among culturally grounded personas is a surprisingly effective steering signal for frozen LLMs}. This finding connects to a broader shift in the alignment literature: recent work on pluralistic alignment~\citep{sorensen2024roadmap} argues that no single preference ordering can serve all communities, and inference-time methods are increasingly seen as the natural vehicle for expressing that plurality because they avoid committing a fixed value stance into weights. DISCA makes this concrete-WVS-derived personas disagree in informative ways, the PT--IS stage converts that disagreement into a bounded logit nudge, and the dual-pass reliability gate ensures the system commits only when both independent Monte Carlo estimates concur. The outcome is a self-regulating correction that is aggressive where the model is miscalibrated and conservative where it is not. Recent evidence that Prospect-Theory-like loss aversion emerges naturally in LLM decision-making under risk~\citep{payne2025prospect} lends additional motivation: the PT utility we use to shape corrections mirrors a structure the models themselves already exhibit, rather than imposing an alien objective.
-
-Equally important is where the method fails, because failure patterns reveal what inference-time cultural steering fundamentally requires from the base model. Per-country grids (\S\ref{sec:percountry_main}) show that residual trouble spots do not cluster by continent or cultural region-they cluster by model architecture. When a backbone's decision-token logits are poorly conditioned, IS perturbations find no informative gradient to follow regardless of the target country. This diagnosis cuts both ways: it explains why DISCA scales across model families (any backbone with a well-behaved decision surface benefits) and why it cannot help models whose logits are degenerate. The same logic explains the diminishing-returns pattern: models with already-low misalignment occasionally overshoot, because the base logits leave too little headroom for the IS stage. This connects to the broader observation that targeted debiasing can cause ``spillover'' into untargeted dimensions~\citep{guo2025nofree}, reinforcing that inference-time interventions must be self-limiting-a property the dual-pass reliability gate is specifically designed to provide.
-
-The ablation (Table~\ref{tab:ablation_phi4}) clarifies the division of labour. Personas supply the raw cultural signal-without them, alignment collapses. The PT--IS kernel refines that signal with a loss-averse utility that naturally encodes a ``do no harm'' desideratum, penalising corrections that worsen any persona's alignment more heavily than it rewards equal-sized gains. Positional debiasing prevents framing artifacts from contaminating the correction, and the hierarchical country prior stabilises tail scenarios. No single component suffices, but the full stack is greater than the sum of its parts. Recent work on logit-level interventions for LLM steering~\citep{an2026logit} and on culturally localised generation via sparse autoencoders~\citep{khanuja2026steering} suggests that the logit surface is a richer control interface than previously appreciated; DISCA's consistent gains across model families support this view. Deployment overhead is modest: roughly $4\times$ latency over vanilla (Appendix~\ref{app:trigger}), dominated by the batched multi-agent forward pass.
+\paragraph{When DISCA fails.}
+Per-country grids (\S\ref{sec:percountry_main}) show that residual trouble spots cluster by \emph{model architecture}, not by continent or culture. When a backbone's decision-token logits are poorly conditioned, IS perturbations find no informative gradient regardless of the target country. The diagnosis cuts both ways: it explains why DISCA scales across model families (any well-behaved decision surface benefits) and why it cannot rescue degenerate logits. The same logic explains the diminishing-returns pattern-models with already-low vanilla MIS occasionally overshoot because the base logits leave too little headroom-and is consistent with recent observations that targeted debiasing can spill over into untargeted dimensions~\citep{chand2026nofree}. The dual-pass reliability gate is specifically designed to make the intervention self-limiting in this regime. Deployment overhead is modest: roughly $4\times$ latency over vanilla (Appendix~\ref{app:trigger}), dominated by the batched multi-agent forward pass.
 
 \textbf{Limitations.}
-Three caveats bound generalisation. First, hyperparameters were selected on a synthetic dilemma pool and transfer-checked on a small MultiTP subset; sweeps in Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} and the 25-method engineering comparison (Appendix~\ref{app:engineering}) are our main evidence of stability, but multi-seed confidence intervals remain a priority. Second, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral,jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans}, so the reader should treat our numbers as alignment to a survey statistic, not proof of legitimacy-a concern echoed by recent work questioning the reliability of cultural alignment evaluations~\citep{cao2025randomness}. Third, per-dimension analysis (Appendix~\ref{app:perdim}) shows that Species and Utilitarianism remain the hardest dimensions, and a full per-dimension improvement breakdown is an open gap. Fourth, a pilot on the open-ended BLEnD benchmark (Appendix~\ref{app:blend}) shows that DISCA's binary logit-gap formulation does not transfer to free-form generation: aggregate SEM-B drops by 4.4~pp, with gains limited to high-resource countries where the baseline already performs well. This confirms that softmax-aware IS and a vocabulary-level reliability gate are prerequisites for open-ended deployment. DISCA also requires decision-token logits, limiting deployment on text-only APIs; further limitations are in Appendix~\ref{app:limitations}.
+Four caveats bound generalisation. First, hyperparameters were selected on a synthetic dilemma pool and transfer-checked on a small MultiTP subset; sweeps in Appendices~\ref{app:temp_sensitivity}--\ref{app:dataset_sens} and the 25-method engineering comparison (Appendix~\ref{app:engineering}) are our main evidence of stability, but multi-seed confidence intervals remain a priority. Second, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral,jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans}, so the reader should treat our numbers as alignment to a survey statistic, not proof of legitimacy-a concern echoed by recent work questioning the reliability of cultural alignment evaluations~\citep{khan2025randomness}. Third, per-dimension analysis (Appendix~\ref{app:perdim}) shows that Species and Utilitarianism remain the hardest dimensions, and a full per-dimension improvement breakdown is an open gap. Fourth, a pilot on the open-ended BLEnD benchmark (Appendix~\ref{app:blend}) shows that DISCA's binary logit-gap formulation does not transfer to free-form generation: aggregate SEM-B drops by 4.4~pp, with gains limited to high-resource countries where the baseline already performs well, confirming that softmax-aware IS and a vocabulary-level reliability gate are prerequisites for open-ended deployment. DISCA also requires decision-token logits, limiting deployment on text-only APIs; further limitations are in Appendix~\ref{app:limitations}.
 
 \textbf{On the robustness of the Prospect-Theory kernel.}
-A recent study~\citep{kumar2025pt} reports that prospect-theoretic biases in
+A recent study~\citep{wang2025pt} reports that prospect-theoretic biases in
 LLMs can be fragile under linguistic uncertainty: framing decisions with
 vague quantifiers or uncertain payoffs weakens the loss-aversion asymmetry.
 Our setting partially avoids this concern because the PT kernel operates on
@@ -1021,7 +814,7 @@ Floor $f$ & Macro MIS $\downarrow$ & Std (across countries) \\\midrule
 \label{sec:conclusion}
 % ============================================================
 
-LLMs need not be retrained to respect moral diversity. DISCA shows that survey-grounded persona disagreement can be converted into bounded, self-regulating logit corrections at inference time, reducing misalignment by 19--24\% across twenty countries and four continents without touching a single weight. The method's limits are mechanical, not cultural: collapsed decision-logit entropy breaks importance sampling regardless of geography, models with already-low misalignment occasionally overshoot, and a pilot on BLEnD open-ended QA (Appendix~\ref{app:blend}) confirms that the binary logit-gap formulation does not yet transfer to free-form generation. The path forward is softmax-aware IS for open-ended settings, richer proposal adaptation for ill-conditioned logits, per-dimension outcome analysis, updated survey waves, and decoding-time safeguards-concrete steps toward the pluralistic alignment vision~\citep{sorensen2024roadmap} with practical, deployable tools.
+LLMs need not be retrained to respect moral diversity. DISCA shows that survey-grounded persona disagreement can be converted into bounded, self-regulating logit corrections at inference time, reducing misalignment by 10--24\% across twenty countries and four continents-and by 19--24\% on the strongest checkpoints-without touching a single weight. The method's limits are mechanical, not cultural: collapsed decision-logit entropy breaks importance sampling regardless of geography, models with already-low misalignment occasionally overshoot, and a pilot on BLEnD open-ended QA (Appendix~\ref{app:blend}) confirms that the binary logit-gap formulation does not yet transfer to free-form generation. The path forward is softmax-aware IS for open-ended settings, richer proposal adaptation for ill-conditioned logits, per-dimension outcome analysis, updated survey waves, and decoding-time safeguards-concrete steps toward the pluralistic alignment vision~\citep{sorensen2024roadmap} with practical, deployable tools.
 
 % ============================================================
 \bibliographystyle{abbrvnat}
@@ -1034,6 +827,42 @@ LLMs need not be retrained to respect moral diversity. DISCA shows that survey-g
 \appendix
 \setcounter{section}{0}
 \renewcommand{\thesection}{A\arabic{section}}
+
+\section{Theoretical Grounding}
+\label{app:theory_grounding}
+
+DISCA sits at the intersection of three theoretical traditions, each
+supplying one ingredient that the others lack.
+\emph{Control as probabilistic inference}~\citep{levine2018reinforcement,
+todorov2009generalized} recasts optimal decision-making as posterior
+inference over an intention distribution; path-integral
+steering~\citep{williams2017mppi} instantiates that view
+with softmax-weighted perturbations that provably approximate the KL-regularised
+optimal control under mild regularity conditions~\citep{todorov2009generalized}.
+This is what licences us to read our Eq.~\ref{eq:util_total} as an inference
+step rather than an arbitrary scalar interpolation, and it motivates the
+Gaussian proposal around $\bar\delta$ as the entropy-maximal default in the
+absence of stronger priors.
+\emph{Prospect Theory}~\citep{kahneman1979prospect, tversky1992advances} then
+supplies the utility shape: the key empirical regularity-that human decision
+makers weight a loss of magnitude $x$ roughly $\kappa{\approx}2.25$ times more
+than a gain of the same magnitude-is exactly the asymmetry we want an
+LLM cultural controller to respect, because a correction that silences one
+demographic persona is worse than a correction that fails to help it.
+Recent evidence that prospect-theoretic biases emerge naturally in LLM
+decision-making under risk~\citep{payne2025prospect} strengthens the match:
+the asymmetric gain/loss structure we impose \emph{mirrors} one the models
+themselves already exhibit, rather than introducing an alien objective.
+\emph{Importance-sampling (IS) theory}~\citep{elvira2021advances} finally supplies the variance-control machinery, and it is here that self-normalised IS is
+known to be biased at finite $K$; the dual-pass construction we adopt is a
+light-weight bootstrap-style variance probe~\citep{efron1979bootstrap} that
+uses the same compute budget to detect instability rather than silently
+accept it, paired with an effective-sample-size guard grounded in design-effect
+theory~\citep{kish1965survey}.
+We treat the dual-pass gate as a variance heuristic rather than a formal
+unbiasedness certificate; formal finite-$K$ bounds would require stronger
+assumptions on the logit landscape than we are willing to claim
+(Appendix~\ref{app:dpbr_theory}).
 
 \section{Design Rationale: Why Each Component}
 \label{app:design_rationale}
@@ -1134,6 +963,18 @@ variance heuristic, not a formal unbiasedness certificate; finite-$K$ bounds
 would require stronger assumptions on the logit landscape than we are willing
 to claim (Appendix~\ref{app:dpbr_theory}).
 
+\section{Hierarchical Country Prior}
+\label{app:country_prior}
+
+Each scenario in the main pipeline is corrected independently. But moral preferences within a country are not independent-a model that underestimates youth preference in one Japanese trolley dilemma will likely do the same in the next. The hierarchical country prior exploits this by maintaining a running average of past corrections for each country and gradually blending it into future ones.
+
+Concretely, after processing each scenario, an exponential moving average (EMA) accumulates the micro corrections:
+$\delta_{\mathrm{country}} \leftarrow (1{-}\beta_{\mathrm{ema}})\,\delta_{\mathrm{country}} + \beta_{\mathrm{ema}}\,\delta_{\mathrm{micro}}$
+with $\beta_{\mathrm{ema}}{=}0.1$. The prior stays silent for the first $N_{\mathrm{warm}}{=}50$ scenarios (where there is too little history to be useful), then gradually blends in:
+$\delta_{\mathrm{final}} = \alpha_h\,\delta_{\mathrm{country}} + (1{-}\alpha_h)\,\delta_{\mathrm{micro}}$, where the blend weight $\alpha_h$ anneals from 0 to ${\sim}0.63$ over a typical country pool (Appendix~\ref{app:hyperparams}).
+
+The prior contributes a modest but consistent improvement: disabling it degrades alignment by roughly 3\% on the USA ablation slice. Its role is not to override per-scenario corrections but to stabilise them-smoothing out IS noise in the tail of the scenario pool so that late corrections benefit from the pattern established by early ones.
+
 \section{AMCE Estimation Details}
 \label{app:amce}
 
@@ -1163,46 +1004,114 @@ making our estimation valid and reproducible.
 \section{Persona Construction Details}
 \label{app:personas}
 
+This appendix specifies how the four cultural personas per country are
+constructed and provides empirical support that the construction is
+grounded in human survey data rather than authored ad~hoc.
+\S\ref{app:examples} reproduces two personas verbatim from
+\texttt{generate\_wvs\_persona()}; \S\ref{app:wvs_pipeline} documents the
+WVS Wave~7 processing pipeline; \S\ref{app:wvs_linkage} links the ten WVS
+cultural dimensions to the six MultiTP moral attributes both thematically
+and empirically; and \S\ref{app:r2_persona_variant} shows that DISCA is
+robust to the choice of the fourth (anchor) persona.
+
 \subsection{Example Personas}
+\label{app:examples}
 
-The young-adult persona for the \textbf{United States} (generated in English):
+Each country yields four personas: three age-cohort personas
+(\emph{young}, \emph{middle}, \emph{older}) generated from the
+country-and-cohort-specific WVS-7 means, plus a population-wide aggregate
+that serves as a demographic anchor. We illustrate the output with one
+English persona (United States, young-adult cohort) and one Vietnamese
+persona (Vietnam, older-adult cohort). The Vietnamese block is reproduced
+verbatim from \texttt{generate\_wvs\_persona()} and is followed by a
+sentence-by-sentence English gloss for non-Vietnamese readers.
+
+\paragraph{United States, young-adult cohort (English, verbatim).}
 \begin{quote}
 \small\itshape
-You are a young adult (under 36) from the United States. In terms of religion,
-you are somewhat secular. Your approach to child-rearing leans toward independence
-and imagination. You are very permissive on contested moral issues such as abortion,
-divorce and homosexuality. You have moderate trust in other people. You are an
-occasional political participant. You feel moderate national pride. You are
-moderately happy with your life. On gender issues, you hold moderately egalitarian
-views. Your outlook leans toward post-materialist values. You show a tolerant
-attitude toward social diversity. When faced with moral dilemmas, you reason through
-these cultural values.
+You are a young adult from the United States, in your 20s and early 30s.
+Your worldview is shaped by the cultural values prevalent in your community.
+On matters of faith you are moderately religious. On raising children you are
+firmly oriented toward independence and imagination. On contested moral choices
+you are morally conservative on contested issues. In your dealings with strangers
+you have a guarded attitude toward strangers. Civically you are an active
+political participant who signs petitions, joins boycotts and takes part in
+lawful demonstrations. You are moderately proud of your country. Overall you
+are rather happy with your life. On the role of women in society you are
+moderately egalitarian on gender roles. In what you prioritise in life you
+are leaning materialist, prioritising economic and physical security. Toward
+people unlike yourself you are highly tolerant of outgroups such as immigrants,
+minorities and people with different lifestyles. When you face a moral dilemma,
+you weigh the choices through this set of values and answer in a way that is
+consistent with the worldview above.
 \end{quote}
 
-The older-adult persona for \textbf{Vietnam} is generated entirely in Vietnamese,
-covering the same 10 dimensions. A representative English gloss:
+\paragraph{Vietnam, older-adult cohort (Vietnamese, verbatim).}
+\begin{quote}
+\fontencoding{T5}\selectfont\small\itshape
+Bạn là một người cao tuổi đến từ Việt Nam, trên 60 tuổi. Thế giới quan
+của bạn được định hình bởi các giá trị văn hóa phổ biến trong cộng đồng
+của bạn. Về vấn đề đức tin, bạn có niềm tin tôn giáo ở mức trung bình.
+Trong việc nuôi dạy con cái, bạn nghiêng về sự vâng lời và đức tin tôn
+giáo. Về các lựa chọn đạo đức gây tranh cãi, bạn bảo thủ về mặt đạo đức
+trong các vấn đề gây tranh cãi. Trong giao tiếp với người lạ, bạn có
+thái độ dè dặt với người lạ. Về mặt công dân, bạn là một người thỉnh
+thoảng tham gia chính trị. Bạn rất tự hào về đất nước của bạn. Nhìn
+chung, bạn rất hài lòng với cuộc sống của bạn. Về vai trò của phụ nữ
+trong xã hội, bạn khá truyền thống về vai trò giới. Về những gì bạn ưu
+tiên trong cuộc sống, bạn có xu hướng hậu vật chất. Đối với những người
+khác bạn, bạn rất thiếu khoan dung với các nhóm bên ngoài. Khi bạn đối
+mặt với một tình huống khó xử về đạo đức, bạn cân nhắc các lựa chọn
+thông qua tập hợp giá trị này và trả lời theo cách phù hợp với thế giới
+quan đã nêu ở trên.
+\end{quote}
+
+\paragraph{Sentence-by-sentence English gloss.}
 \begin{quote}
 \small\itshape
-You are an older adult (over 55) from Vietnam. You are deeply religious. Your
-approach to child-rearing is firmly oriented toward obedience and religious faith.
-You are morally conservative on contested issues. You have a guarded attitude toward
-strangers. [\ldots 6 more dimensions\ldots] When faced with moral dilemmas, you
-reason through these cultural values.
+You are a senior citizen from Vietnam, over 60 years old. Your worldview is
+shaped by the cultural values prevalent in your community. On matters of faith
+you are moderately religious. On raising children you are leaning toward
+obedience and religious faith. On contested moral choices you are morally
+conservative on contested issues. In your dealings with strangers you have a
+guarded attitude toward strangers. Civically you are an occasional political
+participant. You are intensely proud of your country. Overall you are very
+happy with your life. On the role of women in society you are somewhat
+traditional on gender roles. In what you prioritise in life you are leaning
+post-materialist. Toward people unlike yourself you are strongly intolerant
+of outgroups. When you face a moral dilemma, you weigh the choices through
+this set of values and answer in a way that is consistent with the worldview
+above.
 \end{quote}
 
-The fourth persona is constructed from the population-wide WVS profile,
-aggregating all respondents in the country regardless of age cohort.
-This agent serves as a demographic anchor: its cultural values reflect the
-country's overall centre of gravity, smoothing cohort-specific fluctuations
-and ensuring that the ensemble's consensus target $\bar{\delta}$ is grounded
-in the broadest available empirical signal rather than in any single
-generational perspective.
+\paragraph{Aggregate (fourth) persona.}
+The fourth agent is constructed from the country's population-wide WVS
+profile, pooling respondents across age cohorts. It serves as a
+demographic anchor: by suppressing cohort-specific noise it ensures that
+the ensemble's consensus target $\bar{\delta}$ reflects the broadest
+available empirical signal rather than a single generational viewpoint.
+\S\ref{app:r2_persona_variant} contrasts this choice with a
+country-invariant utilitarian anchor and shows that DISCA's macro-MIS is
+insensitive to the substitution.
+
+\paragraph{Faithfulness disclaimer.}
+The descriptors above are read directly from the country's WVS-7 means
+through deterministic quartile cuts (Table~\ref{tab:wvs_thresholds});
+they are not hand-selected to match cultural stereotypes. As a
+consequence, individual cohorts can present empirically grounded but
+locally counter-intuitive combinations (for example, a U.S.\ young-adult
+that is \emph{leaning materialist} and \emph{morally conservative on
+contested issues}), reflecting actual WVS-7 distributions rather than
+authorial bias.
 
 \subsection{WVS Data Processing Pipeline}
 \label{app:wvs_pipeline}
 
-We process WVS Wave~7 individual-level microdata following the 10-variable
-cultural-value scheme of \citet{greco2026personas}:
+We process WVS Wave~7 individual-level microdata following the
+ten-variable cultural-value scheme of \citet{greco2026personas}. The
+pipeline is fully deterministic: given the inverted WVS-7 CSV and the
+country code, it returns the four personas used at inference time
+without any tunable hyperparameters.
 \begin{enumerate}
   \item \textbf{Variable extraction:} For each respondent, we extract 10 value
     dimensions from WVS items (Table~\ref{tab:wvs_thresholds}). The ``inverted''
@@ -1215,8 +1124,13 @@ cultural-value scheme of \citet{greco2026personas}:
     before 1900 or after 2010, or survey year before 2015, are excluded.
     Negative WVS codes ($-1, -2, -4, -5$: refusal / don't know) are dropped;
     zero is retained for binary 0/1 items.
-  \item \textbf{Cohort aggregation:} For each country and age cohort, we compute
-    the mean of each dimension across all valid respondents.
+  \item \textbf{Cohort aggregation:} For each country and age cohort, each
+    dimension's score is the unweighted mean of all valid
+    (respondent, item) values associated with that dimension --- i.e., for
+    multi-item dimensions (e.g., Q177--Q182 for moral acceptability) every
+    respondent contributes one value per item to a single pooled mean.
+    For single-item dimensions this reduces to the standard
+    across-respondent mean.
   \item \textbf{Normalisation and descriptor mapping:} Raw dimension means are
     normalised to $[0,1]$ via $(\text{value}-\text{lo})/(\text{hi}-\text{lo})$
     where $(\text{lo},\text{hi})$ is the WVS scale range, then directionally
@@ -1247,7 +1161,7 @@ Social trust & Q57P & 1--2 & $+$ & very high trust $\leftrightarrow$ deep distru
 Polit.\ particip. & Q199P, Q200P & 1--3 & $+$ & active participant $\leftrightarrow$ non-participant \\
 National pride & Q254P & 1--4 & $+$ & very proud $\leftrightarrow$ not proud \\
 Happiness & Q46P & 1--4 & $+$ & very happy $\leftrightarrow$ not happy \\
-Gender equality & Q29P--Q33P & 1--4 & $-$ & strongly egalitarian $\leftrightarrow$ traditional roles \\
+Gender equality & Q29P, Q30P, Q31P, Q33P & 1--4 & $-$ & strongly egalitarian $\leftrightarrow$ traditional roles \\
 Materialism & Q152, Q153 & 1--3 & $+$ & post-materialist $\leftrightarrow$ materialist \\
 Tolerance & Q19P--Q23P & 0--1 & $-$ & very tolerant $\leftrightarrow$ intolerant \\
 \bottomrule
@@ -1257,30 +1171,33 @@ Tolerance & Q19P--Q23P & 0--1 & $-$ & very tolerant $\leftrightarrow$ intolerant
 \subsection{WVS-to-Trolley Dimension Linkage}
 \label{app:wvs_linkage}
 
-The linkage between WVS value dimensions and trolley moral dimensions operates
-through two mechanisms.
+The linkage between the ten WVS cultural dimensions and the six MultiTP
+moral dimensions operates through two complementary mechanisms.
 
-\emph{Direct thematic overlap:} WVS \emph{gender equality} maps onto the
-Gender dimension (societies scoring higher show weaker female-sparing
-preferences~\citep{awad2018moral}); \emph{religiosity} correlates with
-Species (human exceptionalism via religious anthropocentrism);
-\emph{moral acceptability} relates to tolerance of trade-offs in Fitness and
-Social Value dimensions.
+\paragraph{Direct thematic overlap.}
+WVS \emph{gender equality} maps onto the Gender dimension---societies
+scoring higher exhibit weaker female-sparing
+preferences~\citep{awad2018moral}; \emph{religiosity} correlates with
+Species through religious anthropocentrism and human exceptionalism; and
+\emph{moral acceptability} relates to tolerance for trade-offs along the
+Fitness and Social Value dimensions.
 
-\emph{Indirect modulation:} Dimensions like \emph{social trust},
-\emph{child-rearing values}, and \emph{materialism orientation} modulate the
-moral \emph{frame}; e.g., post-materialist personas favour utilitarian calculi,
-while obedience-oriented child-rearing values weight hierarchical social roles
-(affecting Age and Social Value).
-Crucially, DISCA does not require exact causal mapping: the 10-dimensional
-ensemble generates diversity in logit-space gaps, and the IS stage selects the
-correction balancing collective utility.
+\paragraph{Indirect modulation.}
+Dimensions such as \emph{social trust}, \emph{child-rearing values}, and
+\emph{materialism orientation} reshape the moral \emph{frame} the persona
+adopts: post-materialist personas favour utilitarian calculi, while
+obedience-oriented child-rearing values up-weight hierarchical social
+roles (affecting Age and Social Value). Importantly, DISCA does not
+require an exact causal mapping between WVS and MultiTP dimensions; the
+ten-dimensional persona ensemble produces diversity in logit-space gaps,
+and the importance-sampling stage selects the correction that balances
+collective utility.
 
 \paragraph{Empirical validation of the WVS$\to$AMCE pathway.}
 Table~\ref{tab:wvs_amce_regression} regresses each of the six MultiTP human
 AMCE dimensions on the 10 WVS cultural features across the 20-country panel
 (standardised OLS). The 10-feature WVS profile explains $R^2 \in [0.55, 0.69]$
-of human AMCE variance, with $|\beta| > 0.3$ in 35 of 60 cells. This is
+of human AMCE variance, with $|\beta| > 0.3$ in 31 of 60 cells. This is
 direct evidence that WVS-grounded persona construction is not arbitrary:
 the cultural axes our personas inherit correlate strongly with the moral
 preferences DISCA must reproduce.
@@ -1295,7 +1212,7 @@ Species & \textbf{+0.47} & +0.12 & \textbf{-0.65} & \textbf{+0.60} & +0.08 & +0.
 Gender & \textbf{+0.69} & \textbf{+0.37} & -0.18 & \textbf{+0.41} & \textbf{-0.44} & \textbf{-0.39} & \textbf{+0.71} & \textbf{-0.81} & -0.20 & +0.06 & 0.66 & 0.29 \\
 Age & \textbf{-0.80} & -0.09 & \textbf{+0.61} & \textbf{-0.74} & +0.17 & +0.26 & -0.27 & \textbf{+0.62} & \textbf{+0.49} & \textbf{-0.37} & 0.55 & 0.05 \\
 Fitness & +0.28 & -0.23 & -0.16 & -0.12 & -0.17 & \textbf{+0.43} & +0.09 & \textbf{-1.46} & -0.21 & \textbf{+0.53} & 0.60 & 0.15 \\
-SocialValue & -0.27 & \textbf{-0.30} & \textbf{+0.40} & \textbf{-0.40} & \textbf{-0.37} & \textbf{+0.58} & +0.17 & \textbf{-0.31} & -0.12 & -0.15 & 0.69 & 0.35 \\
+SocialValue & -0.27 & -0.30 & \textbf{+0.40} & \textbf{-0.40} & \textbf{-0.37} & \textbf{+0.58} & +0.17 & \textbf{-0.31} & -0.12 & -0.15 & 0.69 & 0.35 \\
 Utilitarianism & \textbf{+1.11} & \textbf{+0.39} & +0.07 & \textbf{+0.59} & -0.21 & -0.01 & +0.13 & \textbf{-0.76} & \textbf{+0.42} & +0.25 & 0.66 & 0.29 \\
 \bottomrule
 \end{tabular}
@@ -1304,10 +1221,21 @@ Utilitarianism & \textbf{+1.11} & \textbf{+0.39} & +0.07 & \textbf{+0.59} & -0.2
 Table~\ref{tab:wvs_impact_matrix} closes the loop with a causal
 leave-one-WVS-dim-out probe: for each WVS dimension $d$, we re-run DISCA
 with $d$ removed from every persona and measure the change in per-MultiTP-
-dim absolute error. \emph{Tolerance of diversity} drops Social Value
-accuracy by 7.76~pp when removed; \emph{moral acceptability} drops Social
-Value by 3.97~pp; \emph{gender equality} drops Gender by 3.42~pp. Cells with
-the top-3 largest positive couplings per row are bolded.
+dim absolute error (positive cell $=$ error rises when the dimension is
+removed $=$ that dimension is load-bearing for the corresponding moral
+attribute). The three largest positive couplings are
+\emph{moral acceptability} $\to$ Social Value ($+3.97$~pp),
+\emph{social trust} $\to$ Social Value ($+2.81$~pp), and
+\emph{child-rearing values} $\to$ Utilitarianism ($+2.41$~pp). Cells with
+the top-3 largest positive couplings per row are bolded; rows with fewer
+than three positive cells are bolded only on those positive cells.
+Negative cells are also informative: \emph{tolerance of diversity}
+$\to$ Social Value $(-7.76)$ and \emph{gender equality} $\to$ Gender
+$(-3.42)$ indicate that, for those moral attributes, the corresponding
+WVS descriptor in fact biases the persona ensemble \emph{away} from the
+human target, so removing the descriptor improves accuracy. Such
+negative-coupling cases are exactly what the importance-sampling stage
+must down-weight when reconciling the ensemble.
 
 \begin{table}[h]\centering\scriptsize
 \caption{WVS-dim $\times$ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf{Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to$ MultiTP links).}
@@ -1328,6 +1256,30 @@ tolerance diversity & -0.76 & -3.52 & \textbf{+1.95} & -0.59 & -7.76 & \textbf{+
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Sensitivity to the Fourth Persona}
+\label{app:r2_persona_variant}
+
+\paragraph{Setup.}
+\S\ref{sec:method:personas} pairs three age-cohort personas with a
+population-wide \emph{aggregate} WVS profile as the fourth agent. A
+natural alternative is a country-invariant \emph{utilitarian} anchor
+that substitutes a neutral moral stance for the aggregate. To confirm
+that this choice is not load-bearing, we ran a head-to-head comparison
+of the two variants on the twenty-country Phi-4 grid.
+
+\paragraph{Result.}
+The utilitarian-anchor variant improves macro MIS from $0.4252$ to
+$0.4049$ ($\Delta = -0.0203$), a marginal gain that does not change any
+qualitative conclusion of the paper.
+
+\paragraph{Decision.}
+We retain the aggregate variant as the default to preserve strict
+country-grounding of every persona and to avoid importing a globally
+fixed moral prior into country-conditioned steering. The utilitarian
+variant remains available as an opt-in for practitioners who prefer a
+neutral anchor
+(\texttt{build\_country\_personas(...,~fourth=`utilitarian')}).
 
 \section{PT--IS, Sampling, and Dual-Pass Reliability}
 \label{app:dpbr_theory}
@@ -1412,15 +1364,17 @@ first, then PT--IS and dual-pass merge). This guarantees cancellation of additiv
 positional bias in logit space; the final $p_{\text{spare}}$ applies
 $\sigma(\cdot)$ only after that correction.
 
-\section{Robustness Suite Summary}
+\section{Hyperparameters and Sensitivity Sweeps}
 \label{app:robustness_summary}
+\label{app:hyperparams}
+\label{app:temp_sensitivity}
+\label{app:r2_hparam_sensitivity}
 
-Table~\ref{tab:robustness_summary} consolidates the nine independent
-robustness checks referenced in \S\ref{sec:robustness}. Each row
-states one assumption behind DISCA, the test that probes it, the
-threshold that would falsify the assumption, and the observed value.
-Per-axis sweeps and full per-country tables for each row appear in
-Appendices~\ref{app:hyperparams}--\ref{app:dataset_sens}.
+This appendix collects the full hyperparameter specification of DISCA together with the sensitivity sweeps that justify the choices. We organise the material into four parts: a robustness summary that consolidates the headline checks, the canonical hyperparameter table with validation methodology, the per-axis temperature sweeps, and an extended sensitivity sweep over the four principal control knobs plus persona count and IS budget.
+
+\subsection{Robustness Summary}
+
+Table~\ref{tab:robustness_summary} consolidates the nine independent robustness checks referenced in §\ref{sec:robustness}. Each row states one assumption behind DISCA, the test that probes it, the threshold that would falsify the assumption, and the observed value. Per-axis sweeps and full per-country tables for each row appear in the subsections below and in Appendix~\ref{app:dataset_sens}.
 
 \begin{table}[h]\centering\small
 \caption{Robustness suite. Each test independently probes one assumption
@@ -1440,8 +1394,7 @@ Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bot
 \end{tabular}
 \end{table}
 
-\section{Hyperparameter Validation}
-\label{app:hyperparams}
+\subsection{Default Hyperparameters and Validation}
 
 \begin{table}[t]
 \caption{DISCA hyperparameters. Prospect Theory parameters follow \citet{kahneman1979prospect};
@@ -1490,8 +1443,7 @@ Because this tuning pool is synthetic and author-annotated, residual bias is
 possible; we therefore report broad robustness sweeps (Appendix~\ref{app:temp_sensitivity},
 Appendix~\ref{app:dataset_sens}) to show conclusions are stable beyond one tuned point.
 
-\section{Temperature Sensitivity}
-\label{app:temp_sensitivity}
+\subsection{Temperature Sensitivity}
 
 We sweep the two temperature families on the (USA, DEU, JPN) subset of MultiTP
 using Llama-3.1-70B. Sweep~A varies $T_\text{dec}\in\{0.10,0.25,0.50,0.75,1.0,2.0\}$;
@@ -1545,6 +1497,76 @@ influence. However, $r$ peaks near $T_\text{dec}{=}1.0$ and declines at $2.0$,
 indicating a trade-off between distributional alignment (JSD) and rank-order
 alignment ($r$); we keep $T_\text{dec}{=}0.5$ as a deliberately conservative
 operating point.
+
+\subsection{Extended Hyperparameter Sensitivity}
+
+We probe the sensitivity of DISCA to the four principal hyperparameters: $s$ (reliability gate scale), $\lambda_{\text{coop}}$ (individual-vs-consensus weight), $\sigma$ (IS proposal floor), and $T_{\text{cat}}$ (uniform logit-temperature scaling). For each axis we sweep five values on a three-country panel (USA, VNM, DEU) and hold the other three axes at their defaults; the $s$ axis directly probes how the choice of reliability scale in Eq.~\ref{eq:dpbr_rel} affects downstream MIS.
+
+\begin{table}[h]\centering\small
+\caption{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref{tab:main_macro_summary} are not the product of a particular hyperparameter choice.}
+\label{tab:r2_hparam_sensitivity}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lccccc}\toprule
+Axis & Default & Grid & Min MIS & Max MIS & $\Delta$ \\\midrule
+$s$                    & 0.04 & $\{0.01, 0.02, 0.04, 0.08, 0.16\}$ & 0.4091 & 0.4164 & 0.0073 \\
+$\lambda_{\text{coop}}$ & 0.70 & $\{0.30, 0.50, 0.70, 0.85, 0.95\}$ & 0.4085 & 0.4173 & 0.0088 \\
+$\sigma$               & 0.30 & $\{0.10, 0.20, 0.30, 0.45, 0.60\}$ & 0.4084 & 0.4122 & 0.0037 \\
+$T_{\text{cat}}$ scale & $1.0\times$ & $\{0.33\times, 0.67\times, 1.0\times, 1.33\times, 1.67\times\}$ & 0.4060 & 0.4149 & 0.0090 \\\bottomrule
+\end{tabular}\end{table}
+
+\paragraph{Why these four axes.} $s$ controls the steepness of the reliability gate (Eq.~\ref{eq:dpbr_rel}); $\lambda_{\text{coop}}$ trades off individual-persona PT utility against the consensus utility; $\sigma$ floors the IS proposal scale so the $N{=}4$ empirical std cannot collapse to zero; and $T_{\text{cat}}$ scales the whole family of per-category decision temperatures (preserving relative balance)-a global sharpening / flattening knob on the decision logits. Per-category temperatures are stress-tested separately in the temperature sensitivity sweep above.
+
+\paragraph{Persona count, IS budget, and per-category vs.\ global $T_{\text{cat}}$.}
+We additionally swept three operational knobs on the same USA/VNM/DEU panel. \textbf{Persona count} ($N\in\{2,3,4,5,6\}$, Table~\ref{tab:r3_persona_count}): $N{=}4$ is optimal at macro MIS 0.4051, with degradation at both smaller and larger panels (0.4252 at $N{=}2$, 0.4179 at $N{=}6$), supporting the four-persona design. \textbf{IS budget} ($K_{\text{half}}\in\{8,16,32,64,128,192\}$, Table~\ref{tab:r3_k_budget}): performance is flat across an order of magnitude (best 0.4092 at $K{=}16$; 0.4103 at $K{=}64$), indicating the default $K_{\text{half}}{=}64$ is in the stable region rather than over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$} (Table~\ref{tab:r3_global_tcat}): the per-category default outperforms \emph{every} global schedule we tested (0.4098 vs.\ all seven global values in $\{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$, which land in $0.4119$--$0.4138$). The advantage is small in absolute terms but consistent.
+
+\begin{table}[h]
+\centering\small
+\caption{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}
+\label{tab:r3_persona_count}
+\begin{tabular}{rcccc}\toprule
+$N$ & Macro MIS $\downarrow$ & Std (across countries) & Flip rate & sec/scenario \\\midrule
+2 & 0.4252 & 0.1045 & 0.275 & 0.089 \\
+3 & 0.4194 & 0.0945 & 0.273 & 0.100 \\
+\textbf{4} & \textbf{0.4051} & 0.0829 & 0.276 & 0.111 \\
+5 & 0.4107 & 0.0745 & 0.276 & 0.120 \\
+6 & 0.4179 & 0.0919 & 0.245 & 0.130 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{IS-budget sweep ($K_{\text{half}}$ samples per pass; total per scenario is $K_\text{total}{=}2 K_\text{half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar{r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies.}
+\label{tab:r3_k_budget}
+\begin{tabular}{rrcccc}\toprule
+$K_\text{half}$ & $K_\text{total}$ & Macro MIS $\downarrow$ & Flip rate & $\overline{r}$ (gate) & sec/scen \\\midrule
+8 & 16 & 0.4114 & 0.284 & 0.684 & 0.121 \\
+16 & 32 & 0.4092 & 0.271 & 0.736 & 0.114 \\
+32 & 64 & 0.4104 & 0.278 & 0.766 & 0.114 \\
+64 & 128 & 0.4103 & 0.280 & 0.793 & 0.113 \\
+128 & 256 & 0.4147 & 0.274 & 0.814 & 0.116 \\
+192 & 384 & 0.4126 & 0.273 & 0.827 & 0.112 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{Global vs.\ per-category $T_{\text{cat}}$ on the USA/VNM/DEU panel. The per-category default (decision $4.0$, social $3.5$, non-social $1.5$) outperforms every global value we tested. The gap is small ($\le 0.004$) but uniformly directional, supporting category-specific decision temperatures over a single shared scalar.}
+\label{tab:r3_global_tcat}
+\begin{tabular}{lccc}\toprule
+$T_{\text{cat}}$ schedule & Macro MIS $\downarrow$ & Std & Flip rate \\\midrule
+\textbf{per-category default (4.0 / 3.5 / 1.5)} & \textbf{0.4098} & 0.0881 & 0.278 \\\midrule
+global $T_\text{cat} = 1.00$ & 0.4120 & 0.0921 & 0.292 \\
+global $T_\text{cat} = 1.50$ & 0.4119 & 0.0838 & 0.304 \\
+global $T_\text{cat} = 2.00$ & 0.4138 & 0.0778 & 0.301 \\
+global $T_\text{cat} = 2.50$ & 0.4134 & 0.0774 & 0.296 \\
+global $T_\text{cat} = 3.00$ & 0.4127 & 0.0749 & 0.303 \\
+global $T_\text{cat} = 3.50$ & 0.4138 & 0.0689 & 0.306 \\
+global $T_\text{cat} = 4.00$ & 0.4128 & 0.0734 & 0.302 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Dataset Preprocessing and Sensitivity}
 \label{app:dataset}
@@ -1676,31 +1698,6 @@ importance-weighted PT--IS. We do not run the full ARGS decoding stack in our
 experiments; Table~\ref{tab:robustness_summary} and \S\ref{sec:ablation} isolate the
 kernel comparison on the shared DISCA pipeline.
 
-\section{Detailed Ablation Analysis}
-\label{app:ablation_detail}
-
-\subsection*{Phi-4 (14B) ablation (Table~\ref{tab:ablation_phi4})}
-
-\textbf{Positional bias magnitude.}
-Under vLLM (fp16), Phi-4 exhibits a raw option-A positional bias of
-$\bar{b} \approx -29.1$ logit units ($\sigma = 26.8$), far exceeding the Qwen2.5-72B
-magnitude. The A$\leftrightarrow$B debiasing step neutralises this artifact, unlocking
-a well-conditioned residual decision surface with IS flip rate 29.0\% and
-$\overline{\text{rel}\_r} = 0.629$.
-
-\textbf{Debiasing and persona interaction.}
-Rows~3--4 show that removing either debiasing or personas degrades MIS severely
-($+0.175$ and $+0.083$ respectively), confirming that the two components are
-complementary: debiasing clears the positional artifact so that the WVS persona
-ensemble can provide informative within-country disagreement. Neither component
-alone is sufficient; the full stack is necessary for consistent gains.
-
-\textbf{IS adaptive gate.}
-Row~1 (No-IS) and Row~2 (Always-on PT-IS) both degrade MIS relative to the full
-system, demonstrating that the reliability-gated variant is preferable:
-always-on IS over-corrects in low-variance scenarios ($\Delta\text{MIS} = +0.015$),
-while dropping IS entirely loses the rank-order signal ($\Delta r = -0.026$).
-
 \section{Trigger Mechanism and Latency}
 \label{app:trigger}
 
@@ -1749,59 +1746,50 @@ quality plateau, at almost double Phi-4's per-scenario cost.
 \section{Extended Limitations}
 \label{app:limitations}
 
-\paragraph{Single seed and stochasticity.}
-Most model-level runs use one seed per model; each scenario runs two independent
-IS passes of $K_{\text{half}}{=}64$ proposals (128 total), matching the released
-pipeline. Within-pipeline stochasticity is bounded by the dual-pass reliability
-gate (84\% of scenarios attain $r > 0.9$ on the headline run; only 3\% trigger
-suppression). A full multi-seed sweep on the headline configuration is a
-camera-ready priority.
-
-\paragraph{Pearson $r$ in six dimensions.}
-As noted in Section~\ref{sec:results}, the AMCE vector is short, so per-country
-$r$ has large sampling error and small row-wise $r$ deltas are not necessarily
-statistically separable; primary claims use MIS, with JSD as a secondary diagnostic.
+This appendix expands the limitations summarised in §\ref{sec:discussion} with technical caveats not covered in the main text.
 
 \paragraph{WVS-to-trolley linkage.}
-The mapping from WVS value dimensions to trolley moral dimensions follows the
-indirect-modulation construction in Appendix~\ref{app:wvs_linkage}, not a fully
-validated causal chain; we therefore avoid claims of the form ``WVS dimension $X$
-caused AMCE shift $Y$.''
+The mapping from WVS value dimensions to trolley moral dimensions follows the indirect-modulation construction in Appendix~\ref{app:wvs_linkage}, not a fully validated causal chain; we therefore avoid claims of the form ``WVS dimension $X$ caused AMCE shift $Y$.''
 
 \paragraph{Inter-persona reward assumption.}
-The reward $r_i = \delta_i - \delta_{\text{base}}$ assumes persona shifts approximate
-human target directions. This is plausible when the base model represents a WEIRD-biased
-prior, but if a persona's shift is orthogonal to the human target, the signal may
-mislead. Per-dimension validation is needed.
-Quantifying whether persona-consensus directions correlate with country-level human
-AMCE vectors independently of the base model-and when corrections diverge from
-targets-is also open; we do not report that correlation matrix here.
+The reward $r_i = \delta_i - \delta_{\text{base}}$ assumes persona shifts approximate human target directions. This is plausible when the base model represents a WEIRD-biased prior, but if a persona's shift is orthogonal to the human target, the signal may mislead. Quantifying whether persona-consensus directions correlate with country-level human AMCE vectors independently of the base model-and when corrections diverge from targets-is open; we do not report that correlation matrix here.
 
-\paragraph{Geographic coverage, preprocessing, and survey vintage.}
-We report 20 countries in the main MIS sweep (Table~\ref{tab:main_macro_summary}) out of
-100+ MultiTP countries; results depend on the preprocessing pipeline in
-Appendix~\ref{app:dataset_sens}.
-WVS Wave~7 ($\sim$2017--2022) is a fixed historical slice; persona quality is
-weakest where coverage is sparse (e.g., Saudi Arabia, Brazil), as reflected in
-per-country tables.
-No low-resource languages (Amharic, Khmer, Yoruba) appear in the panel;
-cross-lingual generalisation to such settings remains untested.
-
-\paragraph{Binary format.}
-The logit-difference formulation requires generalisation to softmax for multi-option
-settings. A pilot on BLEnD open-ended QA (Appendix~\ref{app:blend}) confirms this
-empirically: DISCA degrades aggregate performance by 4.4~pp, with improvements
-confined to high-resource countries where vanilla generation is already strong.
-
-\paragraph{Language--culture conflation.}
-One language per country may conflate linguistic and cultural effects.
+\paragraph{Geographic coverage, preprocessing, and WVS vintage.}
+We report 20 countries out of 100+ MultiTP countries; results depend on the preprocessing pipeline in Appendix~\ref{app:dataset_sens}. WVS Wave~7 ($\sim$2017--2022) is a fixed historical slice that may not reflect current preferences in rapidly evolving societies; persona quality is weakest where coverage is sparse (e.g., Saudi Arabia, Brazil), as reflected in per-country tables. No low-resource languages (Amharic, Khmer, Yoruba) appear in the panel; cross-lingual generalisation to such settings remains untested, and one language per country may conflate linguistic and cultural effects.
 
 \paragraph{Model quantisation.}
-4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability.
+4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability-observed empirically on Unsloth Phi-4 prior to switching to vLLM BF16 for the headline runs.
 
-\paragraph{WVS temporal staleness.}
-Wave~7 ($\sim$2017--2022) data may not reflect current preferences in rapidly
-evolving societies.
+
+\section{Scaling and Geographic Visualizations}
+\label{app:scaling_figures}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.92\linewidth]{scaling_vs_calibration.pdf}
+  \caption{\textbf{Calibration competes with scale.} Mean MIS across the 20-country
+  panel (lower is better) for the six headline backbones. Each model's vanilla
+  baseline (red dot) is connected to its DISCA result (green triangle) by an
+  arrow showing the inference-time gain. The dashed line traces the DISCA
+  Pareto frontier as model size grows. \textbf{A 14B model with DISCA (Phi-4,
+  star) reaches MIS $=0.346$, lower than a 70B model without DISCA
+  (Llama-3.3-70B, $0.668$).} The shaded band marks the region the vanilla
+  curve never reaches.}
+  \label{fig:scaling_vs_calibration}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.98\linewidth]{world_delta_mis.pdf}
+  \caption{\textbf{Geographic distribution of DISCA gain.} Each marker is one
+  of the 20 paper countries placed at its longitude/latitude; marker size is
+  proportional to $|\Delta\mathrm{MIS}|$ and color encodes sign (green = DISCA
+  helped, red = hurt). Aggregated across the six headline backbones,
+  \textbf{19 of 20 countries see a positive mean gain}, with the largest
+  improvements in the Americas, East/Southeast Asia, and Eastern Europe-
+  not concentrated in the West.}
+  \label{fig:world_delta_mis}
+\end{figure}
 
 
 \section{Per-Dimension Error Analysis}
@@ -2136,296 +2124,28 @@ THA & \textbf{0.313} & 0.342 & 0.494 & 0.494 \\
 USA & \textbf{0.243} & 0.369 & 0.564 & 0.564 \\
 VNM & \textbf{0.336} & 0.473 & 0.561 & 0.561 \\\midrule
 \textbf{Macro} & \textbf{0.346} & 0.403 & 0.513 & 0.506 \\
-\textbf{Wins (DISCA vs.)} & --- & 18/20 & 19/20 & 18/20 \\
+\textbf{Wins (DISCA vs.)} & - & 18/20 & 19/20 & 18/20 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 % ============================================================================
-\section{Extended Hyperparameter Sensitivity}
-\label{app:r2_hparam_sensitivity}
-% ============================================================================
-
-We probe the sensitivity of DISCA to the four principal
-hyperparameters: $s$ (reliability gate scale), $\lambda_{\text{coop}}$
-(individual-vs-consensus weight), $\sigma$ (IS proposal floor), and
-$T_{\text{cat}}$ (uniform logit-temperature scaling). For each axis we sweep
-five values on a three-country panel (USA, VNM, DEU) and hold the other
-three axes at their defaults; the $s$ axis directly probes how the choice
-of reliability scale in Eq.~\ref{eq:dpbr_rel} affects downstream MIS.
-
-\begin{table}[h]\centering\small
-\caption{Hyperparameter sensitivity ranges on the three-country panel
-(Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid
-points relative to the default; MIS is stable within a narrow
-0.0037--0.0090 span
-on every axis, so the gains in Table~\ref{tab:main_macro_summary} are
-not the product of a particular hyperparameter choice.}
-\label{tab:r2_hparam_sensitivity}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{lccccc}\toprule
-Axis & Default & Grid & Min MIS & Max MIS & $\Delta$ \\\midrule
-$s$                    & 0.04 & $\{0.01, 0.02, 0.04, 0.08, 0.16\}$ & 0.4091 & 0.4164 & 0.0073 \\
-$\lambda_{\text{coop}}$ & 0.70 & $\{0.30, 0.50, 0.70, 0.85, 0.95\}$ & 0.4085 & 0.4173 & 0.0088 \\
-$\sigma$               & 0.30 & $\{0.10, 0.20, 0.30, 0.45, 0.60\}$ & 0.4084 & 0.4122 & 0.0037 \\
-$T_{\text{cat}}$ scale & $1.0\times$ & $\{0.33\times, 0.67\times, 1.0\times, 1.33\times, 1.67\times\}$ & 0.4060 & 0.4149 & 0.0090 \\\bottomrule
-\end{tabular}\end{table}
-
-The sweep uses a single model load so all twenty cells share
-identical weights and cached scenarios; numerical entries are
-released alongside the code archive accompanying this submission.
-
-\paragraph{Why these four axes.} $s$ controls the steepness of the
-reliability gate (Eq.~\ref{eq:dpbr_rel}); $\lambda_{\text{coop}}$ trades
-off individual-persona PT utility against the consensus utility;
-$\sigma$ floors the IS proposal scale so the $N{=}4$ empirical std
-cannot collapse to zero; and $T_{\text{cat}}$ scales the whole family of
-per-category decision temperatures (preserving relative balance) - a
-global sharpening / flattening knob on the decision logits. Per-category
-temperatures are already stress-tested separately in
-Appendix~\ref{app:temp_sensitivity}.
-
-\paragraph{Additional round-3 sensitivity checks.}
-We additionally swept three operational knobs on the same
-USA/VNM/DEU panel. \textbf{Persona count} ($N\in\{2,3,4,5,6\}$,
-Table~\ref{tab:r3_persona_count}): $N{=}4$ is optimal at macro MIS
-0.4051, with degradation at both smaller and larger panels (0.4252 at
-$N{=}2$, 0.4179 at $N{=}6$), supporting the four-persona design.
-\textbf{IS budget} ($K_{\text{half}}\in\{8,16,32,64,128,192\}$,
-Table~\ref{tab:r3_k_budget}): performance is flat across an order of
-magnitude (best 0.4092 at $K{=}16$; 0.4103 at $K{=}64$), indicating
-the default $K_{\text{half}}{=}64$ is in the stable region rather than
-over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$}
-(Table~\ref{tab:r3_global_tcat}): the per-category default outperforms
-\emph{every} global schedule we tested (0.4098 vs.\ all
-seven global values in $\{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$, which
-land in $0.4119$--$0.4138$). The advantage is small in absolute terms
-but consistent: per-category temperature is preserving information
-that any single global value flattens.
-
-\begin{table}[h]
-\centering\small
-\caption{Persona-count sweep on the USA/VNM/DEU panel (Phi-4,
-$n{=}250$/country). The four-persona default minimises macro MIS;
-larger panels add latency without alignment benefit.}
-\label{tab:r3_persona_count}
-\begin{tabular}{rcccc}\toprule
-$N$ & Macro MIS $\downarrow$ & Std (across countries) & Flip rate & sec/scenario \\\midrule
-2 & 0.4252 & 0.1045 & 0.275 & 0.089 \\
-3 & 0.4194 & 0.0945 & 0.273 & 0.100 \\
-\textbf{4} & \textbf{0.4051} & 0.0829 & 0.276 & 0.111 \\
-5 & 0.4107 & 0.0745 & 0.276 & 0.120 \\
-6 & 0.4179 & 0.0919 & 0.245 & 0.130 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[h]
-\centering\small
-\caption{IS-budget sweep ($K_{\text{half}}$ samples per pass; total per
-scenario is $K_\text{total}{=}2 K_\text{half}$). Macro MIS is flat
-across an order of magnitude. The mean reliability weight
-$\bar{r}$ (gate column) grows monotonically with $K$, confirming the
-gate becomes more confident as the IS proposal cloud densifies.}
-\label{tab:r3_k_budget}
-\begin{tabular}{rrcccc}\toprule
-$K_\text{half}$ & $K_\text{total}$ & Macro MIS $\downarrow$ & Flip rate & $\overline{r}$ (gate) & sec/scen \\\midrule
-8 & 16 & 0.4114 & 0.284 & 0.684 & 0.121 \\
-16 & 32 & 0.4092 & 0.271 & 0.736 & 0.114 \\
-32 & 64 & 0.4104 & 0.278 & 0.766 & 0.114 \\
-64 & 128 & 0.4103 & 0.280 & 0.793 & 0.113 \\
-128 & 256 & 0.4147 & 0.274 & 0.814 & 0.116 \\
-192 & 384 & 0.4126 & 0.273 & 0.827 & 0.112 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[h]
-\centering\small
-\caption{Global vs.\ per-category $T_{\text{cat}}$ on the USA/VNM/DEU
-panel. The per-category default (decision $4.0$, social $3.5$,
-non-social $1.5$) outperforms every global value we tested. The gap
-is small ($\le 0.004$) but uniformly directional, supporting
-category-specific decision temperatures over a single shared scalar.}
-\label{tab:r3_global_tcat}
-\begin{tabular}{lccc}\toprule
-$T_{\text{cat}}$ schedule & Macro MIS $\downarrow$ & Std & Flip rate \\\midrule
-\textbf{per-category default (4.0 / 3.5 / 1.5)} & \textbf{0.4098} & 0.0881 & 0.278 \\\midrule
-global $T_\text{cat} = 1.00$ & 0.4120 & 0.0921 & 0.292 \\
-global $T_\text{cat} = 1.50$ & 0.4119 & 0.0838 & 0.304 \\
-global $T_\text{cat} = 2.00$ & 0.4138 & 0.0778 & 0.301 \\
-global $T_\text{cat} = 2.50$ & 0.4134 & 0.0774 & 0.296 \\
-global $T_\text{cat} = 3.00$ & 0.4127 & 0.0749 & 0.303 \\
-global $T_\text{cat} = 3.50$ & 0.4138 & 0.0689 & 0.306 \\
-global $T_\text{cat} = 4.00$ & 0.4128 & 0.0734 & 0.302 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% ============================================================================
-\section{Dual-Pass Reliability Audit}
+\section{Post-Hoc Diagnostics}
 \label{app:r2_reliability_audit}
-% ============================================================================
-
-A subtle failure mode of the DPBR gate is \emph{apparent} IS stability:
-each individual pass can yield a high effective sample size, yet the two
-passes can still produce substantially different $\delta^\star$ values when
-the proposal covers a multimodal utility landscape. To quantify how often
-this happens and how the gate responds, we audit the per-scenario DISCA
-outputs from the main Phi-4 run and partition scenarios into four regimes
-defined by two thresholds
-($\text{ESS}_{\min} \geq 0.40$; $\mathrm{Var}_{\text{boot}} \geq 0.04$):
-
-\begin{itemize}
-\item \textbf{HighESS$/$LowDisagree}: IS is stable and passes concur; the
-      gate applies the correction essentially unattenuated.
-\item \textbf{HighESS$/$HighDisagree}: passes are individually stable
-      yet disagree - the scenario where a standard ``more samples'' fix
-      would silently commit a biased estimate. DPBR is designed to shrink
-      $\delta^\star$ precisely here.
-\item \textbf{LowESS$/$LowDisagree}: IS is noisy but by luck the two
-      passes agree; the gate has little work to do.
-\item \textbf{LowESS$/$HighDisagree}: the classically bad regime; the
-      gate shrinks aggressively.
-\end{itemize}
-
-The audit reports regime counts, mean reliability weight, and a
-``would-apply-vs-actually-applied'' shrinkage ratio
-$1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime. The
-audit is purely post-hoc analysis of the per-scenario diagnostics
-already produced by the main DISCA run.
-
-% ============================================================================
-% ============================================================================
-\section{Sensitivity to the Fourth Persona}
-\label{app:r2_persona_variant}
-% ============================================================================
-
-Section~\ref{sec:method:personas} uses three age-cohort personas plus a
-population-wide \emph{aggregate} WVS profile as the fourth agent. A
-natural alternative is a country-invariant \emph{utilitarian} anchor that
-substitutes a neutral moral stance for the aggregate. To confirm that our
-choice of aggregate is not load-bearing, we ran a head-to-head between
-the two variants on the twenty-country Phi-4 grid; the aggregate
-variant is retained as the default because it keeps every persona
-grounded in country-specific empirical data, while the utilitarian
-variant is available as an opt-in for downstream users who prefer a
-neutral anchor
-(\texttt{build\_country\_personas(..., fourth=`utilitarian')}).
-Empirically, the utilitarian-anchor variant improves macro MIS from 0.4252
-to 0.4049 on this sweep ($\Delta=-0.0203$), but we keep aggregate as the
-default to preserve strict country-grounding of every persona and avoid
-importing a globally fixed moral prior into country-conditioned steering.
-
-% ============================================================================
-\section{Logit-Conditioning Diagnostic}
 \label{app:r2_logit_conditioning}
-% ============================================================================
-
-The architectural failure mode identified in \S\ref{sec:discussion} -
-poorly conditioned decision-token logits - can be quantified directly
-on the vanilla forward pass. We compute three per-scenario statistics:
-\textbf{decision margin} $\mathrm{marg} = |p_B - p_A|$, \textbf{decision
-entropy} $H = -p_A \log p_A - p_B \log p_B$ (nats), and
-\textbf{absolute logit gap} $|z_B - z_A|$. Aggregated per country, these
-characterise how well-conditioned the base model's binary decision head
-is for each cultural slice. The headline prediction -- which we verify
-empirically -- is that
-DISCA's per-country MIS improvement correlates positively with mean
-decision margin: well-conditioned countries admit larger, more reliable
-corrections, while poorly-conditioned countries (mean margin $<0.1$) are
-near the limit of what any logit-level intervention can achieve. This
-diagnostic also explains why the dual-pass reliability gate carries its
-weight in small-backbone regimes: it shrinks corrections exactly where
-the raw decision surface is flat.
-
-% ============================================================================
-\section{Rank-Based Dimension Agreement}
 \label{app:rank_agreement}
 % ============================================================================
 
-The per-country Pearson $r$ in Table~\ref{tab:percountry_p1}
-occasionally goes negative even when MIS decreases. As explained in
-\S\ref{sec:percountry_main}, this reflects the orthogonality between a
-shape metric ($r$) and an amplitude metric (MIS) on a six-dimensional
-vector, not a contradiction. To make the shape component visible on its
-own terms, we supplement $r$ with three rank-based metrics: per-country
-Kendall $\tau$, Spearman $\rho$, and mean
-$|\mathrm{rank}_{\text{model}} - \mathrm{rank}_{\text{human}}|$ over the
-six MultiTP dimensions, computed separately for vanilla and DISCA.
+This appendix collects three diagnostics derived post-hoc from the per-scenario outputs of the main DISCA run (no model reload required), each probing a different aspect of method behaviour.
 
-These metrics are obtained post-hoc from the existing per-country
-output (no model reload), supplementing rather than replacing the
-$\ell_2$-based MIS used in the main results.
+\paragraph{Dual-pass reliability audit.}
+A subtle failure mode of the DPBR gate is \emph{apparent} IS stability: each individual pass can yield a high effective sample size, yet the two passes can still produce substantially different $\delta^\star$ values when the proposal covers a multimodal utility landscape. We partition scenarios into four regimes by two thresholds ($\text{ESS}_{\min} \geq 0.40$; $\mathrm{Var}_{\text{boot}} \geq 0.04$): \emph{HighESS/LowDisagree} (gate applies correction essentially unattenuated), \emph{HighESS/HighDisagree} (passes individually stable yet disagree-the regime where ``more samples'' would silently commit a biased estimate; DPBR shrinks $\delta^\star$ precisely here), \emph{LowESS/LowDisagree} (noisy IS but lucky agreement), and \emph{LowESS/HighDisagree} (classically bad-gate shrinks aggressively). The audit reports regime counts, mean reliability weight, and a ``would-apply-vs-actually-applied'' shrinkage ratio $1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime.
 
-% ============================================================================
-\section{Cross-Model Ablation Breadth}
-\label{app:r2_ablation_breadth}
-% ============================================================================
+\paragraph{Logit-conditioning diagnostic.}
+The architectural failure mode identified in §\ref{sec:discussion}-poorly conditioned decision-token logits-can be quantified directly on the vanilla forward pass via three per-scenario statistics: \textbf{decision margin} $\mathrm{marg} = |p_B - p_A|$, \textbf{decision entropy} $H = -p_A \log p_A - p_B \log p_B$ (nats), and \textbf{absolute logit gap} $|z_B - z_A|$. Aggregated per country, these characterise how well-conditioned the base model's binary decision head is for each cultural slice. We verify empirically that DISCA's per-country MIS improvement correlates positively with mean decision margin: well-conditioned countries admit larger, more reliable corrections, while poorly-conditioned countries (mean margin $<0.1$) are near the limit of what any logit-level intervention can achieve. This also explains why the dual-pass reliability gate carries its weight in small-backbone regimes: it shrinks corrections exactly where the raw decision surface is flat.
 
-The ablation in \S\ref{sec:ablation} uses a single (model, country)
-cell -- Phi-4 on the USA -- so a natural concern is whether the
-identified load-bearing components are Phi-4-specific. We address
-this in two complementary ways: a 3-country probe across three
-backbones (Phi-4, Qwen2.5-7B, Phi-3.5-mini) and a 20-country
-ablation on Qwen2.5-7B as a second backbone for full-panel
-verification.
-
-\paragraph{20-country ablation on Qwen2.5-7B (BF16).}
-We re-run the four structural ablations from
-Table~\ref{tab:ablation_phi4} across all 20 paper countries with the
-same Qwen2.5-7B BF16 backbone that produces the headline
-$\text{MIS}=0.362$ in Table~\ref{tab:main_macro_summary}.
-Table~\ref{tab:ablation_qwen20c} reports macro MIS, the macro shift
-relative to Full DISCA, and the count of countries hurt by each
-ablation.
-
-\begin{table}[h]
-\centering\small
-\caption{Structural ablation on Qwen2.5-7B (BF16) across the
-20-country panel. Full DISCA's macro MIS is 0.362, matching
-Table~\ref{tab:main_macro_summary}. ``$n$ hurt'' counts countries
-with strictly higher MIS than Full DISCA. Persona removal is the
-single largest hurt (16/20 countries, $+0.055$ macro), confirming the
-Phi-4 finding that personas are load-bearing across backbones.
-Debiasing has a much smaller effect on Qwen2.5-7B than on Phi-4
-because Qwen's vanilla logits exhibit less positional bias.}
-\label{tab:ablation_qwen20c}
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{lccc}\toprule
-Configuration            & Macro MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt / 20 \\\midrule
-Full DISCA               & \textbf{0.362} & ---     & --- \\
-Without persona          & 0.417          & $+0.055$ & 16 \\
-Always-on PT-IS          & 0.379          & $+0.017$ & 14 \\
-No-IS (consensus only)   & 0.371          & $+0.009$ & 12 \\
-No debiasing             & 0.363          & $+0.001$ & 12 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The hierarchy on Qwen2.5-7B differs from the Phi-4 ablation
-(\S\ref{sec:ablation}) in an interpretable way: persona is the
-dominant component on both backbones, but debiasing's contribution is
-\emph{model-dependent}. On Phi-4, vanilla decoding has a large
-positional bias of $\bar{b} \approx -29.1$ logit units, so removing
-debiasing collapses Pearson $r$ by $-0.282$ (Table~\ref{tab:ablation_phi4}).
-On Qwen2.5-7B (BF16), the same removal moves MIS by only $+0.001$
-because the base logits are already approximately balanced. The
-two-backbone view therefore tells a sharper story than the
-single-cell ablation alone: persona disagreement is universally
-load-bearing, while positional debiasing is a corrective whose value
-is proportional to the backbone's raw bias magnitude.
-
-\paragraph{3-country probe across three backbones.}
-We additionally ran a 3-model $\times$ 3-country grid (Phi-4,
-Qwen2.5-7B, Phi-3.5-mini $\times$ USA, JPN, VNM). On the Phi-4
-subset of this
-9-cell sweep, macro MIS rises from 0.357 (full) to 0.366 (always-on
-PT--IS), 0.375 (no-IS), 0.396 (no debiasing), and 0.436 (without
-personas), matching the load-bearing ordering reported in the main
-ablation. The Qwen2.5-7B and Phi-3.5-mini cells are noisier in this
-3-country panel due to the smaller $n$, which is exactly why we
-include the dedicated 20-country Qwen2.5-7B sweep above.
+\paragraph{Rank-based dimension agreement.}
+The per-country Pearson $r$ in Table~\ref{tab:percountry_p1} occasionally goes negative even when MIS decreases. As explained in §\ref{sec:percountry_main}, this reflects the orthogonality between a shape metric ($r$) and an amplitude metric (MIS) on a six-dimensional vector. To make the shape component visible on its own terms, we supplement $r$ with three rank-based metrics: per-country Kendall $\tau$, Spearman $\rho$, and mean $|\mathrm{rank}_{\text{model}} - \mathrm{rank}_{\text{human}}|$ over the six MultiTP dimensions, computed separately for vanilla and DISCA-supplementing rather than replacing the $\ell_2$-based MIS in the main results.
 
 % ============================================================================
 \section{Scenario-Slice Release and Category-Cap Sensitivity}

@@ -19,7 +19,18 @@
       "Bash(git checkout *)",
       "Bash(git fsck *)",
       "Bash(git restore *)",
-      "Bash(git log *)"
+      "Bash(git log *)",
+      "Bash(latexmk -pdf -interaction=nonstopmode paper_revised.tex)",
+      "Bash(awk '/\\\\\\\\section\\\\{Persona Construction Details\\\\}/,/\\\\\\\\section\\\\{[^P]/' exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -c \"Section~\\\\\\\\\\\\\\\\ref\\\\|\\\\\\\\\\\\\\\\S\\\\\\\\\\\\\\\\ref\\\\|§\\\\\\\\\\\\\\\\ref\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -oE \"\\(Section~|§|\\\\\\\\\\\\\\\\S|\\\\\\\\\\\\\\\\autoref|\\\\\\\\\\\\\\\\Cref\\)\\\\\\\\\\\\\\\\ref\\\\{[^}]+\\\\}\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -oE \"\\(§|\\\\\\\\\\\\\\\\S |Sec\\\\\\\\.|Section\\)~?\\\\\\\\\\\\\\\\ref\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -oE \"[^ ]{0,15}\\\\\\\\\\\\\\\\ref\\\\{\\(sec:|app:\\)\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -n \"§\\\\\\\\\\\\\\\\ref\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(grep -c \"\\\\\\\\\\\\\\\\paragraph{\" exp_paper/Paper_New/SWA_DPBR/paper_revised.tex)",
+      "Bash(kpsewhich t5enc.def vntex.sty vietnam.ldf)",
+      "Bash(latexmk -pdf -interaction=nonstopmode -cd \"d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex\")",
+      "Bash(awk 'NR>=1206 && NR<=1211' \"d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex\")"
     ]
   }
 }

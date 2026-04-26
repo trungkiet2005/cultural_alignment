@@ -176,11 +176,44 @@ from src.pseudo_delta import (  # noqa: E402
 )
 from src.scenarios import generate_multitp_scenarios  # noqa: E402
 
+from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
+
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  HARDCODED RUN CONFIG — 3 countries × full 500 scenarios                   ║
+# ║  HARDCODED RUN CONFIG — 20 paper countries × full 500 scenarios            ║
+# ║  (PAPER_20_COUNTRIES: 5 continents × 6 language families)                  ║
+# ║                                                                            ║
+# ║  Batch presets (resume-safe — Stage1 dedupes by scenario_id, Stage2 caches ║
+# ║  by sha1(scenario_en + actor_text)):                                       ║
+# ║    BATCH = "all"  -> all 20 countries (one session, ~3h20m on GPU)        ║
+# ║    BATCH = "b1"   -> first 10 countries                                    ║
+# ║    BATCH = "b2"   -> last 10 countries                                     ║
+# ║  Override via env var:  OPENENDED_BATCH=b1 | b2 | all                      ║
+# ║  Or pass explicit list: OPENENDED_COUNTRIES=USA,VNM,DEU                    ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
-RUN_COUNTRIES: List[str] = ["USA", "VNM", "DEU"]
+RUN_BATCH: str = "all"  # "all" | "b1" | "b2"
+
+_PAPER_20: List[str] = list(PAPER_20_COUNTRIES)
+_BATCHES: Dict[str, List[str]] = {
+    "all": _PAPER_20,
+    "b1": _PAPER_20[:10],   # USA GBR DEU ARG BRA MEX COL VNM MMR THA
+    "b2": _PAPER_20[10:],   # MYS IDN CHN JPN BGD IRN SRB ROU KGZ ETH
+}
+
+
+def _resolve_run_countries() -> List[str]:
+    explicit = os.environ.get("OPENENDED_COUNTRIES", "").strip()
+    if explicit:
+        return [s.strip() for s in explicit.split(",") if s.strip()]
+    batch = os.environ.get("OPENENDED_BATCH", RUN_BATCH).strip().lower()
+    if batch not in _BATCHES:
+        raise ValueError(
+            f"OPENENDED_BATCH must be one of {sorted(_BATCHES)}, got {batch!r}"
+        )
+    return list(_BATCHES[batch])
+
+
+RUN_COUNTRIES: List[str] = _resolve_run_countries()
 RUN_N_SCENARIOS: int = 500
 RUN_STAGE: str = "both"  # "1" | "2" | "both"
 RUN_MAX_NEW_TOKENS_ACTOR: int = 400
