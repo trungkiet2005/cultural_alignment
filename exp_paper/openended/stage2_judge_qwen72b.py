@@ -1,19 +1,20 @@
-"""Stage 2 of the open-ended SWA-DPBR variant — judge + DPBR + AMCE.
+"""Stage 2 of the open-ended DISCA variant — judge + DPBR + AMCE.
 
-Reads Stage-1 JSONL files, runs a 70B+ judge LLM on each actor generation,
-extracts ``{choice, confidence}``, converts to a scalar pseudo-delta via
-:func:`src.pseudo_delta.pseudo_delta_from_judge`, debiases the pseudo-delta
-with the standard ``(pass1 - pass2) / 2`` transform, and feeds the result to
-:class:`exp_paper.openended.dpbr_offline.Exp24DualPassControllerOffline` so the
-PT-IS, dual-pass bootstrap reliability, ESS anchor blend, and hierarchical
-prior all run unchanged. Per-country AMCE + alignment metrics are written
-using :func:`src.amce.compute_amce_from_preferences` and
+Reads Stage-1 JSONL files, runs a judge LLM on each actor generation, extracts
+``{choice, confidence}``, converts to a scalar pseudo-delta via
+:func:`src.pseudo_delta.pseudo_delta_from_judge`, and feeds it directly to
+:class:`exp_paper.openended.dpbr_offline.Exp24DualPassControllerOffline` so PT-IS,
+dual-pass bootstrap reliability, ESS anchor blend, and the hierarchical prior all
+run unchanged. Per-country AMCE + alignment metrics are written using
+:func:`src.amce.compute_amce_from_preferences` and
 :func:`src.amce.compute_alignment_metrics`.
 
 A "vanilla-from-base" analog is also emitted using only ``agent_role=="base"``
-rows (no PT-IS, just the sigmoid of the debiased base delta), to mirror the
-structure of ``exp_model/_base_dpbr.py`` which writes both a vanilla baseline
-and a DPBR sweep.
+rows (no PT-IS, just the sigmoid of the base pseudo-delta).
+
+Note (2026-04-26): The A↔B positional debiasing pass was removed (see
+:mod:`exp_paper.openended.stage1_actor_phi4`). pseudo-deltas are used as-is.
+Legacy JSONL rows with ``debias_variant == "pass2"`` are filtered out at load.
 
 Resume: judge calls are cached to ``{country}_judged.jsonl`` keyed by
 sha1(scenario_en + actor_text). A second invocation will re-use any cached
@@ -56,7 +57,7 @@ from src.pseudo_delta import (
 )
 
 from exp_paper.openended.dpbr_offline import Exp24DualPassControllerOffline
-from exp_paper.openended.stage1_actor_phi4 import AGENT_ROLES, DEBIAS_VARIANTS
+from exp_paper.openended.stage1_actor_phi4 import AGENT_ROLES
 
 
 @dataclass
@@ -86,6 +87,8 @@ def _record_hash(scenario_en: str, actor_text: str) -> str:
 
 
 def _load_stage1_rows(jsonl_path: Path) -> List[Dict[str, Any]]:
+    """Load Stage-1 JSONL rows. Filters out legacy ``pass2`` rows — the A↔B
+    positional debiasing pass was disabled (see :mod:`stage1_actor_phi4`)."""
     rows: List[Dict[str, Any]] = []
     with jsonl_path.open("r", encoding="utf-8") as fh:
         for line in fh:
@@ -93,9 +96,12 @@ def _load_stage1_rows(jsonl_path: Path) -> List[Dict[str, Any]]:
             if not line:
                 continue
             try:
-                rows.append(json.loads(line))
+                rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if str(rec.get("debias_variant", "pass1")) != "pass1":
+                continue
+            rows.append(rec)
     return rows
 
 
@@ -183,15 +189,6 @@ def _judge_rows_for_country(
 
     with cache_path.open("a", encoding="utf-8") as cache_fh:
         for r in rows:
-            if r.get("skipped_reason") == "swap_unchanged":
-                r["judge_choice"] = "UNCERTAIN"
-                r["judge_confidence"] = 0.0
-                r["judge_raw"] = ""
-                r["judge_parse_ok"] = False
-                r["pseudo_delta"] = 0.0
-                stats["skipped"] += 1
-                continue
-
             scenario_en = str(r.get("scenario_en", ""))
             actor_text = str(r.get("actor_text", ""))
             key = _record_hash(scenario_en, actor_text)
@@ -239,9 +236,9 @@ def _assemble_per_scenario(
 ) -> List[Dict[str, Any]]:
     """Group rows by scenario_id and emit one input dict per scenario.
 
-    Expected: 10 rows/scenario (5 agents x 2 debiasing variants). When
-    swap_unchanged, pass2 rows are synthetic UNCERTAIN (delta=0) -> Stage 2
-    falls back to d2=d1 so delta_*_deb = d1 and positional_bias = 0.
+    Single-pass: 5 rows/scenario (5 agents, pass1 only). pseudo-deltas are used
+    directly — no positional debiasing (the A↔B swap pass was removed because in
+    free-text greedy decoding it injects noise instead of cancelling bias).
     """
     by_sid: Dict[int, List[Dict[str, Any]]] = {}
     for r in rows:
@@ -251,37 +248,21 @@ def _assemble_per_scenario(
     out: List[Dict[str, Any]] = []
     for sid in sorted(by_sid.keys()):
         group = by_sid[sid]
-        by_key = {(r["agent_role"], r["debias_variant"]): r for r in group}
-        missing = [
-            (role, variant) for role in AGENT_ROLES for variant in DEBIAS_VARIANTS
-            if (role, variant) not in by_key
-        ]
+        by_role = {r["agent_role"]: r for r in group}
+        missing = [role for role in AGENT_ROLES if role not in by_role]
         if missing:
-            print(f"[WARN] scenario_id={sid} missing rows {missing} — skipping")
+            print(f"[WARN] scenario_id={sid} missing roles {missing} — skipping")
             continue
 
         sample = group[0]
-        swap_changed = all(bool(r.get("swap_changed", False)) for r in group)
 
-        def _delta(role: str, variant: str) -> float:
-            return float(by_key[(role, variant)].get("pseudo_delta", 0.0))
+        def _delta(role: str) -> float:
+            return float(by_role[role].get("pseudo_delta", 0.0))
 
-        d1_base = _delta("base", "pass1")
-        d2_base = _delta("base", "pass2") if swap_changed else d1_base
-        d1_ag = np.array([_delta(f"persona_{i}", "pass1") for i in range(4)], dtype=np.float64)
-        d2_ag = (
-            np.array([_delta(f"persona_{i}", "pass2") for i in range(4)], dtype=np.float64)
-            if swap_changed else d1_ag.copy()
+        delta_base_deb = _delta("base")
+        delta_agents_deb = np.array(
+            [_delta(f"persona_{i}") for i in range(4)], dtype=np.float64
         )
-
-        if swap_changed:
-            delta_base_deb = (d1_base - d2_base) / 2.0
-            delta_agents_deb = (d1_ag - d2_ag) / 2.0
-            positional_bias = (d1_base + d2_base) / 2.0
-        else:
-            delta_base_deb = d1_base
-            delta_agents_deb = d1_ag
-            positional_bias = 0.0
 
         out.append({
             "scenario_id": sid,
@@ -294,11 +275,11 @@ def _assemble_per_scenario(
             "country": sample.get("country", ""),
             "delta_base_deb": float(delta_base_deb),
             "delta_agents_deb": [float(x) for x in delta_agents_deb.tolist()],
-            "positional_bias": float(positional_bias),
-            "swap_changed": bool(swap_changed),
-            "base_judge_choice": by_key[("base", "pass1")].get("judge_choice", "UNCERTAIN"),
+            "positional_bias": 0.0,
+            "swap_changed": False,
+            "base_judge_choice": by_role["base"].get("judge_choice", "UNCERTAIN"),
             "base_judge_confidence": float(
-                by_key[("base", "pass1")].get("judge_confidence", 0.0)
+                by_role["base"].get("judge_confidence", 0.0)
             ),
             "n_uncertain_agents": sum(
                 1 for r in group if r.get("judge_choice") == "UNCERTAIN"

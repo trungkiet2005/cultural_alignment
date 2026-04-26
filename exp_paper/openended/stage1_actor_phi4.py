@@ -1,28 +1,32 @@
-"""Stage 1 of the open-ended SWA-DPBR variant — actor (Phi-4) text generation.
+"""Stage 1 of the open-ended DISCA variant — actor text generation (single-pass).
 
-Iterates (country, scenario, agent, debiasing_variant) and asks the actor model
-to produce a reasoning paragraph followed by a committed "ANSWER: A"/"ANSWER: B"
-line, given a persona-prepended system prompt. All generations are appended to
+Iterates (country, scenario, agent) and asks the actor model to produce a
+reasoning paragraph followed by a committed "ANSWER: A"/"ANSWER: B" line, given
+a persona-prepended system prompt. All generations are appended to
 ``{out_jsonl_dir}/{country}.jsonl`` so Stage 2 can read them, map each to a
 pseudo-delta via :func:`src.pseudo_delta.pseudo_delta_from_judge`, and feed the
 result to :class:`exp_paper.openended.dpbr_offline.Exp24DualPassControllerOffline`.
 
+Note (2026-04-26): The A↔B positional debiasing pass (pass2) was removed.
+In free-text greedy decoding the swapped prompt does not produce a clean mirror
+of the original — semantic content dominates, so ``(δ₁ − δ₂) / 2`` injects noise
+instead of cancelling positional bias. Empirically this drove SWA r below VAN r
+on USA/VNM/DEU. We now use single-pass pseudo-deltas directly. ``DEBIAS_VARIANTS``
+remains exposed as ``("pass1",)`` so legacy callers / Stage 2 keep importing it.
+
 Resume-safe: before generating a row the script hashes
-``(country, scenario_id, agent_role, debias_variant)`` into a set of already-
-written keys. Generations are ``greedy``; `do_sample=False` gives reproducible
-text across re-runs of the same (prompt, persona) pair.
+``(country, scenario_id, agent_role, "pass1")`` into a set of already-written
+keys. Generations are ``greedy``; `do_sample=False` gives reproducible text
+across re-runs of the same (prompt, persona) pair.
 
 Persona set matches the logit-based runner (``exp_model/_base_dpbr.py``): one
 ``base`` agent using :data:`BASE_ASSISTANT_I18N` and 4 WVS-derived personas
-from :func:`build_country_personas`. Debiasing variants mirror
-:meth:`src.controller.ImplicitSWAController._swap_positional_labels`: ``pass1``
-is the original prompt, ``pass2`` swaps Option A/B (and Group A/B) labels. If
-swap is a no-op (``swap_changed=False``), ``pass2`` is skipped and Stage 2
-falls back to single-pass semantics.
+from :func:`build_country_personas`.
 """
 
 from __future__ import annotations
 
+import csv
 import gc
 import json
 import os
@@ -36,7 +40,7 @@ import torch
 
 from src.constants import COUNTRY_LANG
 from src.data import load_multitp_dataset
-from src.i18n import BASE_ASSISTANT_I18N, SCENARIO_FRAME_I18N
+from src.i18n import BASE_ASSISTANT_I18N
 from src.model import ChatTemplateHelper, load_model_hf_native, setup_seeds
 from src.openended_prompts import build_openended_prompt
 from src.personas import SUPPORTED_COUNTRIES, build_country_personas
@@ -44,8 +48,20 @@ from src.scenarios import generate_multitp_scenarios
 
 
 AGENT_ROLES: Tuple[str, ...] = ("base", "persona_0", "persona_1", "persona_2", "persona_3")
-DEBIAS_VARIANTS: Tuple[str, ...] = ("pass1", "pass2")
+# Single-pass: pass2 (A↔B swap) was disabled — see module docstring.
+DEBIAS_VARIANTS: Tuple[str, ...] = ("pass1",)
 SCHEMA_VERSION: int = 1
+
+# Subset of columns mirrored to ``{country}.csv`` for human inspection.
+# `persona_text` and `prompt` are skipped — they're long and repeat per agent;
+# the full record is still in ``{country}.jsonl``.
+CSV_FIELDS: Tuple[str, ...] = (
+    "country", "scenario_id", "phenomenon_category", "this_group_name",
+    "preferred_on_right", "n_left", "n_right", "lang",
+    "agent_role", "debias_variant",
+    "gen_tokens", "gen_seconds",
+    "scenario_native", "scenario_en", "actor_text",
+)
 
 
 @dataclass
@@ -66,43 +82,6 @@ class Stage1Config:
 # ----------------------------------------------------------------------------
 # Helpers
 # ----------------------------------------------------------------------------
-def _swap_positional_labels_str(user_query: str, lang: str) -> Tuple[str, bool]:
-    """Mirror of :meth:`src.controller.ImplicitSWAController._swap_positional_labels`.
-
-    Kept as a free function so Stage 1 doesn't have to instantiate a full
-    controller (which would load the model twice into VRAM). Pure string
-    manipulation — no model required.
-    """
-    sf = SCENARIO_FRAME_I18N.get(lang, SCENARIO_FRAME_I18N["en"])
-    left_label = sf["left_lane"]
-    right_label = sf["right_lane"]
-    ga = sf.get("group_a", "Group A")
-    gb = sf.get("group_b", "Group B")
-
-    changed = False
-    _PH = "\x00SWAP_PLACEHOLDER\x00"
-
-    q = user_query
-    q2 = q.replace(left_label, _PH).replace(right_label, left_label).replace(_PH, right_label)
-    if q2 != q:
-        changed = True
-    q = q2
-
-    if ga != gb:
-        q2 = q.replace(ga, _PH).replace(gb, ga).replace(_PH, gb)
-        if q2 != q:
-            changed = True
-        q = q2
-
-    if not changed:
-        q2 = q.replace("Option A", _PH).replace("Option B", "Option A").replace(_PH, "Option B")
-        if q2 != q:
-            changed = True
-            q = q2
-
-    return q, changed
-
-
 def _load_scenarios_bilingual(
     cfg: Stage1Config, country: str
 ) -> pd.DataFrame:
@@ -136,6 +115,39 @@ def _load_scenarios_bilingual(
     df_native["lang"] = lang
     df_native.rename(columns={"Prompt": "scenario_native"}, inplace=True)
     return df_native
+
+
+def _backfill_csv_from_jsonl(jsonl_path: Path, csv_path: Path) -> int:
+    """Replay JSONL rows into CSV when the mirror is missing/empty.
+
+    Skips legacy ``debias_variant != "pass1"`` rows (the A↔B swap was disabled).
+    Returns the number of rows written. No-op when JSONL is missing.
+    """
+    if not jsonl_path.exists():
+        return 0
+    if csv_path.exists() and csv_path.stat().st_size > 0:
+        return 0
+    n = 0
+    with jsonl_path.open("r", encoding="utf-8") as jh, \
+         csv_path.open("w", encoding="utf-8", newline="") as ch:
+        writer = csv.DictWriter(
+            ch, fieldnames=list(CSV_FIELDS),
+            quoting=csv.QUOTE_ALL, lineterminator="\n",
+        )
+        writer.writeheader()
+        for line in jh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if str(rec.get("debias_variant", "pass1")) != "pass1":
+                continue
+            writer.writerow({k: rec.get(k, "") for k in CSV_FIELDS})
+            n += 1
+    return n
 
 
 def _read_existing_keys(jsonl_path: Path) -> Set[Tuple[str, int, str, str]]:
@@ -239,8 +251,23 @@ def run_stage1(cfg: Stage1Config) -> None:
                 f"Expected {len(AGENT_ROLES)} personas, got {len(personas)}"
             )
 
+            csv_path = out_dir / f"{country}.csv"
+            backfilled = _backfill_csv_from_jsonl(jsonl_path, csv_path)
+            if backfilled:
+                print(f"  [CSV] backfilled {backfilled} pass1 rows from {jsonl_path.name} "
+                      f"-> {csv_path.name}")
+            csv_needs_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
+
             rows_since_flush = 0
-            with jsonl_path.open("a", encoding="utf-8") as fh:
+            with jsonl_path.open("a", encoding="utf-8") as fh, \
+                 csv_path.open("a", encoding="utf-8", newline="") as csv_fh:
+                csv_writer = csv.DictWriter(
+                    csv_fh, fieldnames=list(CSV_FIELDS),
+                    quoting=csv.QUOTE_ALL, lineterminator="\n",
+                )
+                if csv_needs_header:
+                    csv_writer.writeheader()
+
                 for sid, row in scen.iterrows():
                     sid = int(sid)
                     scenario_native = str(row["scenario_native"])
@@ -251,82 +278,47 @@ def run_stage1(cfg: Stage1Config) -> None:
                     n_left = int(row.get("n_left", 0))
                     n_right = int(row.get("n_right", 0))
 
-                    swapped_native, swap_changed = _swap_positional_labels_str(
-                        scenario_native, lang
-                    )
-
                     for agent_idx, agent_role in enumerate(AGENT_ROLES):
                         persona_text = personas[agent_idx]
-                        for variant in DEBIAS_VARIANTS:
-                            key = (country, sid, agent_role, variant)
-                            if key in seen:
-                                continue
-                            if variant == "pass2" and not swap_changed:
-                                rec = {
-                                    "country": country,
-                                    "scenario_id": sid,
-                                    "phenomenon_category": phenom_cat,
-                                    "this_group_name": group_name,
-                                    "preferred_on_right": pref_on_right,
-                                    "n_left": n_left,
-                                    "n_right": n_right,
-                                    "lang": lang,
-                                    "scenario_en": scenario_en,
-                                    "scenario_native": scenario_native,
-                                    "agent_role": agent_role,
-                                    "persona_text": persona_text,
-                                    "debias_variant": variant,
-                                    "swap_changed": False,
-                                    "prompt": "",
-                                    "actor_text": "",
-                                    "gen_tokens": 0,
-                                    "gen_seconds": 0.0,
-                                    "skipped_reason": "swap_unchanged",
-                                    "schema_version": SCHEMA_VERSION,
-                                }
-                                fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                                rows_since_flush += 1
-                                if rows_since_flush >= cfg.flush_every:
-                                    fh.flush()
-                                    rows_since_flush = 0
-                                continue
-
-                            scenario_for_actor = (
-                                scenario_native if variant == "pass1" else swapped_native
-                            )
-                            user_content = build_openended_prompt(scenario_for_actor, lang)
-                            actor_text, n_new, secs = _generate_one(
-                                model, tokenizer, helper,
-                                persona_text, user_content,
-                                cfg.max_new_tokens, device,
-                            )
-                            rec = {
-                                "country": country,
-                                "scenario_id": sid,
-                                "phenomenon_category": phenom_cat,
-                                "this_group_name": group_name,
-                                "preferred_on_right": pref_on_right,
-                                "n_left": n_left,
-                                "n_right": n_right,
-                                "lang": lang,
-                                "scenario_en": scenario_en,
-                                "scenario_native": scenario_for_actor,
-                                "agent_role": agent_role,
-                                "persona_text": persona_text,
-                                "debias_variant": variant,
-                                "swap_changed": bool(swap_changed),
-                                "prompt": user_content,
-                                "actor_text": actor_text,
-                                "gen_tokens": n_new,
-                                "gen_seconds": secs,
-                                "schema_version": SCHEMA_VERSION,
-                            }
-                            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                            rows_since_flush += 1
-                            if rows_since_flush >= cfg.flush_every:
-                                fh.flush()
-                                rows_since_flush = 0
+                        key = (country, sid, agent_role, "pass1")
+                        if key in seen:
+                            continue
+                        user_content = build_openended_prompt(scenario_native, lang)
+                        actor_text, n_new, secs = _generate_one(
+                            model, tokenizer, helper,
+                            persona_text, user_content,
+                            cfg.max_new_tokens, device,
+                        )
+                        rec = {
+                            "country": country,
+                            "scenario_id": sid,
+                            "phenomenon_category": phenom_cat,
+                            "this_group_name": group_name,
+                            "preferred_on_right": pref_on_right,
+                            "n_left": n_left,
+                            "n_right": n_right,
+                            "lang": lang,
+                            "scenario_en": scenario_en,
+                            "scenario_native": scenario_native,
+                            "agent_role": agent_role,
+                            "persona_text": persona_text,
+                            "debias_variant": "pass1",
+                            "swap_changed": False,
+                            "prompt": user_content,
+                            "actor_text": actor_text,
+                            "gen_tokens": n_new,
+                            "gen_seconds": secs,
+                            "schema_version": SCHEMA_VERSION,
+                        }
+                        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                        csv_writer.writerow({k: rec[k] for k in CSV_FIELDS})
+                        rows_since_flush += 1
+                        if rows_since_flush >= cfg.flush_every:
+                            fh.flush()
+                            csv_fh.flush()
+                            rows_since_flush = 0
                 fh.flush()
+                csv_fh.flush()
 
             print(f"  [OK] {country} -> {jsonl_path}")
             torch.cuda.empty_cache()
