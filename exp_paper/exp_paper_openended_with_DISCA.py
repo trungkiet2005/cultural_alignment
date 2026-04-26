@@ -30,17 +30,10 @@ Setup:
 Usage:
     !python /kaggle/input/cultural-alignment/exp_paper/exp_paper_openended_with_DISCA.py
 
-Environment variables:
-    OPENENDED_STAGE            "1" | "2" | "both"     (default: both)
-    OPENENDED_COUNTRIES        comma-separated ISO3   (default: PAPER_20_COUNTRIES)
-    OPENENDED_N_SCENARIOS      integer                (default: 500)
-    OPENENDED_MAX_NEW_TOKENS_ACTOR  integer           (default: 400)
-    OPENENDED_MAX_NEW_TOKENS_JUDGE  integer           (default: 64)
-    OPENENDED_JSONL_DIR        path                   (default: results/openended/stage1)
-    OPENENDED_RESULTS_BASE     path                   (default: results/openended)
-    ACTOR_LOAD_4BIT            "1" | "0"              (default: 0 — bf16 native)
-    JUDGE_LOAD_4BIT            "1" | "0"              (default: 0 — bf16 native)
-    EXP24_VAR_SCALE / EXP24_K_HALF / EXP24_ESS_ANCHOR_REG  (pass-through)
+Configuration: edit the RUN CONFIG block near the top of this file (RUN_BATCH,
+RUN_STAGE, PLAN_B_LOOSEN_DPBR_RELIABILITY, etc.). No environment variables.
+Each Kaggle session runs ONE batch (10 countries) end-to-end. Flip RUN_BATCH
+between "b1" and "b2" across sessions to cover all 20 paper countries.
 """
 
 from __future__ import annotations
@@ -79,6 +72,41 @@ os.environ["TRANSFORMERS_OFFLINE"] = "1"
 os.environ.setdefault("MORAL_MODEL_BACKEND", "hf_native")
 # ESS anchor regularisation ON (matches paper §4.2)
 os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  RUN CONFIG — edit here, no env vars needed.                                ║
+# ║                                                                             ║
+# ║  Each Kaggle session runs ONE batch (10 countries × 500 scenarios) end-to-  ║
+# ║  end (Stage 1 + Stage 2). Flip RUN_BATCH between "b1" and "b2" between      ║
+# ║  sessions to cover all 20 paper countries.                                  ║
+# ║                                                                             ║
+# ║  Resume-safe: Stage 1 dedupes JSONL by (country, sid, role); Stage 2 caches ║
+# ║  judge verdicts by sha1(scenario_en + actor_text). Re-running the same      ║
+# ║  batch picks up where it left off.                                          ║
+# ║                                                                             ║
+# ║  Plan A (disable hierarchical EMA prior) is ALWAYS ON for the open-ended    ║
+# ║  pipeline — hardcoded in exp_paper/openended/dpbr_offline.py. Reason: with  ║
+# ║  pseudo-deltas the EMA accumulates judge bias instead of cultural signal    ║
+# ║  and tugs every scenario the same way regardless of preferred_on_right.    ║
+# ║                                                                             ║
+# ║  Plan B — loosen DPBR reliability gate. Default VAR_SCALE=0.04 was tuned    ║
+# ║  for logit gaps (~±2); pseudo-delta range is ~±4.6 with σ=0.30, making     ║
+# ║  (ds1-ds2)² ≈ 0.1-0.5 → r = exp(-bv/0.04) collapses to ~0 and kills δ*.    ║
+# ║  Set 1.0 to keep r useful. Toggle for ablation.                             ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+RUN_BATCH: str = "b1"           # "b1" (countries 1-10) | "b2" (11-20) | "all"
+RUN_STAGE: str = "both"         # "both" | "1" | "2"
+RUN_N_SCENARIOS: int = 500
+RUN_MAX_NEW_TOKENS_ACTOR: int = 400
+RUN_MAX_NEW_TOKENS_JUDGE: int = 64
+ACTOR_LOAD_4BIT: bool = False
+JUDGE_LOAD_4BIT: bool = False
+
+PLAN_B_LOOSEN_DPBR_RELIABILITY: bool = False  # True -> VAR_SCALE=1.0 (else 0.04)
+
+# Echo Plan B into env BEFORE Stage modules import experiment_DM.exp24_dpbr_core
+# (which reads EXP24_VAR_SCALE at module-import time, not per-call).
+os.environ["EXP24_VAR_SCALE"] = "1.0" if PLAN_B_LOOSEN_DPBR_RELIABILITY else "0.04"
 
 
 def _on_kaggle() -> bool:
@@ -164,109 +192,55 @@ from exp_paper.openended.stage2_judge_qwen72b import Stage2Config, run_stage2  #
 from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 
 
-def _env_bool(name: str, default: bool = True) -> bool:
-    v = os.environ.get(name, "1" if default else "0").strip().lower()
-    return v in ("1", "true", "yes", "on")
-
-
-def _env_list(name: str, default: list[str]) -> list[str]:
-    v = os.environ.get(name, "").strip()
-    if not v:
-        return list(default)
-    return [s.strip() for s in v.split(",") if s.strip()]
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  HARDCODED RUN CONFIG — 20 paper countries × full 500 scenarios            ║
-# ║  (PAPER_20_COUNTRIES: 5 continents × 6 language families)                  ║
-# ║                                                                            ║
-# ║  Batch presets (resume-safe — Stage1 dedupes by                            ║
-# ║  (country, scenario_id, agent_role, debias_variant); Stage2 caches by      ║
-# ║  sha1(scenario_en + actor_text)):                                          ║
-# ║    BATCH = "all"  -> all 20 countries  (won't fit a 12h Kaggle session)    ║
-# ║    BATCH = "b1"   -> first 10 countries                                    ║
-# ║    BATCH = "b2"   -> last 10 countries                                     ║
-# ║  Override via env var:  OPENENDED_BATCH=b1 | b2 | all                      ║
-# ║  Or pass explicit list: OPENENDED_COUNTRIES=USA,VNM,DEU                    ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-RUN_BATCH: str = "b1"  # default to b1 for the SWA-DPBR run (10 countries / session)
-
 _PAPER_20: list[str] = list(PAPER_20_COUNTRIES)
 _BATCHES: dict[str, list[str]] = {
-    "all": _PAPER_20,
-    "b1": _PAPER_20[:10],   # USA GBR DEU ARG BRA MEX COL VNM MMR THA
-    "b2": _PAPER_20[10:],   # MYS IDN CHN JPN BGD IRN SRB ROU KGZ ETH
+    "all": _PAPER_20,           # 20 countries — won't fit a 12h Kaggle session
+    "b1": _PAPER_20[:10],       # USA GBR DEU ARG BRA MEX COL VNM MMR THA
+    "b2": _PAPER_20[10:],       # MYS IDN CHN JPN BGD IRN SRB ROU KGZ ETH
 }
 
 
-def _resolve_batch_countries() -> list[str]:
-    batch = os.environ.get("OPENENDED_BATCH", RUN_BATCH).strip().lower()
-    if batch not in _BATCHES:
-        raise ValueError(
-            f"OPENENDED_BATCH must be one of {sorted(_BATCHES)}, got {batch!r}"
-        )
-    return list(_BATCHES[batch])
-
-
-RUN_COUNTRIES: list[str] = _resolve_batch_countries()
-RUN_N_SCENARIOS: int = 500
-RUN_STAGE: str = "both"  # "1" | "2" | "both"
-RUN_MAX_NEW_TOKENS_ACTOR: int = 400
-RUN_MAX_NEW_TOKENS_JUDGE: int = 64
-
-
 def main() -> None:
-    # Env vars still override hardcoded defaults (handy for resume / partial reruns).
-    stage = os.environ.get("OPENENDED_STAGE", RUN_STAGE).strip().lower()
-    if stage not in ("1", "2", "both"):
-        raise ValueError(f"OPENENDED_STAGE must be 1|2|both, got {stage!r}")
+    if RUN_BATCH not in _BATCHES:
+        raise ValueError(f"RUN_BATCH must be one of {sorted(_BATCHES)}, got {RUN_BATCH!r}")
+    if RUN_STAGE not in ("1", "2", "both"):
+        raise ValueError(f"RUN_STAGE must be 1|2|both, got {RUN_STAGE!r}")
 
-    countries = _env_list("OPENENDED_COUNTRIES", RUN_COUNTRIES)
-    n_scenarios = int(os.environ.get("OPENENDED_N_SCENARIOS", str(RUN_N_SCENARIOS)))
-    max_new_tokens_actor = int(os.environ.get(
-        "OPENENDED_MAX_NEW_TOKENS_ACTOR", str(RUN_MAX_NEW_TOKENS_ACTOR)
-    ))
-    max_new_tokens_judge = int(os.environ.get(
-        "OPENENDED_MAX_NEW_TOKENS_JUDGE", str(RUN_MAX_NEW_TOKENS_JUDGE)
-    ))
-
-    results_base_default = (
+    countries = list(_BATCHES[RUN_BATCH])
+    results_base = (
         f"{WORK_DIR}/results/openended" if _on_kaggle() else
         str(Path(__file__).parent.parent / "results" / "openended")
     )
-    results_base = os.environ.get("OPENENDED_RESULTS_BASE", results_base_default)
-    jsonl_dir = os.environ.get("OPENENDED_JSONL_DIR", f"{results_base}/stage1")
+    jsonl_dir = f"{results_base}/stage1"
 
-    actor_4bit = _env_bool("ACTOR_LOAD_4BIT", False)
-    judge_4bit = _env_bool("JUDGE_LOAD_4BIT", False)
-
-    print(f"\n[OPENENDED] stage={stage}  countries={countries}  n={n_scenarios}")
+    print(f"\n[OPENENDED] batch={RUN_BATCH}  stage={RUN_STAGE}  "
+          f"countries={countries}  n={RUN_N_SCENARIOS}")
     print(f"[OPENENDED] actor={ACTOR_MODEL_PATH}")
     print(f"[OPENENDED] judge={JUDGE_MODEL_PATH}")
     print(f"[OPENENDED] results_base={results_base}  jsonl_dir={jsonl_dir}")
-    print(f"[OPENENDED] max_new_tokens_actor={max_new_tokens_actor}  "
-          f"max_new_tokens_judge={max_new_tokens_judge}  "
-          f"actor_4bit={actor_4bit}  judge_4bit={judge_4bit}")
-    print(f"[OPENENDED] EXP24_VAR_SCALE={os.environ.get('EXP24_VAR_SCALE', '0.04')}  "
-          f"EXP24_K_HALF={os.environ.get('EXP24_K_HALF', '64')}  "
-          f"EXP24_ESS_ANCHOR_REG={os.environ.get('EXP24_ESS_ANCHOR_REG', '1')}")
+    print(f"[OPENENDED] max_new_tokens_actor={RUN_MAX_NEW_TOKENS_ACTOR}  "
+          f"max_new_tokens_judge={RUN_MAX_NEW_TOKENS_JUDGE}  "
+          f"actor_4bit={ACTOR_LOAD_4BIT}  judge_4bit={JUDGE_LOAD_4BIT}")
+    print(f"[OPENENDED] plan_b={PLAN_B_LOOSEN_DPBR_RELIABILITY}  "
+          f"EXP24_VAR_SCALE={os.environ['EXP24_VAR_SCALE']}  "
+          f"hierarchical_prior=DISABLED (Plan A always-on)")
 
-    if stage in ("1", "both"):
+    if RUN_STAGE in ("1", "both"):
         s1 = Stage1Config(
             model_name=ACTOR_MODEL_PATH,
             out_jsonl_dir=jsonl_dir,
             multitp_data_path=MULTITP_DATA_PATH,
             wvs_data_path=WVS_DATA_PATH,
             use_real_data=os.path.isdir(MULTITP_DATA_PATH),
-            n_scenarios=n_scenarios,
-            max_new_tokens=max_new_tokens_actor,
-            load_in_4bit=actor_4bit,
+            n_scenarios=RUN_N_SCENARIOS,
+            max_new_tokens=RUN_MAX_NEW_TOKENS_ACTOR,
+            load_in_4bit=ACTOR_LOAD_4BIT,
             countries=countries,
         )
         run_stage1(s1)
         gc.collect()
 
-    if stage == "both":
+    if RUN_STAGE == "both":
         # Bridge between stages: drop any lingering CUDA allocations before
         # reloading the self-judge. `run_stage1` already frees the actor; this
         # is belt-and-braces.
@@ -277,14 +251,14 @@ def main() -> None:
         except Exception:
             pass
 
-    if stage in ("2", "both"):
+    if RUN_STAGE in ("2", "both"):
         s2 = Stage2Config(
             judge_model_name=JUDGE_MODEL_PATH,
             stage1_jsonl_dir=jsonl_dir,
             results_base=results_base,
             human_amce_path=HUMAN_AMCE_PATH,
-            load_in_4bit=judge_4bit,
-            max_new_tokens=max_new_tokens_judge,
+            load_in_4bit=JUDGE_LOAD_4BIT,
+            max_new_tokens=RUN_MAX_NEW_TOKENS_JUDGE,
             countries=countries,
             model_label="qwen25_7b_openended_disca",
         )
