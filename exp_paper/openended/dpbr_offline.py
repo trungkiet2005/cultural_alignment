@@ -10,15 +10,11 @@ pseudo-logit-gap via :func:`src.pseudo_delta.pseudo_delta_from_judge`.
 This subclass bypasses the actor-forward half and exposes
 :meth:`predict_from_deltas`, which mirrors
 :meth:`Exp24DualPassController.predict` from line 179 onward (sigma, anchor,
-``_single_is_pass`` x2, reliability, ess-anchor blend, prior apply/update).
-Output schema matches the parent's ``predict`` dict so the rest of the
-reporting pipeline (CSV writers, AMCE, alignment metrics) can reuse the same
-column names.
-
-Invariant: when fed with true debiased logit gaps and the same RNG state,
-``predict_from_deltas`` returns a dict numerically identical to the parent's
-``predict``. See ``exp_paper/openended/test_offline_parity.py`` (if present)
-for the parity test spec.
+``_single_is_pass`` x2, reliability, ess-anchor blend) — but the **hierarchical
+EMA prior is disabled** for the open-ended path (see method body for rationale).
+Output schema matches the parent's ``predict`` dict so the rest of the reporting
+pipeline (CSV writers, AMCE, alignment metrics) can reuse the same column names;
+``delta_country`` / ``alpha_h`` / ``prior_step`` are always 0.
 """
 
 from __future__ import annotations
@@ -127,10 +123,16 @@ class Exp24DualPassControllerOffline(Exp24DualPassController):
             alpha_reg = 1.0
             delta_opt_micro = float((anchor + delta_star).item())
 
-        prior = self._get_prior()
-        delta_opt_final = prior.apply_prior(delta_opt_micro)
-        prior.update(delta_opt_micro)
-        st = prior.stats
+        # Hierarchical EMA prior is DISABLED for the open-ended pipeline.
+        # In the logit-based controller this shares stable cross-scenario
+        # cultural signal across a country. With pseudo-deltas it instead
+        # accumulates judge bias into a per-country constant that, after
+        # warmup (α_h → 1), tugs every scenario the same way — helping ones
+        # whose preferred_on_right matches the bias and hurting the others,
+        # cancelling out or going net negative on MIS. We keep the prior-
+        # state fields in the output dict zeroed for schema compatibility.
+        delta_opt_final = delta_opt_micro
+        st = {"delta_country": 0.0, "alpha_h": 0.0, "step": 0}
 
         p_right = float(
             torch.sigmoid(torch.tensor(delta_opt_final / self.decision_temperature)).item()

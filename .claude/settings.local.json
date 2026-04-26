@@ -32,7 +32,8 @@
       "Bash(latexmk -pdf -interaction=nonstopmode -cd \"d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex\")",
       "Bash(awk 'NR>=1206 && NR<=1211' \"d:/AI_RESEARCH/moral_machine/cultural_alignment/exp_paper/Paper_New/SWA_DPBR/paper_revised.tex\")",
       "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/stage1_actor_phi4.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(io.open\\('exp_paper/openended/stage2_judge_qwen72b.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/stage1_actor_phi4.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK stage1'\\)\")"
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/stage1_actor_phi4.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK stage1'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/dpbr_offline.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

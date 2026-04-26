@@ -37,7 +37,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-from experiment_DM.exp24_dpbr_core import BootstrapPriorState, PRIOR_STATE
 from src.amce import (
     compute_alignment_metrics,
     compute_amce_from_preferences,
@@ -294,10 +293,12 @@ def _run_dpbr_for_country(
     cfg: Stage2Config,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Apply Exp24DualPassControllerOffline to every scenario. Also build a
-    vanilla-from-base DataFrame (no PT-IS)."""
-    PRIOR_STATE.pop(country, None)
-    PRIOR_STATE[country] = BootstrapPriorState()
+    vanilla-from-base DataFrame (no PT-IS).
 
+    Hierarchical EMA prior is disabled in the offline controller (see
+    :class:`Exp24DualPassControllerOffline`) — no per-country prior state
+    setup is needed here.
+    """
     ctrl = Exp24DualPassControllerOffline(
         country_iso=country,
         lambda_coop=cfg.lambda_coop,
@@ -458,7 +459,6 @@ def run_stage2(cfg: Stage2Config) -> None:
                 encoding="utf-8",
             )
 
-            ps = PRIOR_STATE.get(country, BootstrapPriorState()).stats
             compare_rows.append({
                 "model": cfg.model_label,
                 "judge": cfg.judge_model_name,
@@ -474,8 +474,6 @@ def run_stage2(cfg: Stage2Config) -> None:
                 "country": country,
                 **{f"align_{k}": v for k, v in swa_summary.get("alignment", {}).items()},
                 "n_scenarios": swa_summary["n_scenarios"],
-                "final_delta_country": ps["delta_country"],
-                "final_alpha_h": ps["alpha_h"],
                 "mean_reliability_r": float(swa_df["reliability_r"].mean())
                     if "reliability_r" in swa_df.columns else float("nan"),
                 "mean_bootstrap_var": float(swa_df["bootstrap_var"].mean())
