@@ -34,7 +34,8 @@
       "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/stage1_actor_phi4.py',encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(io.open\\('exp_paper/openended/stage2_judge_qwen72b.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/stage1_actor_phi4.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK stage1'\\)\")",
       "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/openended/dpbr_offline.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
-      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/exp_paper_openended_with_DISCA.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/exp_paper_openended_with_DISCA.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(PYTHONIOENCODING=utf-8 python -c \"import ast,io; ast.parse\\(io.open\\('exp_paper/exp_paper_openended_baseline_vanilla.py',encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

@@ -216,7 +216,9 @@ def _resolve_run_countries() -> List[str]:
 RUN_COUNTRIES: List[str] = _resolve_run_countries()
 RUN_N_SCENARIOS: int = 500
 RUN_STAGE: str = "both"  # "1" | "2" | "both"
-RUN_MAX_NEW_TOKENS_ACTOR: int = 400
+# Constrained generation: actor emits 1 letter (A/B). 8 tokens leaves room for
+# tokenizer variants like " A" / "A\n" / "Option A". Match DISCA launcher.
+RUN_MAX_NEW_TOKENS_ACTOR: int = 8
 RUN_MAX_NEW_TOKENS_JUDGE: int = 64
 RUN_SEED: int = 42
 RUN_FLUSH_EVERY: int = 20
@@ -234,7 +236,7 @@ class BaselineConfig:
     human_amce_path: str
     countries: List[str]
     n_scenarios: int = 500
-    max_new_tokens_actor: int = 400
+    max_new_tokens_actor: int = 8
     max_new_tokens_judge: int = 64
     seed: int = 42
     flush_every: int = 20
