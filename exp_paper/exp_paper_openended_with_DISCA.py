@@ -97,7 +97,9 @@ os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
 RUN_BATCH: str = "b1"           # "b1" (countries 1-10) | "b2" (11-20) | "all"
 RUN_STAGE: str = "both"         # "both" | "1" | "2"
 RUN_N_SCENARIOS: int = 500
-RUN_MAX_NEW_TOKENS_ACTOR: int = 400
+# Constrained generation: actor emits 1 letter (A/B). 8 tokens leaves room for
+# tokenizer variants like " A" / "A\n" / "Option A" without truncating mid-word.
+RUN_MAX_NEW_TOKENS_ACTOR: int = 8
 RUN_MAX_NEW_TOKENS_JUDGE: int = 64
 ACTOR_LOAD_4BIT: bool = False
 JUDGE_LOAD_4BIT: bool = False
