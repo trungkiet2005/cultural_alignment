@@ -98,10 +98,11 @@ os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
 RUN_BATCH: str = "all"          # "b1" (countries 1-10) | "b2" (11-20) | "all" (all 20)
 RUN_N_SCENARIOS: int = 500
 # Free-form reasoning: actor writes 2-4 sentences then "ANSWER: A/B". Need
-# enough budget for reasoning + the final answer line; 256 leaves headroom on
-# verbose generators while keeping per-row latency bounded. Drop to 8 only if
-# reverting to the constrained A/B-only mode.
-RUN_MAX_NEW_TOKENS_ACTOR: int = 256
+# enough budget for reasoning + the final answer line; 384 gives headroom for
+# verbose generators and non-English tokenizers (VI/ZH/TH eat ~1.5x tokens per
+# char vs EN) without bloating wall-time. Drop to 8 only if reverting to the
+# constrained A/B-only mode.
+RUN_MAX_NEW_TOKENS_ACTOR: int = 384
 RUN_MAX_NEW_TOKENS_JUDGE: int = 64
 LOAD_4BIT: bool = False         # single shared model — one flag for actor+judge
 

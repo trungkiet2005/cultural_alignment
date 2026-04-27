@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Open-Ended VANILLA BASELINE — Qwen2.5-7B actor + Qwen2.5-7B self-judge
-====================================================================================
+Paper sweep — Open-Ended VANILLA BASELINE — Qwen2.5-7B unified actor+self-judge
+==============================================================================
 Kaggle OFFLINE version — no Internet, no git clone, no pip install.
 
-This is the **vanilla baseline** counterpart of
-``exp_paper_openended_with_judge_llm.py``. Uses Qwen2.5-7B for BOTH actor and
-judge (self-judge), BF16, no GPTQ. No SWA-DPBR (no PT-IS, no dual-pass bootstrap
-reliability, no ESS anchor blend, no hierarchical prior, no persona ensemble,
-no positional debiasing).
+UNIFIED single-pass pipeline (2026-04-27): the actor (Qwen2.5-7B) and self-judge
+(same Qwen2.5-7B BF16 weights) run in a SINGLE loop. The model is loaded ONCE
+and each (country, scenario) pair is generated → judged → scored in-line.
+Mirrors the SWA-DPBR unified pipeline at exp_paper/openended/unified_actor_judge.py
+but with NO persona ensemble and NO DPBR (only base persona; raw pseudo-delta
+→ sigmoid → p_right → AMCE).
 
 Per scenario:
-    Stage 1  Qwen2.5-7B generates ONE free-form answer using only the base
-             (utilitarian-neutral) persona on the original prompt (pass1, no swap).
-    Stage 2  Qwen2.5-7B (same model, reloaded) judges that answer into
-             {A, B, UNCERTAIN, conf}.
-             Pseudo-delta = pseudo_delta_from_judge(choice, conf).
-             p_right = sigmoid(pseudo_delta / T_DECISION).
-             AMCE + alignment computed against human AMCE.
+    1. Actor generates ONE free-form answer using the base (utilitarian-neutral)
+       persona on the original prompt.
+    2. Self-judge parses the answer into {A, B, UNCERTAIN, conf}.
+    3. Pseudo-delta = pseudo_delta_from_judge(choice, conf).
+       p_right = sigmoid(pseudo_delta / T_DECISION).
+       AMCE + alignment computed against human AMCE.
 
-Workload is ~10× lighter than the SWA-DPBR variant (1 generation/scenario instead
-of ~10 generation × debias variants). Self-judge avoids the 72B GPTQ dependency
+Resume-safe: each (country, sid) row is appended to
+``{out}/combined/{country}.jsonl`` with both actor_text AND judge fields. Re-runs
+read existing keys and skip them.
+
+Workload is ~5x lighter than the SWA-DPBR variant (1 generation/scenario instead
+of 5 personas × ~10 debias variants). Self-judge avoids the 72B GPTQ dependency
 chain (optimum / auto-gptq) and fits comfortably on a single 96 GB GPU.
 
 Setup:
@@ -35,17 +39,17 @@ Usage:
 
 from __future__ import annotations
 
+import csv
 import gc
-import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  1. KAGGLE OFFLINE BOOTSTRAP                                                ║
@@ -129,8 +133,8 @@ def _resolve_model_path(base_path: str, label: str) -> str:
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 print("=" * 70)
-print("  KAGGLE OFFLINE — Open-Ended VANILLA BASELINE (no SWA-DPBR)")
-print("  Actor: Qwen2.5-7B-Instruct (bf16) | Judge: Qwen2.5-7B-Instruct (bf16, self-judge)")
+print("  KAGGLE OFFLINE — Open-Ended VANILLA BASELINE (UNIFIED actor+self-judge)")
+print("  Model: Qwen2.5-7B-Instruct (bf16) — single load for actor and judge")
 print("=" * 70)
 
 _setup_project()
@@ -147,8 +151,6 @@ if _on_kaggle():
         shell=True, check=False,
     )
 
-import math  # noqa: E402
-import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 
@@ -183,9 +185,11 @@ from exp_paper.paper_countries import PAPER_20_COUNTRIES  # noqa: E402
 # ║  HARDCODED RUN CONFIG — 20 paper countries × full 500 scenarios            ║
 # ║  (PAPER_20_COUNTRIES: 5 continents × 6 language families)                  ║
 # ║                                                                            ║
-# ║  Batch presets (resume-safe — Stage1 dedupes by scenario_id, Stage2 caches ║
-# ║  by sha1(scenario_en + actor_text)):                                       ║
-# ║    BATCH = "all"  -> all 20 countries (one session, ~3h20m on GPU)        ║
+# ║  Resume-safe: combined/{country}.jsonl is keyed by (country, sid). Re-     ║
+# ║  running picks up where it left off automatically.                         ║
+# ║                                                                            ║
+# ║  Batch presets:                                                            ║
+# ║    BATCH = "all"  -> all 20 countries (one session)                        ║
 # ║    BATCH = "b1"   -> first 10 countries                                    ║
 # ║    BATCH = "b2"   -> last 10 countries                                     ║
 # ║  Override via env var:  OPENENDED_BATCH=b1 | b2 | all                      ║
@@ -215,38 +219,51 @@ def _resolve_run_countries() -> List[str]:
 
 RUN_COUNTRIES: List[str] = _resolve_run_countries()
 RUN_N_SCENARIOS: int = 500
-RUN_STAGE: str = "both"  # "1" | "2" | "both"
-# Constrained generation: actor emits 1 letter (A/B). 8 tokens leaves room for
-# tokenizer variants like " A" / "A\n" / "Option A". Match DISCA launcher.
-RUN_MAX_NEW_TOKENS_ACTOR: int = 8
+# Open-ended generation: actor produces free-form text (may reason or just emit
+# a letter); the judge extracts the committed choice. 384 tokens matches the
+# DISCA launcher — headroom for verbose generators and non-English tokenizers
+# (VI/ZH/TH eat ~1.5x tokens per char vs EN). Drop to ~8 to revert to the
+# constrained A/B-only mode.
+RUN_MAX_NEW_TOKENS_ACTOR: int = 384
 RUN_MAX_NEW_TOKENS_JUDGE: int = 64
 RUN_SEED: int = 42
 RUN_FLUSH_EVERY: int = 20
 RUN_MAX_PARSE_FAIL_PCT: float = 5.0
 
 
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  3. CONFIG + I/O                                                           ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+CSV_FIELDS: Tuple[str, ...] = (
+    "country", "scenario_id", "phenomenon_category", "this_group_name",
+    "preferred_on_right", "n_left", "n_right", "lang",
+    "scenario_native", "scenario_en", "actor_text",
+    "judge_choice", "judge_confidence", "judge_parse_ok",
+    "pseudo_delta",
+    "actor_tokens", "actor_seconds", "judge_tokens", "judge_seconds",
+)
+
+
 @dataclass
 class BaselineConfig:
+    """Single-pass baseline config — actor and self-judge share the same model."""
     actor_model_name: str
     judge_model_name: str
-    out_jsonl_dir: str
-    results_base: str
+    out_dir: str
     multitp_data_path: str
     wvs_data_path: str
     human_amce_path: str
     countries: List[str]
     n_scenarios: int = 500
-    max_new_tokens_actor: int = 8
+    max_new_tokens_actor: int = 256
     max_new_tokens_judge: int = 64
     seed: int = 42
     flush_every: int = 20
     max_parse_fail_pct: float = 5.0
     use_real_data: bool = True
+    model_label: str = "qwen25_7b_openended_baseline_unified"
 
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  3. STAGE 1 — actor generates 1 vanilla answer per scenario                ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 def _load_scenarios_bilingual(cfg: BaselineConfig, country: str) -> pd.DataFrame:
     lang = COUNTRY_LANG.get(country, "en")
@@ -276,28 +293,48 @@ def _load_scenarios_bilingual(cfg: BaselineConfig, country: str) -> pd.DataFrame
     return df_native
 
 
-def _read_existing_scenario_ids(jsonl_path: Path) -> set[int]:
-    seen: set[int] = set()
+def _read_existing_keys(jsonl_path: Path) -> Set[Tuple[str, int]]:
+    keys: Set[Tuple[str, int]] = set()
     if not jsonl_path.exists():
-        return seen
+        return keys
     with jsonl_path.open("r", encoding="utf-8") as fh:
         for line in fh:
             try:
                 rec = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            sid = rec.get("scenario_id")
-            if isinstance(sid, int):
-                seen.add(sid)
-    return seen
+            keys.add((
+                str(rec.get("country", "")),
+                int(rec.get("scenario_id", -1)),
+            ))
+    return keys
 
+
+def _load_combined_rows(jsonl_path: Path) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    with jsonl_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rows.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    return rows
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  4. UNIFIED — actor and self-judge share the same model handle             ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 @torch.no_grad()
-def _generate_one(
+def _actor_generate(
     model, tokenizer, helper: ChatTemplateHelper,
     persona_text: str, user_content: str,
     max_new_tokens: int, device: torch.device,
 ) -> Tuple[str, int, float]:
+    """Greedy decode the actor. Returns (text, n_new_tokens, seconds)."""
     prefix_ids = helper.build_prefix_ids(persona_text, device)
     query_ids = helper.encode_query_suffix(user_content, device)
     input_ids = torch.cat([prefix_ids, query_ids], dim=1)
@@ -317,133 +354,24 @@ def _generate_one(
     )
     elapsed = time.time() - t0
     new_ids = out[0, input_ids.shape[1]:]
-    text = tokenizer.decode(new_ids, skip_special_tokens=True)
-    return text, int(new_ids.shape[0]), elapsed
-
-
-def run_stage1(cfg: BaselineConfig) -> None:
-    setup_seeds(cfg.seed)
-    out_dir = Path(cfg.out_jsonl_dir)
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    print(f"\n{'='*70}")
-    print(f"  OPEN-ENDED Stage 1 (VANILLA BASELINE) — actor=[{cfg.actor_model_name}]")
-    print(f"{'='*70}")
-    print(f"[CFG] out_dir={out_dir}  countries={cfg.countries}  n_scenarios={cfg.n_scenarios}")
-    print(f"[CFG] max_new_tokens={cfg.max_new_tokens_actor}  4bit=False  seed={cfg.seed}")
-    print(f"[CFG] use_real_data={cfg.use_real_data}  flush_every={cfg.flush_every}")
-
-    model, tokenizer = load_model_hf_native(
-        cfg.actor_model_name, max_seq_length=2048, load_in_4bit=False,
-    )
-    helper = ChatTemplateHelper(tokenizer)
-    device = next(model.parameters()).device
-
-    try:
-        for ci, country in enumerate(cfg.countries):
-            if country not in SUPPORTED_COUNTRIES:
-                print(f"[SKIP] unsupported country: {country}")
-                continue
-            jsonl_path = out_dir / f"{country}.jsonl"
-            seen = _read_existing_scenario_ids(jsonl_path)
-            print(f"\n[{ci+1}/{len(cfg.countries)}] {country}  "
-                  f"existing={len(seen)} rows in {jsonl_path.name}")
-
-            scen = _load_scenarios_bilingual(cfg, country)
-            lang = COUNTRY_LANG.get(country, "en")
-            base_persona = BASE_ASSISTANT_I18N.get(lang, BASE_ASSISTANT_I18N["en"])
-
-            rows_since_flush = 0
-            with jsonl_path.open("a", encoding="utf-8") as fh:
-                for sid, row in scen.iterrows():
-                    sid = int(sid)
-                    if sid in seen:
-                        continue
-                    scenario_native = str(row["scenario_native"])
-                    scenario_en = str(row["scenario_en"])
-                    user_content = build_openended_prompt(scenario_native, lang)
-                    actor_text, n_new, secs = _generate_one(
-                        model, tokenizer, helper,
-                        base_persona, user_content,
-                        cfg.max_new_tokens_actor, device,
-                    )
-                    rec = {
-                        "country": country,
-                        "scenario_id": sid,
-                        "phenomenon_category": str(row.get("phenomenon_category", "default")),
-                        "this_group_name": str(row.get("this_group_name", "")),
-                        "preferred_on_right": int(row.get("preferred_on_right", 1)),
-                        "n_left": int(row.get("n_left", 0)),
-                        "n_right": int(row.get("n_right", 0)),
-                        "lang": lang,
-                        "scenario_en": scenario_en,
-                        "scenario_native": scenario_native,
-                        "prompt": user_content,
-                        "actor_text": actor_text,
-                        "gen_tokens": n_new,
-                        "gen_seconds": secs,
-                    }
-                    fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                    rows_since_flush += 1
-                    if rows_since_flush >= cfg.flush_every:
-                        fh.flush()
-                        rows_since_flush = 0
-                fh.flush()
-
-            print(f"  [OK] {country} -> {jsonl_path}")
-            torch.cuda.empty_cache()
-            gc.collect()
-    finally:
-        del model, tokenizer
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-    print("\n[Stage 1] DONE")
-
-
-# ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  4. STAGE 2 — judge each text, sigmoid → p_right, no SWA-DPBR              ║
-# ╚══════════════════════════════════════════════════════════════════════════════╝
-
-def _record_hash(scenario_en: str, actor_text: str) -> str:
-    h = hashlib.sha1()
-    h.update(scenario_en.encode("utf-8"))
-    h.update(b"\x00")
-    h.update(actor_text.encode("utf-8"))
-    return h.hexdigest()
-
-
-def _load_judge_cache(path: Path) -> Dict[str, Dict[str, Any]]:
-    cache: Dict[str, Dict[str, Any]] = {}
-    if not path.exists():
-        return cache
-    with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            k = obj.get("hash")
-            if k:
-                cache[k] = obj
-    return cache
+    return tokenizer.decode(new_ids, skip_special_tokens=True), int(new_ids.shape[0]), elapsed
 
 
 @torch.no_grad()
 def _judge_generate(
-    judge_model, judge_tokenizer,
+    model, tokenizer,
     scenario_en: str, actor_text: str,
     max_new_tokens: int, device: torch.device,
-) -> str:
+) -> Tuple[str, int, float]:
+    """Greedy decode the judge. Returns (raw_text, n_new_tokens, seconds)."""
     messages = [
         {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
         {"role": "user", "content": build_judge_prompt(scenario_en, actor_text)},
     ]
-    if hasattr(judge_tokenizer, "apply_chat_template"):
-        templated = judge_tokenizer.apply_chat_template(
+    if hasattr(tokenizer, "apply_chat_template"):
+        templated = tokenizer.apply_chat_template(
             messages, add_generation_prompt=True, return_tensors="pt",
         )
-        # Newer Transformers may return a BatchEncoding dict instead of a Tensor.
         if isinstance(templated, torch.Tensor):
             input_ids = templated.to(device)
         else:
@@ -453,22 +381,119 @@ def _judge_generate(
             f"{JUDGE_SYSTEM_PROMPT}\n\n"
             f"{build_judge_prompt(scenario_en, actor_text)}\n"
         )
-        input_ids = judge_tokenizer(prompt, return_tensors="pt").input_ids.to(device)
+        input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
 
-    out = judge_model.generate(
+    t0 = time.time()
+    out = model.generate(
         input_ids=input_ids,
         max_new_tokens=max_new_tokens,
         do_sample=False,
         temperature=None,
         top_p=None,
         pad_token_id=(
-            judge_tokenizer.pad_token_id
-            if judge_tokenizer.pad_token_id is not None
-            else judge_tokenizer.eos_token_id
+            tokenizer.pad_token_id
+            if tokenizer.pad_token_id is not None
+            else tokenizer.eos_token_id
         ),
     )
+    elapsed = time.time() - t0
     new_ids = out[0, input_ids.shape[1]:]
-    return judge_tokenizer.decode(new_ids, skip_special_tokens=True)
+    return tokenizer.decode(new_ids, skip_special_tokens=True), int(new_ids.shape[0]), elapsed
+
+
+def _generate_and_judge_country(
+    cfg: BaselineConfig,
+    country: str,
+    model, tokenizer, helper: ChatTemplateHelper, device: torch.device,
+    combined_jsonl: Path, csv_path: Path,
+) -> Dict[str, int]:
+    """Run actor+judge for every scenario of one country (base persona only)."""
+    seen = _read_existing_keys(combined_jsonl)
+    print(f"  existing rows in {combined_jsonl.name}: {len(seen)}")
+
+    scen = _load_scenarios_bilingual(cfg, country)
+    lang = COUNTRY_LANG.get(country, "en")
+    base_persona = BASE_ASSISTANT_I18N.get(lang, BASE_ASSISTANT_I18N["en"])
+
+    csv_needs_header = (not csv_path.exists()) or csv_path.stat().st_size == 0
+    stats = {"new_rows": 0, "parse_fail": 0, "uncertain": 0}
+    rows_since_flush = 0
+
+    with combined_jsonl.open("a", encoding="utf-8") as fh, \
+         csv_path.open("a", encoding="utf-8", newline="") as csv_fh:
+        csv_writer = csv.DictWriter(
+            csv_fh, fieldnames=list(CSV_FIELDS),
+            quoting=csv.QUOTE_ALL, lineterminator="\n",
+        )
+        if csv_needs_header:
+            csv_writer.writeheader()
+
+        for sid, row in scen.iterrows():
+            sid = int(sid)
+            key = (country, sid)
+            if key in seen:
+                continue
+            scenario_native = str(row["scenario_native"])
+            scenario_en = str(row["scenario_en"])
+            phenom_cat = str(row.get("phenomenon_category", "default"))
+            group_name = str(row.get("this_group_name", ""))
+            pref_on_right = int(row.get("preferred_on_right", 1))
+            n_left = int(row.get("n_left", 0))
+            n_right = int(row.get("n_right", 0))
+
+            user_content = build_openended_prompt(scenario_native, lang)
+            actor_text, a_tok, a_sec = _actor_generate(
+                model, tokenizer, helper,
+                base_persona, user_content,
+                cfg.max_new_tokens_actor, device,
+            )
+            judge_raw, j_tok, j_sec = _judge_generate(
+                model, tokenizer,
+                scenario_en, actor_text,
+                cfg.max_new_tokens_judge, device,
+            )
+            parsed = parse_judge_output(judge_raw)
+            pdelta = pseudo_delta_from_judge(
+                parsed["choice"], float(parsed["confidence"])
+            )
+
+            if not parsed["parse_ok"]:
+                stats["parse_fail"] += 1
+            if parsed["choice"] == "UNCERTAIN":
+                stats["uncertain"] += 1
+
+            rec = {
+                "country": country,
+                "scenario_id": sid,
+                "phenomenon_category": phenom_cat,
+                "this_group_name": group_name,
+                "preferred_on_right": pref_on_right,
+                "n_left": n_left,
+                "n_right": n_right,
+                "lang": lang,
+                "scenario_native": scenario_native,
+                "scenario_en": scenario_en,
+                "prompt": user_content,
+                "actor_text": actor_text,
+                "judge_raw": judge_raw,
+                "judge_choice": parsed["choice"],
+                "judge_confidence": float(parsed["confidence"]),
+                "judge_parse_ok": bool(parsed["parse_ok"]),
+                "pseudo_delta": float(pdelta),
+                "actor_tokens": a_tok,
+                "actor_seconds": a_sec,
+                "judge_tokens": j_tok,
+                "judge_seconds": j_sec,
+            }
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+            csv_writer.writerow({k: rec.get(k, "") for k in CSV_FIELDS})
+            stats["new_rows"] += 1
+            rows_since_flush += 1
+            if rows_since_flush >= cfg.flush_every:
+                fh.flush(); csv_fh.flush()
+                rows_since_flush = 0
+        fh.flush(); csv_fh.flush()
+    return stats
 
 
 def _summarize(results_df: pd.DataFrame, human_amce: Dict[str, float]) -> Dict[str, Any]:
@@ -485,126 +510,90 @@ def _summarize(results_df: pd.DataFrame, human_amce: Dict[str, float]) -> Dict[s
     }
 
 
-def run_stage2(cfg: BaselineConfig) -> None:
+def run_unified_baseline(cfg: BaselineConfig) -> None:
+    """Generate, judge, score — one model, one pass, all countries."""
+    if not cfg.countries:
+        raise ValueError("BaselineConfig.countries is empty")
     setup_seeds(cfg.seed)
 
-    stage1_dir = Path(cfg.out_jsonl_dir)
-    results_base = Path(cfg.results_base)
-    van_root = results_base / "vanilla"
-    cmp_root = results_base / "compare"
-    judge_cache_dir = results_base / "judge_cache"
-    for d in (van_root, cmp_root, judge_cache_dir):
+    out_root = Path(cfg.out_dir)
+    combined_dir = out_root / "combined"
+    van_root = out_root / "vanilla"
+    cmp_root = out_root / "compare"
+    for d in (combined_dir, van_root, cmp_root):
         d.mkdir(parents=True, exist_ok=True)
 
     print(f"\n{'='*70}")
-    print(f"  OPEN-ENDED Stage 2 (VANILLA BASELINE) — judge=[{cfg.judge_model_name}]")
+    print(f"  OPEN-ENDED VANILLA BASELINE (UNIFIED) — model=[{cfg.actor_model_name}]")
     print(f"{'='*70}")
-    print(f"[CFG] stage1={stage1_dir}  out={results_base}  countries={cfg.countries}")
-    print(f"[CFG] max_new_tokens={cfg.max_new_tokens_judge}  T_DECISION={T_DECISION}  "
+    print(f"[CFG] out={out_root}  countries={cfg.countries}  n_scenarios={cfg.n_scenarios}")
+    print(f"[CFG] actor_max={cfg.max_new_tokens_actor}  judge_max={cfg.max_new_tokens_judge}  "
+          f"4bit=False  seed={cfg.seed}")
+    print(f"[CFG] use_real_data={cfg.use_real_data}  flush_every={cfg.flush_every}  "
           f"max_parse_fail_pct={cfg.max_parse_fail_pct}")
 
-    judge_model, judge_tokenizer = load_model_hf_native(
-        cfg.judge_model_name, max_seq_length=4096, load_in_4bit=False,
+    model, tokenizer = load_model_hf_native(
+        cfg.actor_model_name, max_seq_length=4096, load_in_4bit=False,
     )
-    device = next(judge_model.parameters()).device
+    helper = ChatTemplateHelper(tokenizer)
+    device = next(model.parameters()).device
 
     compare_rows: List[Dict[str, Any]] = []
     try:
         for ci, country in enumerate(cfg.countries):
-            jsonl_path = stage1_dir / f"{country}.jsonl"
-            if not jsonl_path.exists():
-                print(f"[SKIP] {country}: no Stage-1 JSONL at {jsonl_path}")
-                continue
-            print(f"\n[{ci+1}/{len(cfg.countries)}] judging {country}")
-
-            rows: List[Dict[str, Any]] = []
-            with jsonl_path.open("r", encoding="utf-8") as fh:
-                for line in fh:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rows.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        continue
-            if not rows:
-                print(f"[SKIP] {country}: empty JSONL")
+            if country not in SUPPORTED_COUNTRIES:
+                print(f"[SKIP] unsupported country: {country}")
                 continue
 
-            cache_path = judge_cache_dir / f"{country}_judged.jsonl"
-            cache = _load_judge_cache(cache_path)
-            stats = {"judged": 0, "cached": 0, "parse_fail": 0}
+            combined_jsonl = combined_dir / f"{country}.jsonl"
+            csv_path = combined_dir / f"{country}.csv"
+            print(f"\n[{ci+1}/{len(cfg.countries)}] {country}  -> {combined_jsonl.name}")
+
             t0 = time.time()
+            stats = _generate_and_judge_country(
+                cfg, country, model, tokenizer, helper, device,
+                combined_jsonl, csv_path,
+            )
+            dt = time.time() - t0
+
+            rows = _load_combined_rows(combined_jsonl)
+            if not rows:
+                print(f"[SKIP] {country}: empty combined JSONL")
+                continue
+
+            n_all = len(rows)
+            all_fail = sum(1 for r in rows if not r.get("judge_parse_ok", False))
+            all_fail_pct = 100.0 * all_fail / n_all
+            print(f"  generated+judged new_rows={stats['new_rows']}  "
+                  f"parse_fail={all_fail} ({all_fail_pct:.1f}%)  "
+                  f"uncertain={stats['uncertain']}  t={dt:.1f}s")
+            if all_fail_pct >= cfg.max_parse_fail_pct:
+                print(f"[ERROR] {country} parse-fail rate {all_fail_pct:.1f}% "
+                      f">= {cfg.max_parse_fail_pct:.1f}% — skipping AMCE for this country")
+                continue
 
             van_rows: List[Dict[str, Any]] = []
-            with cache_path.open("a", encoding="utf-8") as cache_fh:
-                for r in rows:
-                    scenario_en = str(r.get("scenario_en", ""))
-                    actor_text = str(r.get("actor_text", ""))
-                    key = _record_hash(scenario_en, actor_text)
-
-                    if key in cache:
-                        hit = cache[key]
-                        raw = hit.get("raw", "")
-                        parsed = {
-                            "choice": hit.get("choice", "UNCERTAIN"),
-                            "confidence": float(hit.get("confidence", 0.0)),
-                            "parse_ok": bool(hit.get("parse_ok", False)),
-                        }
-                        stats["cached"] += 1
-                    else:
-                        raw = _judge_generate(
-                            judge_model, judge_tokenizer,
-                            scenario_en, actor_text,
-                            cfg.max_new_tokens_judge, device,
-                        )
-                        parsed = parse_judge_output(raw)
-                        cache_fh.write(json.dumps({
-                            "hash": key,
-                            "raw": raw,
-                            "choice": parsed["choice"],
-                            "confidence": parsed["confidence"],
-                            "parse_ok": parsed["parse_ok"],
-                        }, ensure_ascii=False) + "\n")
-                        cache_fh.flush()
-                        stats["judged"] += 1
-
-                    if not parsed["parse_ok"]:
-                        stats["parse_fail"] += 1
-
-                    delta = pseudo_delta_from_judge(
-                        parsed["choice"], float(parsed["confidence"])
-                    )
-                    p_right = pseudo_p_right_from_delta(delta, t_decision=T_DECISION)
-                    pref_on_right = int(r.get("preferred_on_right", 1))
-                    p_pref = p_right if pref_on_right else 1.0 - p_right
-
-                    van_rows.append({
-                        "scenario_id": int(r.get("scenario_id", -1)),
-                        "phenomenon_category": str(r.get("phenomenon_category", "default")),
-                        "this_group_name": str(r.get("this_group_name", "")),
-                        "preferred_on_right": pref_on_right,
-                        "n_left": int(r.get("n_left", 0)),
-                        "n_right": int(r.get("n_right", 0)),
-                        "lang": str(r.get("lang", "en")),
-                        "p_left": 1.0 - p_right,
-                        "p_right": p_right,
-                        "p_spare_preferred": p_pref,
-                        "delta": float(delta),
-                        "judge_choice": parsed["choice"],
-                        "judge_confidence": float(parsed["confidence"]),
-                        "judge_parse_ok": bool(parsed["parse_ok"]),
-                    })
-
-            dt = time.time() - t0
-            n_total = max(1, stats["judged"] + stats["cached"])
-            fail_pct = 100.0 * stats["parse_fail"] / n_total
-            print(f"  judged={stats['judged']}  cached={stats['cached']}  "
-                  f"parse_fail%={fail_pct:.1f}  t={dt:.1f}s")
-            if fail_pct >= cfg.max_parse_fail_pct:
-                print(f"[ERROR] {country} parse-fail rate {fail_pct:.1f}% "
-                      f">= {cfg.max_parse_fail_pct:.1f}% — aborting this country")
-                continue
+            for r in rows:
+                pdelta = float(r.get("pseudo_delta", 0.0))
+                p_right = pseudo_p_right_from_delta(pdelta, t_decision=T_DECISION)
+                pref_on_right = int(r.get("preferred_on_right", 1))
+                p_pref = p_right if pref_on_right else 1.0 - p_right
+                van_rows.append({
+                    "scenario_id": int(r.get("scenario_id", -1)),
+                    "phenomenon_category": str(r.get("phenomenon_category", "default")),
+                    "this_group_name": str(r.get("this_group_name", "")),
+                    "preferred_on_right": pref_on_right,
+                    "n_left": int(r.get("n_left", 0)),
+                    "n_right": int(r.get("n_right", 0)),
+                    "lang": str(r.get("lang", "en")),
+                    "p_left": 1.0 - p_right,
+                    "p_right": p_right,
+                    "p_spare_preferred": p_pref,
+                    "delta": pdelta,
+                    "judge_choice": r.get("judge_choice", "UNCERTAIN"),
+                    "judge_confidence": float(r.get("judge_confidence", 0.0)),
+                    "judge_parse_ok": bool(r.get("judge_parse_ok", False)),
+                })
 
             van_df = pd.DataFrame(van_rows)
             country_dir = van_root / country
@@ -620,19 +609,25 @@ def run_stage2(cfg: BaselineConfig) -> None:
                 json.dumps({
                     "country": country,
                     "vanilla": van_summary,
-                    "judge_stats": stats,
+                    "judge_stats": {
+                        "new_rows": stats["new_rows"],
+                        "parse_fail_new": stats["parse_fail"],
+                        "uncertain_new": stats["uncertain"],
+                        "parse_fail_pct_all": all_fail_pct,
+                        "n_all_rows": n_all,
+                    },
                 }, ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
 
             compare_rows.append({
-                "model": "qwen25_7b_openended_baseline_selfjudge",
+                "model": cfg.model_label,
                 "judge": cfg.judge_model_name,
-                "method": "vanilla_baseline_selfjudge",
+                "method": "vanilla_baseline_selfjudge_unified",
                 "country": country,
                 **{f"align_{k}": v for k, v in van_summary.get("alignment", {}).items()},
                 "n_scenarios": van_summary["n_scenarios"],
-                "judge_parse_fail_pct": fail_pct,
+                "judge_parse_fail_pct": all_fail_pct,
             })
 
             van_align = van_summary.get("alignment", {})
@@ -641,22 +636,22 @@ def run_stage2(cfg: BaselineConfig) -> None:
                 f"VAN MIS={van_align.get('mis', float('nan')):.4f}  "
                 f"r={van_align.get('pearson_r', float('nan')):+.3f}  "
                 f"JSD={van_align.get('jsd', float('nan')):.4f}  "
-                f"n={van_summary['n_scenarios']}  parse_fail%={fail_pct:.1f}"
+                f"n={van_summary['n_scenarios']}  parse_fail%={all_fail_pct:.1f}"
             )
             torch.cuda.empty_cache()
             gc.collect()
     finally:
-        del judge_model, judge_tokenizer
+        del model, tokenizer
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
     cmp_df = pd.DataFrame(compare_rows)
     cmp_df.to_csv(cmp_root / "comparison.csv", index=False)
-    print(f"\n[Stage 2] DONE — comparison at {cmp_root/'comparison.csv'}")
+    print(f"\n[BASELINE UNIFIED] DONE — comparison at {cmp_root/'comparison.csv'}")
     if not cmp_df.empty:
         print(f"\n{'='*70}")
-        print(f"  FINAL SUMMARY — VANILLA BASELINE  ({len(cmp_df)} country rows)")
+        print(f"  FINAL SUMMARY — VANILLA BASELINE UNIFIED  ({len(cmp_df)} country rows)")
         print(f"{'='*70}")
         cols = [c for c in (
             "country", "align_mis", "align_pearson_r", "align_jsd",
@@ -677,21 +672,15 @@ def run_stage2(cfg: BaselineConfig) -> None:
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 def main() -> None:
-    stage = RUN_STAGE.strip().lower()
-    if stage not in ("1", "2", "both"):
-        raise ValueError(f"RUN_STAGE must be 1|2|both, got {stage!r}")
-
-    results_base = (
+    out_dir = (
         f"{WORK_DIR}/results/openended_baseline" if _on_kaggle() else
         str(Path(__file__).parent.parent / "results" / "openended_baseline")
     )
-    jsonl_dir = f"{results_base}/stage1"
 
     cfg = BaselineConfig(
         actor_model_name=ACTOR_MODEL_PATH,
         judge_model_name=JUDGE_MODEL_PATH,
-        out_jsonl_dir=jsonl_dir,
-        results_base=results_base,
+        out_dir=out_dir,
         multitp_data_path=MULTITP_DATA_PATH,
         wvs_data_path=WVS_DATA_PATH,
         human_amce_path=HUMAN_AMCE_PATH,
@@ -705,26 +694,13 @@ def main() -> None:
         use_real_data=os.path.isdir(MULTITP_DATA_PATH),
     )
 
-    print(f"\n[BASELINE] stage={stage}  countries={cfg.countries}  n={cfg.n_scenarios}")
-    print(f"[BASELINE] actor={cfg.actor_model_name}")
-    print(f"[BASELINE] judge={cfg.judge_model_name}")
-    print(f"[BASELINE] results_base={cfg.results_base}  jsonl_dir={cfg.out_jsonl_dir}")
-    print(f"[BASELINE] max_new_tokens_actor={cfg.max_new_tokens_actor}  "
+    print(f"\n[BASELINE-UNIFIED] countries={cfg.countries}  n={cfg.n_scenarios}")
+    print(f"[BASELINE-UNIFIED] actor=judge={cfg.actor_model_name}  (self-judge, shared weights)")
+    print(f"[BASELINE-UNIFIED] out_dir={cfg.out_dir}")
+    print(f"[BASELINE-UNIFIED] max_new_tokens_actor={cfg.max_new_tokens_actor}  "
           f"max_new_tokens_judge={cfg.max_new_tokens_judge}  seed={cfg.seed}")
 
-    if stage in ("1", "both"):
-        run_stage1(cfg)
-        gc.collect()
-
-    if stage == "both":
-        try:
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except Exception:
-            pass
-
-    if stage in ("2", "both"):
-        run_stage2(cfg)
+    run_unified_baseline(cfg)
 
 
 if __name__ == "__main__":
