@@ -2,6 +2,94 @@
 
 ---
 
+#### 2026-04-27 — Open-Ended SWA-DPBR (DISCA variant, Qwen2.5-7B actor + Qwen2.5-7B self-judge, 20 countries — FULL) — `exp_paper/exp_paper_openended_with_DISCA.py`
+
+**Setup:** Qwen2.5-7B-Instruct BF16 (actor & judge, self-judge) · 20 paper countries · 310 scenarios/country · 1550 judge calls/country (≈5× baseline = persona ensemble + debiasing) · Backend=HF native · Full SWA-DPBR (PT-IS + dual-pass bootstrap + ESS anchor + positional debiasing + persona ensemble) · stage-2 time ≈356.7s/country (5× baseline) · run split into two batches (1: USA→THA, 2: MYS→ETH)
+
+| Country | VAN MIS | SWA MIS | ΔMIS ↑ | VAN r | SWA r | Δ r | VAN JSD | SWA JSD | rel_r | boot_var | ESS₁ | α_anchor |
+|:--------|:-------:|:-------:|:------:|:-----:|:-----:|:---:|:-------:|:-------:|:-----:|:--------:|:----:|:--------:|
+| USA | 0.4347 | **0.4252** | +0.010 | +0.704 | +0.701 | −.003 | 0.0399 | 0.0396 | 0.970 | 0.0042 | 0.337 | 0.317 |
+| GBR | 0.4431 | **0.4244** | +0.019 | +0.690 | +0.585 | −.105 | 0.0423 | 0.0466 | 0.966 | 0.0080 | 0.345 | 0.320 |
+| DEU | 0.4423 | 0.4847 | **−0.042** | −0.181 | −0.454 | −.273 | 0.0883 | 0.0910 | 0.963 | 0.0052 | 0.363 | 0.341 |
+| ARG | 0.4737 | 0.4943 | −0.021 | −0.078 | **+0.216** | **+.294** | 0.0498 | 0.0474 | 0.964 | 0.0072 | 0.383 | 0.358 |
+| BRA | 0.4157 | 0.4440 | −0.028 | −0.161 | −0.058 | +.103 | 0.1065 | 0.1110 | 0.967 | 0.0039 | 0.401 | 0.379 |
+| MEX | 0.4967 | 0.5108 | −0.014 | −0.065 | **+0.515** | **+.580** | 0.0504 | 0.0413 | 0.970 | 0.0047 | 0.385 | 0.362 |
+| COL | 0.4987 | 0.5221 | −0.023 | −0.217 | +0.131 | +.348 | 0.0511 | 0.0487 | 0.975 | 0.0080 | 0.384 | 0.360 |
+| VNM | 0.4564 | 0.5053 | **−0.049** | −0.526 | **+0.014** | **+.540** | 0.1012 | 0.0657 | 0.909 | 0.0197 | 0.391 | 0.370 |
+| MMR | 0.4237 | **0.3991** | +0.025 | +0.682 | +0.179 | −.503 | 0.0495 | 0.0672 | 0.969 | 0.0060 | 0.354 | 0.333 |
+| THA | 0.3940 | **0.3383** | +0.056 | +0.688 | +0.147 | −.541 | 0.0416 | 0.0614 | 0.980 | 0.0044 | 0.356 | 0.331 |
+| MYS | 0.4060 | **0.3613** | +0.045 | +0.642 | +0.497 | −.145 | 0.0385 | 0.0433 | 0.969 | 0.0066 | 0.348 | 0.328 |
+| IDN | 0.4417 | **0.3807** | **+0.061** | −0.730 | **+0.303** | **+1.033** | 0.0649 | 0.0582 | 0.939 | 0.0076 | 0.363 | 0.340 |
+| CHN | 0.3028 | **0.2987** | +0.004 | +0.609 | **+0.748** | +.139 | 0.0833 | 0.0793 | 0.909 | 0.0140 | 0.378 | 0.354 |
+| JPN | 0.2812 | **0.2711** | +0.010 | +0.038 | **+0.228** | +.190 | 0.0692 | 0.0615 | 0.930 | 0.0147 | 0.378 | 0.353 |
+| BGD | 0.4423 | **0.3862** | **+0.056** | +0.594 | −0.334 | **−.928** ⚠️ | 0.0450 | 0.0727 | 0.960 | 0.0077 | 0.379 | 0.354 |
+| IRN | 0.4110 | 0.4798 | **−0.069** | −0.042 | −0.295 | −.253 | 0.1091 | 0.1137 | 0.966 | 0.0036 | 0.413 | 0.390 |
+| SRB | 0.4635 | **0.4441** | +0.019 | +0.667 | +0.320 | −.347 | 0.0425 | 0.0534 | 0.970 | 0.0055 | 0.349 | 0.325 |
+| ROU | 0.4618 | 0.4694 | −0.008 | +0.693 | +0.418 | −.275 | 0.0427 | 0.0521 | 0.965 | 0.0071 | 0.346 | 0.323 |
+| KGZ | 0.4403 | 0.4429 | −0.003 | +0.744 | +0.452 | −.292 | 0.0399 | 0.0509 | 0.986 | 0.0009 | 0.344 | 0.324 |
+| ETH | 0.5865 | 0.5984 | −0.012 | +0.259 | −0.357 | **−.616** ⚠️ | 0.0675 | 0.0877 | 0.974 | 0.0041 | 0.343 | 0.317 |
+| **MEAN (20)** | **0.4358** | **0.4340** | **+0.002** | **+0.251** | **+0.197** | **−.054** | **0.0612** | **0.0646** | 0.957 | 0.0072 | 0.370 | 0.345 |
+
+**Findings (full 20 countries):**
+- **MIS essentially neutral at the mean:** ΔMIS=**+0.002** (0.4358 → 0.4340) — net win is marginal. **11/20 improved**, 9/20 regressed; median ΔMIS=+0.007
+- **r REGRESSES on average:** mean r +0.251 → +0.197 (Δ=**−0.054**) — *opposite direction from moral-machine track.* SWA shrinks the spread of r values: anti-aligned countries pull up, well-aligned countries pull down toward the middle
+- **Best MIS gains** concentrated in mid-tier countries: IDN (+0.061), BGD (+0.056), THA (+0.056), MYS (+0.045), MMR (+0.025) — and r flipped from −0.730 → +0.303 on IDN (the largest correlation flip in the dataset)
+- **Worst MIS regressions**: IRN (−0.069), VNM (−0.049), DEU (−0.042), BRA (−0.028), COL (−0.023), ARG (−0.021) — predominantly Latin America + MENA, where vanilla self-judge was already weakly anti-aligned
+- **Two flagged r flips going wrong direction (⚠️):**
+  - **BGD**: vanilla r=+0.594 (well-aligned) → SWA r=−0.334 (anti-aligned), Δ=**−0.928**. Despite this, SWA MIS *improves* by +0.056 — JSD paradox in reverse
+  - **ETH**: vanilla r=+0.259 → SWA r=−0.357, Δ=−0.616. MIS regresses (−0.012)
+- **Strong r recoveries on anti-aligned countries:** IDN (Δ+1.033), MEX (Δ+0.580), VNM (Δ+0.540), COL (Δ+0.348), ARG (Δ+0.294) — SWA persona ensemble does work on countries the self-judge inverted, but this rarely translates to large MIS gains
+- **JSD slightly worsens:** 0.0612 → 0.0646 (+0.0034) — rank-shuffling without distribution improvement
+- **Diagnostics healthy across all 20:** rel_r=0.909–0.986 (DPBR gating active, never collapsed); boot_var=0.0009–0.0197 (KGZ lowest, VNM highest); ESS₁≈0.34–0.41; α_anchor≈0.32–0.39; positional_bias=0.0 everywhere (debiasing fully cancels). Diagnostics are *not* the failure mode
+
+**Headline interpretation:** open-ended self-judge regime makes SWA-DPBR essentially **MIS-neutral** (vs 19–24% reduction on moral-machine MultiTP). The persona ensemble adds genuine signal on countries where vanilla is anti-aligned (massive r flips on IDN/MEX/VNM) but **over-corrects on countries already-aligned** (BGD, ETH, KGZ, ROU, MMR, THA). Net effect: r is compressed toward the mean, MIS doesn't move. Likely cause is shared bias between actor and judge (same Qwen2.5-7B model) — self-judge cannot identify when the persona-conditioned actor is "over-corrected" because the judge inherits the same priors. **Implication:** the self-judge configuration is too weak to validate SWA-DPBR; the open-ended track needs an *independent* judge (Qwen2.5-72B GPTQ as in the planned variant, or a different model family).
+
+**Pairs to baseline:** [next entry] 2026-04-27 — Open-Ended VANILLA BASELINE (20 countries) — same actor, same self-judge, no SWA.
+
+**Artifacts:** `/kaggle/working/cultural_alignment/results/openended/compare/comparison.csv`
+
+---
+
+#### 2026-04-27 — Open-Ended VANILLA BASELINE (Qwen2.5-7B actor + Qwen2.5-7B self-judge, 20 countries) — `exp_paper/exp_paper_openended_baseline_vanilla.py`
+
+**Setup:** Qwen2.5-7B-Instruct BF16 (actor & judge, self-judge) · 20 paper countries · 310 scenarios/country · `max_new_tokens=64` · `T_DECISION=1.0` · parse_fail=0.0% all countries · Backend=HF native (no Unsloth, no vLLM) · No SWA-DPBR (no PT-IS, no dual-pass, no persona, no debiasing)
+
+| Country | MIS ↓ | Pearson r | JSD ↓ | n |
+|:--------|:-----:|:---------:|:-----:|:-:|
+| USA | 0.4347 | +0.704 | 0.0399 | 310 |
+| GBR | 0.4431 | +0.690 | 0.0423 | 310 |
+| DEU | 0.4423 | −0.181 | 0.0883 | 310 |
+| ARG | 0.4737 | −0.078 | 0.0498 | 310 |
+| BRA | 0.4157 | −0.161 | 0.1065 | 310 |
+| MEX | 0.4967 | −0.065 | 0.0504 | 310 |
+| COL | 0.4987 | −0.217 | 0.0511 | 310 |
+| VNM | 0.4564 | −0.526 | 0.1012 | 310 |
+| MMR | 0.4237 | +0.682 | 0.0495 | 310 |
+| THA | 0.3940 | +0.688 | 0.0416 | 310 |
+| MYS | 0.4060 | +0.642 | 0.0385 | 310 |
+| IDN | 0.4417 | −0.730 | 0.0649 | 310 |
+| CHN | 0.3028 | +0.609 | 0.0833 | 310 |
+| JPN | 0.2812 | +0.038 | 0.0692 | 310 |
+| BGD | 0.4423 | +0.594 | 0.0450 | 310 |
+| IRN | 0.4110 | −0.042 | 0.1091 | 310 |
+| SRB | 0.4635 | +0.667 | 0.0425 | 310 |
+| ROU | 0.4618 | +0.693 | 0.0427 | 310 |
+| KGZ | 0.4403 | +0.744 | 0.0399 | 310 |
+| ETH | 0.5865 | +0.259 | 0.0675 | 310 |
+| **MEAN** | **0.4358** | **+0.251** | **0.0612** | — |
+
+**Highlights:**
+- Best MIS: JPN 0.2812, CHN 0.3028 (East Asia surprisingly aligned by self-judge)
+- Worst MIS: ETH 0.5865, COL 0.4987, MEX 0.4967
+- Strongest positive r: KGZ +0.744, USA +0.704, ROU +0.693, GBR +0.690, THA +0.688
+- Anti-aligned (negative r): IDN −0.730, VNM −0.526, COL −0.217, DEU −0.181, BRA −0.161 — baseline rank-ordering inverted vs human AMCEs in 8/20 countries
+- Stage-2 judging time: ~71.2s/country (consistent), 0.0% parse fail across all 20 — Qwen2.5-7B self-judge is reliable for A/B/UNCERTAIN extraction
+- Establishes the **untreated MIS=0.4358 / r=+0.251** baseline that the SWA-DPBR open-ended variant must beat
+
+**Artifacts:** `/kaggle/working/cultural_alignment/results/openended_baseline/` (stage1, stage2, compare/comparison.csv)
+
+---
+
 #### 2026-04-13 — EXP-24 Ablation CORRECTED (Phi-4 14B **vLLM**, USA) — `exp_paper/ablation/exp_paper_ablation_phi4.py`
 
 > **Supersedes the Unsloth entry below.** Backend fixed to vLLM; numbers now match the main EXP-24-PHI_4 sweep.
