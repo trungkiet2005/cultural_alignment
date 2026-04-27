@@ -1010,7 +1010,7 @@ def main():
     torch.cuda.empty_cache()
 
     # --- Step 4: Print summaries ---
-    print_summary(results_df)
+    print_summary(results_df)  
 
     print("\n[DONE] Pipeline complete.")
 

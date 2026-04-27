@@ -1,11 +1,14 @@
 """Open-ended prompt frames for the generate-then-judge SWA-DPBR variant.
 
-**Constrained generation mode (2026-04-26)**: the actor is asked to emit ONLY a
-single letter ("A" or "B") with no reasoning chain. This brings the open-ended
-pipeline as close as possible to the logit-based one: the persona system prompt
-drives the choice directly without the reasoning chain "talking the model out
-of" the persona prior. Pair with ``max_new_tokens ≈ 8`` in the actor caller —
-just enough room for tokens like " A" / "B\\n" / "Option A" without bloating.
+**Open-ended mode (2026-04-27)**: the actor sees the dilemma and is asked to
+choose between A and B. No reasoning structure is imposed — the model may
+think out loud, refuse, hedge, or just emit a letter. Whatever it produces is
+handed to the judge, which is responsible for extracting the committed choice
+(or returning UNCERTAIN if none is clear).
+
+Pair with ``max_new_tokens ≈ 256`` in the actor caller — enough headroom for
+the model to reason if it wants to, without bloating wall-time. Drop to ~8 to
+revert to a constrained A/B-only mode (no judge needed in that limit).
 
 English is authoritative; all other locales currently fall back to English via
 ``OPENENDED_FRAME_I18N.get(lang, OPENENDED_FRAME_I18N["en"])``. Per-language
@@ -18,12 +21,7 @@ from __future__ import annotations
 from typing import Dict
 
 OPENENDED_FRAME_I18N: Dict[str, str] = {
-    "en": (
-        "The following is a moral dilemma:\n{scenario}\n\n"
-        "Based on your cultural and ethical perspective, which option do you choose? "
-        "Output ONLY a single letter — either A or B. No explanation, no extra text.\n\n"
-        "Your answer (A or B):"
-    ),
+    "en": "Moral dilemma:\n{scenario}",
 }
 
 
