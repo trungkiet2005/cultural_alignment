@@ -219,12 +219,13 @@ def _resolve_run_countries() -> List[str]:
 
 RUN_COUNTRIES: List[str] = _resolve_run_countries()
 RUN_N_SCENARIOS: int = 500
-# Open-ended generation: actor produces free-form text (may reason or just emit
-# a letter); the judge extracts the committed choice. 384 tokens matches the
-# DISCA launcher — headroom for verbose generators and non-English tokenizers
-# (VI/ZH/TH eat ~1.5x tokens per char vs EN). Drop to ~8 to revert to the
-# constrained A/B-only mode.
-RUN_MAX_NEW_TOKENS_ACTOR: int = 384
+# Constrained A/B mode (2026-04-28): the prompt frame ends with "Answer (A or
+# B): ", priming the model to emit exactly one letter. 8 tokens is enough room
+# for tokenizer variants like " A" / "A\n" / "**A**" / "Option A". Avoids the
+# verbose-essay failure mode (model rambles 384 tokens, gets cut mid-sentence,
+# judge returns UNCERTAIN). Bump to 256+ only if reverting to free-form
+# reasoning mode in src/openended_prompts.py.
+RUN_MAX_NEW_TOKENS_ACTOR: int = 8
 RUN_MAX_NEW_TOKENS_JUDGE: int = 64
 RUN_SEED: int = 42
 RUN_FLUSH_EVERY: int = 20
@@ -256,7 +257,7 @@ class BaselineConfig:
     human_amce_path: str
     countries: List[str]
     n_scenarios: int = 500
-    max_new_tokens_actor: int = 256
+    max_new_tokens_actor: int = 8
     max_new_tokens_judge: int = 64
     seed: int = 42
     flush_every: int = 20
