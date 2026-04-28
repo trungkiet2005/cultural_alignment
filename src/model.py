@@ -14,6 +14,28 @@ import time
 import numpy as np
 import torch
 
+# Some Hub snapshots (Phi-3.5-mini on Kaggle, older Mistral checkpoints) ship a
+# custom `modeling_*.py` that calls `DynamicCache.from_legacy_cache(...)`. That
+# classmethod was removed in transformers ≥ ~4.50, so loading those weights with
+# `trust_remote_code=True` blows up at the first prefill. Restore it here before
+# any model load so the shim is in place without pinning transformers.
+try:
+    from transformers.cache_utils import DynamicCache as _DynamicCache
+
+    if not hasattr(_DynamicCache, "from_legacy_cache"):
+        @classmethod
+        def _from_legacy_cache(cls, past_key_values=None):
+            cache = cls()
+            if past_key_values is not None:
+                for layer_idx in range(len(past_key_values)):
+                    k, v = past_key_values[layer_idx]
+                    cache.update(k, v, layer_idx)
+            return cache
+
+        _DynamicCache.from_legacy_cache = _from_legacy_cache  # type: ignore[attr-defined]
+except Exception:
+    pass
+
 # Unsloth is imported inside `load_model()` only so `load_model_hf_native` can run
 # without installing or importing Unsloth.
 
