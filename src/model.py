@@ -379,9 +379,11 @@ def load_model_hf_native(
             context="load_model_hf_native (Magistral / Mistral3 tekken tokenizer)",
         )
 
+    _is_phi3_for_tok = "phi-3" in _mn_low or "phi3" in _mn_low
+
     def _load_tokenizer(path_or_id: str):
         return AutoTokenizer.from_pretrained(
-            path_or_id, trust_remote_code=True, **_tok_kw
+            path_or_id, trust_remote_code=not _is_phi3_for_tok, **_tok_kw
         )
 
     if hub_override:
@@ -404,13 +406,20 @@ def load_model_hf_native(
                 raise first_exc
 
     attn_impl = os.environ.get("HF_ATTN_IMPLEMENTATION", "").strip() or None
+    # Phi-3 / Phi-3.5 snapshots on Kaggle ship a pre-cache-refactor `modeling_phi3.py`
+    # that calls removed methods (`DynamicCache.from_legacy_cache`, `get_usable_length`,
+    # …). Skip the custom code and use the in-tree `Phi3ForCausalLM`, which is fully
+    # up to date with the current transformers cache API.
+    _is_phi3 = "phi-3" in _mn_low or "phi3" in _mn_low
     common_kw: dict = {
-        "trust_remote_code": True,
+        "trust_remote_code": not _is_phi3,
         "device_map": "cuda",
         **_tok_kw,
     }
     if attn_impl:
         common_kw["attn_implementation"] = attn_impl
+    if _is_phi3:
+        print("[MODEL] Phi-3 detected → using in-tree Phi3ForCausalLM (trust_remote_code=False)")
 
     if load_in_4bit:
         quant = BitsAndBytesConfig(
