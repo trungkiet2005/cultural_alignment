@@ -39,7 +39,7 @@
 
 % ============================================================
 \title{%
-  Training-Free Cultural Alignment of\\
+  Training-Free Cultural Alignment of 
   Large Language Models via Persona Disagreement%
 }
 
@@ -57,9 +57,6 @@
 % ============================================================
 
 Large language models are increasingly deployed in decisions that turn on moral judgement-from content moderation to clinical prioritisation-yet they answer as if the whole world thinks like the West. The Moral Machine experiment~\citep{awad2018moral} showed this is wrong at scale: 40~million judgments across 233~countries reveal that moral preferences are systematically structured by culture, and a model that ignores this variation does not merely underperform-it imposes one society's intuitions on all others. We close this gap at inference time, with no weight updates, no per-country labels, and no white-box access to internal activations-the only regime viable for global deployment where hundreds of cultures must be served through black-box APIs. The key observation is that within-country \emph{demographic disagreement}, not consensus, is the steering signal: when culturally grounded personas agree, the base model is already calibrated; when they disagree, the spread tells us what to fix and by how much. Our method, \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment), instantiates each country as a panel of four persona agents grounded in World Values Survey microdata~\citep{haerpfer2022wvs}, converts their disagreement into a bounded, fairness-aware logit correction, and self-regulates by shrinking corrections toward zero when the underlying signal is noisy. Across 20~countries, four continents, and six model families (3.8B--70B parameters), DISCA reduces cultural misalignment on the MultiTP benchmark~\citep{jin2025multitp} by 10--24\% (19--24\% on the strongest four checkpoints), with gains spanning geographies rather than concentrating in any single region. Ablations confirm that persona diversity is the dominant components, and that failure is architecturally predictable rather than culturally systematic.
-
-
-
 % We introduce \textbf{DISCA} (Socially-Weighted Alignment with Dual-Pass Bootstrap Reliability), a method that adapts a frozen LLM to the moral preferences of a specific country at inference time, without modifying any weights or requiring white-box access to internal activations.
 % Three design choices distinguish DISCA from generic decoding-time steering, each motivated by a concrete property of the cultural-alignment problem.
 % \emph{First}, we treat \emph{within-country disagreement as the signal itself}: culture is not monolithic but stratified by age cohort and social position~\citep{inglehart2005modernization, awad2018moral}, so we instantiate each country as a small panel of World Values Survey (WVS)--grounded persona agents whose disagreement pinpoints where and by how much to correct the model's default.
@@ -78,11 +75,6 @@ Large language models are increasingly deployed in decisions that turn on moral 
 Large language models are increasingly deployed in systems that touch morally consequential decisions, from content moderation to clinical prioritisation to risk assessment, and they serve users across dozens of countries and languages. Yet when these models face moral dilemmas, their responses fail to reflect the cultural diversity of the populations they serve~\citep{jin2025multitp}. They do vary across languages, but the variation does not track documented human moral references~\citep{awad2018moral}; it is culturally arbitrary rather than culturally informed. For instance, when a self-driving car must choose between its passengers and pedestrians, Japanese respondents overwhelmingly spare the pedestrians, ranking 1st out of 117~countries, while Chinese respondents show the opposite preference, ranking 116th~\citep{awad2018moral}. No contemporary LLM reproduces this contrast when prompted in Japanese versus Chinese~\citep{jin2025multitp}.
 
 The scale of the mismatch is well documented. The Moral Machine experiment~\citep{awad2018moral} collected 40~million judgments across 233~countries, revealing that moral preferences are geographically structured and mediated by generational cohorts. For example, on pedestrians versus passengers, Japan ranks 1st and China 116th-a near-complete reversal. When the MultiTP benchmark~\citep{jin2025multitp} tested 19~LLMs on the same dilemmas in 107~languages, no model recovered this cultural structure; the most misaligned models collapsed reasoning into extreme binary preferences (always spare women, always spare the young), overriding the nuanced trade-offs humans actually make~\citep{jin2025multitp}.
-
-
-
-
-
 % A self-driving car must choose: spare a group of elderly men or a group of young women.
 % Ask in Tokyo and Bogot\'{a} and you will get systematically different answers.
 % The Moral Machine experiment~\citep{awad2018moral} demonstrated this at scale: 40~million
@@ -99,10 +91,7 @@ The scale of the mismatch is well documented. The Moral Machine experiment~\cite
 % achieves broadly satisfactory alignment, with most exhibiting WEIRD-biased reasoning
 % that departs sharply from non-WEIRD human preferences.
 
-
 Closing this gap is harder than it appears. Existing approaches each demand at least one unavailable resource at global scale: fine-tuning or culture-aware adapters require per-country training data and 195+ model variants~\citep{zhang2026culturemanager, yao2024caredio}; reward-guided decoding needs country-specific reward models that do not exist~\citep{khanov2024args, mudgal2024controlled}; activation steering requires white-box access to internal representations~\citep{arditi2025refusal, zou2023representation}; and direct country-prompting (``Answer as a Japanese person'') produces minimal improvement, conflating entire populations with stereotypes rather than documented values~\citep{jin2025multitp}. A practical method must update no weights, consume no per-country labels, and operate without model internals. To our knowledge, none of the existing methods satisfy all three while providing empirically grounded cultural steering.
-
-
 % Closing this gap without retraining is hard because a practical cross-cultural decoder
 % must satisfy three constraints at once: no weight updates, no per-culture supervised
 % labels at scale, and no white-box access to internal activations.
@@ -121,9 +110,7 @@ We operationalise this insight in a method we call
 \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment), which proceeds in three steps. First, we represent each country as a panel of four persona agents grounded in World Values Survey microdata~\citep{haerpfer2022wvs}: three age cohorts (young, middle-aged, older) plus a population-wide aggregate. Each persona responds to moral dilemmas in the target country's native language, and the differences among their responses form the
 cultural signal. Second, we remove the positional bias that would otherwise mask this signal. When a moral dilemma is presented as ``Option A: spare the young group / Option B: spare the elderly group,'' LLMs tend to favour Option A regardless of its content~\citep{liu2024lost}. Swap the order, and the model favours the elderly group instead. This positional preference has nothing to do with culture, but it is strong enough to drown out the genuine cultural differences among personas. Removing it is not optional: until it is gone, the persona responses reflect the model's positional bias, not the country's moral values. We formalise this debiasing argument in the method and appendix derivation, and we argue it explains why prior prompting-based cultural steering has underperformed~\citep{jin2025multitp}. Third, we combine the four personas' corrections into a single adjustment using a bounded, fairness-aware aggregation rule so that no demographic group is systematically sacrificed for the others. \textbf{DISCA} is self-regulating: when the signal is noisy or unreliable, corrections automatically shrink toward zero rather than committing to a potentially wrong adjustment.
 
-
 Across 20~countries, four continents, and 6 open model families spanning 3.8B to 70B parameters, \textbf{DISCA} reduces cultural misalignment on the MultiTP benchmark~\citep{jin2025multitp} by 10--24\% relative to vanilla decoding (19--24\% on the strongest four checkpoints), with gains spanning the Americas, Europe, and Southeast Asia rather than concentrating in any single region. The lowest absolute misalignment comes not from the largest model but from Phi-4 (14B), suggesting that how well a model handles fine-grained preference distinctions matters more than raw parameter count.
-
 
 % We propose \textbf{DISCA} (Socially-Weighted Alignment with Dual-Pass Bootstrap
 % Reliability), a method that satisfies all three constraints by exploiting a simple
@@ -144,7 +131,6 @@ Across 20~countries, four continents, and 6 open model families spanning 3.8B to
 % reliability weight that automatically shrinks corrections when the two passes
 % disagree. An effective-sample-size guard and a light hierarchical country prior
 % complete the stack (\S\ref{sec:method}; hyperparameters in Table~\ref{tab:hyperparams}).
-
 % Each component of DISCA answers a specific failure mode of simpler
 % alternatives: a panel rather than a single country prompt preserves the
 % within-country spread that the correction stage consumes; Prospect
@@ -154,9 +140,7 @@ Across 20~countries, four continents, and 6 open model families spanning 3.8B to
 % probe~\citep{efron1979bootstrap, elvira2021advances} rather than hiding
 % estimator bias behind more samples. A concise decision tree through these
 % choices is deferred to Appendix~\ref{app:design_rationale}.
-
 Our contributions are as follows.
-
 \begin{itemize}
     \item We show that within-country demographic disagreement from public survey data provides a sufficient training-free cultural steering signal, and we introduce \textbf{DISCA}, the first inference-time alignment method satisfying all three deployment constraints simultaneously.
     \item We prove two results that constrain the method's design. First, positional framing bias makes debiasing a strict prerequisite for any persona-based steering: without it, the cultural signal is unrecoverable. Second, when combining corrections across demographic groups, loss-averse aggregation is the principled choice: it protects minority viewpoints that simple averaging would override, without fixating on the worst case alone.

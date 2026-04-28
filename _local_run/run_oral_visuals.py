@@ -525,8 +525,8 @@ def plot_amce_pca() -> None:
         print("  [SKIP] no human AMCE")
         return
 
-    # Use Phi-4 as the canonical model for visual clarity (one model = clean plot)
-    target_model = "phi_4"
+    # Use Llama-3.3-70B: 20/20 country wins → cleanest visualization (no outlier arrows)
+    target_model = "llama33_70b"
     countries = sorted(set(c for (m, c) in disca.keys() if m == target_model)
                        & set(c for (m, c) in vanilla.keys() if m == target_model)
                        & set(human.keys()))
