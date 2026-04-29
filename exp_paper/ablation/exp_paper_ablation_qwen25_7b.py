@@ -7,7 +7,7 @@ Kaggle OFFLINE version — no Internet, no git clone, no pip install.
 Reuses all ablation controllers, metrics collection, and reporting from
 ``exp_paper_ablation_phi4.py``, patching only model path + Kaggle env.
 
-Six ablation configs × 20 countries (paper set).
+Deep single-factor ablations x 20 countries (paper set).
 Adds logit caching to .npz for CPU post-hoc analysis.
 
 Setup (same as exp_paper_kaggle_qwen25_7b.py):
@@ -24,13 +24,16 @@ Env overrides:
     ABLATION_N_SCENARIOS    int                   (default: 500)
     ABLATION_SEED           int                   (default: 42)
     ABLATION_SEEDS          comma-separated ints  (optional; e.g., 11,22,33)
+    ABLATION_PERSONA_COUNTS comma-separated ints  (default: 1,2,3)
+    ABLATION_RANDOM_PERSONA_SEED int              (default: ABLATION_SEED)
 """
 
 from __future__ import annotations
 
 import gc
-import itertools
+import hashlib
 import os
+import random
 import shutil
 import subprocess
 import sys
@@ -188,64 +191,129 @@ print(f"  MULTITP: {MULTITP_DATA_PATH}")
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
-# ║  2b. COMBINATORIAL ABLATION REGISTRY                                       ║
+# ║  2b. DEEP SINGLE-FACTOR ABLATION REGISTRY                                  ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
-def _enable_combinational_ablations() -> None:
+PAPER_REGION_BY_COUNTRY = {
+    "USA": "west", "GBR": "west", "DEU": "west",
+    "ARG": "latam", "BRA": "latam", "MEX": "latam", "COL": "latam",
+    "VNM": "se_asia", "MMR": "se_asia", "THA": "se_asia",
+    "MYS": "se_asia", "IDN": "se_asia",
+    "CHN": "east_asia", "JPN": "east_asia",
+    "BGD": "south_asia",
+    "IRN": "mena",
+    "SRB": "east_europe", "ROU": "east_europe",
+    "KGZ": "central_asia",
+    "ETH": "africa",
+}
+
+GLOBAL_DISTRIBUTION_ANCHORS = ["USA", "BRA", "DEU", "CHN", "VNM", "IRN", "ETH"]
+
+
+def _spec(row_label: str, controller_cls: type, description: str, **extra: Any):
+    """Create an AblationSpec and attach Qwen-only persona metadata."""
+    s = _abl.AblationSpec(row_label=row_label, controller_cls=controller_cls, description=description)
+    for k, v in extra.items():
+        setattr(s, k, v)
+    return s
+
+
+def _parse_persona_counts() -> List[int]:
+    raw = os.environ.get("ABLATION_PERSONA_COUNTS", "1,2,3").strip()
+    counts: List[int] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        k = int(item)
+        if k < 1:
+            raise ValueError("ABLATION_PERSONA_COUNTS must contain positive integers.")
+        counts.append(k)
+    return sorted(set(counts))
+
+
+def _enable_deep_single_ablations() -> None:
     """
-    Replace _abl.ABLATION_SPECS with Full + all non-empty component combinations.
+    Replace the old combinatorial registry with reviewer-facing single factors.
 
-    Components are composed via multiple inheritance so each ablation behavior
-    keeps the same implementation as in exp_paper_ablation_phi4.py.
-    Set ABLATION_COMBINATIONS=0 to keep the original fixed 6-spec registry.
+    Each row changes exactly one component, one persona intervention, or one
+    sensitivity setting. This makes the oral-paper ablation table defensible.
     """
-    if os.environ.get("ABLATION_COMBINATIONS", "1").strip() == "0":
-        print("[ABL] Combination mode OFF (ABLATION_COMBINATIONS=0)")
-        return
-
-    component_defs = [
-        ("No-IS (consensus only)", _abl.NoISController, "importance sampling disabled"),
-        ("Always-on PT-IS", _abl.AlwaysOnISController, "reliability weight bypassed"),
-        ("No debiasing", _abl.NoDebiasController, "positional swap debiasing disabled"),
-        ("Without persona", _abl.NoPersonaController, "persona ensemble removed"),
-        ("No country prior (a_h=0)", _abl.NoPriorController, "country prior disabled"),
-    ]
-
     specs: List[_abl.AblationSpec] = [
-        _abl.AblationSpec(
-            row_label="Full SWA-DPBR",
-            controller_cls=_abl.Exp24DualPassController,
-            description="All components enabled  [reference]",
-        )
+        _spec(
+            "Full SWA-DPBR",
+            _abl.Exp24DualPassController,
+            "All components enabled [reference]",
+            persona_mode="target",
+        ),
+        _spec(
+            "No-IS (consensus only)",
+            _abl.NoISController,
+            "Importance sampling disabled; consensus anchor only",
+            persona_mode="target",
+        ),
+        _spec(
+            "No disagreement gate",
+            _abl.AlwaysOnISController,
+            "Dual-pass disagreement reliability removed; force r=1",
+            persona_mode="target",
+        ),
+        _spec(
+            "No debiasing",
+            _abl.NoDebiasController,
+            "A/B positional swap debiasing disabled",
+            persona_mode="target",
+        ),
+        _spec(
+            "Without persona",
+            _abl.NoPersonaController,
+            "Persona ensemble removed; base gap used as the only agent",
+            persona_mode="target",
+        ),
+        _spec(
+            "No country prior (a_h=0)",
+            _abl.NoPriorController,
+            "Hierarchical country prior disabled",
+            persona_mode="target",
+        ),
+        _spec(
+            "Random personas",
+            _abl.Exp24DualPassController,
+            "Use same N, but personas are sampled from non-target countries",
+            persona_mode="random",
+        ),
+        _spec(
+            "Regional persona mix",
+            _abl.Exp24DualPassController,
+            "Use one persona per same-region country where available",
+            persona_mode="regional_mix",
+        ),
+        _spec(
+            "Global persona mix",
+            _abl.Exp24DualPassController,
+            "Use one persona per globally distributed country",
+            persona_mode="global_mix",
+        ),
     ]
 
-    for r in range(1, len(component_defs) + 1):
-        for combo in itertools.combinations(component_defs, r):
-            labels = [c[0] for c in combo]
-            classes = [c[1] for c in combo]
-            descs = [c[2] for c in combo]
-
-            class_name = "ComboController_" + "_".join(
-                "".join(ch for ch in lbl if ch.isalnum()) for lbl in labels
+    for k in _parse_persona_counts():
+        if k == 4:
+            continue  # Full SWA-DPBR already covers the default 4-persona setting.
+        specs.append(
+            _spec(
+                f"Persona count N={k}",
+                _abl.Exp24DualPassController,
+                f"Sensitivity: first {k} in-country persona(s), all else fixed",
+                persona_mode="persona_count",
+                persona_count=k,
             )
-            combo_cls = type(
-                class_name,
-                tuple(classes) + (_abl.Exp24DualPassController,),
-                {},
-            )
-            specs.append(
-                _abl.AblationSpec(
-                    row_label=" + ".join(labels),
-                    controller_cls=combo_cls,
-                    description="; ".join(descs),
-                )
-            )
+        )
 
     _abl.ABLATION_SPECS = specs
-    print(f"[ABL] Combination mode ON: {len(_abl.ABLATION_SPECS)} configurations")
+    print(f"[ABL] Deep single-factor mode ON: {len(_abl.ABLATION_SPECS)} configurations")
 
 
-_enable_combinational_ablations()
+_enable_deep_single_ablations()
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -504,12 +572,185 @@ def _build_country_logit_replay_cache(
     return cache
 
 
+def _slice_replay_cache(
+    cache: Dict[Tuple[str, str, str], Dict[str, Any]],
+    n_personas: int,
+) -> Dict[Tuple[str, str, str], Dict[str, Any]]:
+    """Reuse a larger in-country replay cache for persona-count sensitivity."""
+    sliced: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    for key, rec in cache.items():
+        da = np.asarray(rec["da"], dtype=np.float32)[:n_personas].copy()
+        sliced[key] = {
+            "db": float(rec["db"]),
+            "da": da,
+            "logit_temp": float(rec["logit_temp"]),
+        }
+    return sliced
+
+
 def _parse_seeds() -> List[int]:
     """Single-seed mode: always use ABLATION_SEED."""
     raw = os.environ.get("ABLATION_SEEDS", "").strip()
     if raw:
         print("[SEED] ABLATION_SEEDS is set but ignored in single-seed mode.")
     return [int(os.environ.get("ABLATION_SEED", "42"))]
+
+
+def _stable_int_seed(*parts: Any) -> int:
+    raw = "|".join(str(p) for p in parts)
+    return int(hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8], 16)
+
+
+def _dedupe_keep_order(items: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _build_persona_bank(countries: List[str]) -> Dict[str, List[str]]:
+    """Build target plus paper-country personas once for cross-country ablations."""
+    bank: Dict[str, List[str]] = {}
+    needed = _dedupe_keep_order(list(countries) + list(PAPER_20_COUNTRIES))
+    for c in needed:
+        if c not in SUPPORTED_COUNTRIES:
+            continue
+        bank[c] = build_country_personas(c, wvs_path=WVS_DATA_PATH)
+    return bank
+
+
+def _persona_sources_for_spec(spec, country: str, persona_bank: Dict[str, List[str]], seed: int) -> List[str]:
+    mode = getattr(spec, "persona_mode", "target")
+    target_n = len(persona_bank.get(country, [])) or 4
+
+    if mode == "target":
+        return [country]
+
+    if mode == "persona_count":
+        return [country]
+
+    candidates = [c for c in PAPER_20_COUNTRIES if c != country and c in persona_bank]
+    if not candidates:
+        return [country]
+
+    if mode == "random":
+        rng_seed = int(os.environ.get("ABLATION_RANDOM_PERSONA_SEED", seed))
+        rng = random.Random(_stable_int_seed("random_personas", country, rng_seed))
+        pool: List[Tuple[str, int]] = []
+        for c in candidates:
+            pool.extend((c, i) for i in range(len(persona_bank[c])))
+        rng.shuffle(pool)
+        return [c for c, _i in pool[:target_n]]
+
+    if mode == "regional_mix":
+        region = PAPER_REGION_BY_COUNTRY.get(country)
+        regional = [c for c in candidates if PAPER_REGION_BY_COUNTRY.get(c) == region]
+        ordered = regional + candidates
+        return _dedupe_keep_order(ordered)[:target_n]
+
+    if mode == "global_mix":
+        ordered = [c for c in GLOBAL_DISTRIBUTION_ANCHORS if c != country and c in persona_bank]
+        ordered += candidates
+        return _dedupe_keep_order(ordered)[:target_n]
+
+    return [country]
+
+
+def _build_persona_profile(
+    spec,
+    country: str,
+    persona_bank: Dict[str, List[str]],
+    seed: int,
+) -> Tuple[str, List[str], Dict[str, Any]]:
+    """Return profile tag, personas, and metadata for one ablation spec."""
+    mode = getattr(spec, "persona_mode", "target")
+    target = list(persona_bank.get(country, []))
+    if not target:
+        target = build_country_personas(country, wvs_path=WVS_DATA_PATH)
+        persona_bank[country] = target
+
+    if mode == "target":
+        personas = target
+        sources = [country] * len(personas)
+        tag = "target_n%d" % len(personas)
+    elif mode == "persona_count":
+        k = min(int(getattr(spec, "persona_count", len(target))), len(target))
+        personas = target[:k]
+        sources = [country] * len(personas)
+        tag = "target_n%d" % k
+    elif mode in {"random", "regional_mix", "global_mix"}:
+        source_countries = _persona_sources_for_spec(spec, country, persona_bank, seed)
+        personas = []
+        sources = []
+        for i, src in enumerate(source_countries):
+            src_personas = persona_bank.get(src, [])
+            if not src_personas:
+                continue
+            personas.append(src_personas[i % len(src_personas)])
+            sources.append(src)
+        if not personas:
+            personas = target
+            sources = [country] * len(personas)
+        tag = "%s_%s" % (mode, "_".join(sources))
+    else:
+        personas = target
+        sources = [country] * len(personas)
+        tag = mode
+
+    meta = {
+        "persona_mode": mode,
+        "persona_profile": tag,
+        "persona_count_actual": len(personas),
+        "persona_source_countries": ",".join(sources),
+    }
+    return tag, personas, meta
+
+
+def _build_country_persona_profiles(
+    country: str,
+    persona_bank: Dict[str, List[str]],
+    seed: int,
+) -> Dict[str, Dict[str, Any]]:
+    profiles: Dict[str, Dict[str, Any]] = {}
+    for spec in _abl.ABLATION_SPECS:
+        tag, personas, meta = _build_persona_profile(spec, country, persona_bank, seed)
+        profiles[tag] = {"personas": personas, "meta": meta}
+    return profiles
+
+
+def _profile_for_spec(spec, profiles: Dict[str, Dict[str, Any]]) -> Tuple[str, Dict[str, Any]]:
+    mode = getattr(spec, "persona_mode", "target")
+    if mode == "target":
+        prefix = "target_n"
+    elif mode == "persona_count":
+        prefix = "target_n%d" % int(getattr(spec, "persona_count", 0))
+    else:
+        prefix = mode
+    for tag, profile in profiles.items():
+        if tag == prefix or tag.startswith(prefix):
+            return tag, profile
+    # Defensive fallback: the full target profile is always present.
+    for tag, profile in profiles.items():
+        if tag.startswith("target_n"):
+            return tag, profile
+    raise RuntimeError("No persona profile available for ablation spec.")
+
+
+def _safe_file_tag(label: str) -> str:
+    return (
+        label.lower()
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("=", "eq")
+        .replace(",", "")
+        .replace("/", "_")
+        .replace("a_h", "ah")
+    )
 
 
 def _build_multi_seed_summary(summary_df: pd.DataFrame) -> pd.DataFrame:
@@ -636,7 +877,7 @@ def _print_latex_table_qwen(rows: List[Dict], country: str) -> None:
         ),
         (
             r"$K$-sample importance-sampling batch per scenario"
-            r" (dual-pass reliability disabled for isolation)."
+            r" with single-factor component and persona sensitivity rows."
         ),
         (
             rf"Full configuration: JSD = {ref['jsd']:.4f},"
@@ -720,6 +961,7 @@ def main() -> None:
     all_rows: List[Dict] = []
     logit_cache = LogitCache()
     country_assets: Dict[str, Dict[str, Any]] = {}
+    persona_bank = _build_persona_bank(countries)
     reuse_full_across_seeds = os.environ.get("ABLATION_REUSE_FULL_ACROSS_SEEDS", "1").strip() != "0"
     # Cache one Full SWA-DPBR result per country to avoid re-running identical logits each seed.
     full_result_cache: Dict[str, Tuple[pd.DataFrame, Dict[str, Any]]] = {}
@@ -730,18 +972,38 @@ def main() -> None:
             print(f"[SKIP] {country}: not in SUPPORTED_COUNTRIES")
             continue
         scenario_df = _abl._load_scenarios(cfg, country)
-        personas = build_country_personas(country, wvs_path=WVS_DATA_PATH)
+        personas = persona_bank.get(country) or build_country_personas(country, wvs_path=WVS_DATA_PATH)
+        persona_profiles = _build_country_persona_profiles(country, persona_bank, seeds[0])
         human_amce = load_human_amce(HUMAN_AMCE_PATH, country)
         asset: Dict[str, Any] = {
             "scenario_df": scenario_df,
             "personas": personas,
+            "persona_profiles": persona_profiles,
             "human_amce_n": len(human_amce),
-            "replay_cache": None,
+            "replay_caches": {},
         }
         if USE_REPLAY_LOGITS:
-            asset["replay_cache"] = _build_country_logit_replay_cache(
-                model, tokenizer, cfg, country, personas, scenario_df
-            )
+            for profile_tag, profile in persona_profiles.items():
+                profile_personas = profile["personas"]
+                if profile_tag.startswith("target_n") and len(profile_personas) < len(personas):
+                    full_tag = "target_n%d" % len(personas)
+                    if full_tag in asset["replay_caches"]:
+                        print(
+                            f"[REPLAY] Profile {country}/{profile_tag}: "
+                            f"slice first {len(profile_personas)} personas from {full_tag}"
+                        )
+                        asset["replay_caches"][profile_tag] = _slice_replay_cache(
+                            asset["replay_caches"][full_tag],
+                            len(profile_personas),
+                        )
+                        continue
+                print(
+                    f"[REPLAY] Profile {country}/{profile_tag}: "
+                    f"{len(profile_personas)} personas"
+                )
+                asset["replay_caches"][profile_tag] = _build_country_logit_replay_cache(
+                    model, tokenizer, cfg, country, profile_personas, scenario_df
+                )
         country_assets[country] = asset
 
     if USE_REPLAY_LOGITS:
@@ -764,18 +1026,33 @@ def main() -> None:
 
             scenario_df = country_assets[country]["scenario_df"]
             personas = country_assets[country]["personas"]
+            persona_profiles = country_assets[country]["persona_profiles"]
             human_amce_n = int(country_assets[country]["human_amce_n"])
-            _set_active_replay_cache(country_assets[country]["replay_cache"])
 
             print(f"  {len(scenario_df)} scenarios | {len(personas)} personas"
-                  f" | {human_amce_n} AMCE dims")
+                  f" | {human_amce_n} AMCE dims"
+                  f" | {len(persona_profiles)} persona profiles")
 
             # ── Per-ablation inner loop ───────────────────────────────────────
             for spec_idx, spec in enumerate(_abl.ABLATION_SPECS):
+                profile_tag, profile = _profile_for_spec(spec, persona_profiles)
+                run_personas = profile["personas"]
+                persona_meta = dict(profile["meta"])
+                if USE_REPLAY_LOGITS:
+                    _set_active_replay_cache(
+                        country_assets[country]["replay_caches"].get(profile_tag)
+                    )
+
                 print(f"\n  {'─' * 70}")
                 print(f"  [{spec_idx}/{len(_abl.ABLATION_SPECS)-1}]"
                       f"  {spec.row_label}  —  {spec.description}")
                 print(f"  {'─' * 70}")
+
+                print(
+                    f"  Persona profile: {profile_tag}"
+                    f" | N={len(run_personas)}"
+                    f" | sources={persona_meta.get('persona_source_countries', '')}"
+                )
 
                 _abl._reset_prior_state(country)
                 torch.cuda.empty_cache()
@@ -800,7 +1077,7 @@ def main() -> None:
                     full_result_cache[country] = (results_df.copy(deep=True), dict(summary))
                 else:
                     results_df, summary = _abl._run_ablation_country(
-                        spec, model, tokenizer, country, personas, scenario_df, cfg
+                        spec, model, tokenizer, country, run_personas, scenario_df, cfg
                     )
                     if spec.row_label == "Full SWA-DPBR" and reuse_full_across_seeds:
                         full_result_cache[country] = (results_df.copy(deep=True), dict(summary))
@@ -814,6 +1091,7 @@ def main() -> None:
                     .replace("=", "eq").replace(",", "").replace("α", "a")
                     .replace("/", "_")
                 )
+                safe_tag = _safe_file_tag(spec.row_label)
                 results_df.to_csv(
                     out_dir / f"seed{seed}_{country}_{safe_tag}_results.csv", index=False
                 )
@@ -860,6 +1138,7 @@ def main() -> None:
                 # ── Collect metrics row ───────────────────────────────────────
                 row = _abl._collect_row(spec, country, results_df, summary, elapsed)
                 row["seed"] = seed
+                row.update(persona_meta)
                 all_rows.append(row)
 
                 a = summary.get("alignment", {})

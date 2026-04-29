@@ -219,6 +219,12 @@ from src.mc_dropout_runner import run_baseline_mc_dropout  # noqa: E402
 from src.calibration_baselines import run_baseline_calibration_scaling  # noqa: E402
 from src.diffpo_binary_baseline import run_baseline_diffpo_binary  # noqa: E402
 from src.prompt_baseline_runner import run_prompt_baseline_country  # noqa: E402
+from src.amce import (  # noqa: E402
+    compute_alignment_metrics,
+    compute_amce_from_preferences,
+    compute_per_dimension_alignment,
+    load_human_amce,
+)
 
 _abl.MODEL_NAME = MODEL_LOCAL_PATH_RESOLVED
 _abl.MODEL_SHORT = "kaggle_qwen25_7b_bf16"
@@ -474,7 +480,9 @@ def _build_scenario_analysis_rows(country: str, scenario_df: pd.DataFrame, resul
         elif len(gaps) == 1:
             persona_variance = 0.0
         else:
-            persona_variance = float("nan")
+            # Cached / legacy result CSVs sometimes omit agent_decision_gaps but
+            # still retain the per-scenario persona variance under mppi_variance.
+            persona_variance = float(rr.get("mppi_variance", np.nan))
 
         # Playbook-consistent correction magnitude: |delta_star|.
         # In controller outputs, delta_star is represented by dual-pass terms:
@@ -505,6 +513,225 @@ def _build_scenario_analysis_rows(country: str, scenario_df: pd.DataFrame, resul
             }
         )
     return rows
+
+
+def _candidate_result_roots(out_dir: Path) -> List[Path]:
+    here = Path(__file__).resolve()
+    roots = [
+        out_dir,
+        Path(RESULTS_BASE),
+        Path.cwd() / "exp_paper" / "result",
+        Path.cwd() / "results",
+        here.parent.parent / "result",
+        here.parent.parent.parent / "results",
+        Path.cwd() / "_local_run",
+    ]
+    seen = set()
+    ordered: List[Path] = []
+    for root in roots:
+        try:
+            resolved = root.resolve()
+        except Exception:
+            resolved = root
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(root)
+    return ordered
+
+
+def _find_named_file(out_dir: Path, filenames: List[str]) -> Path:
+    for root in _candidate_result_roots(out_dir):
+        if not root.exists():
+            continue
+        for name in filenames:
+            direct = root / name
+            if direct.is_file():
+                return direct
+            hits = list(root.rglob(name))
+            if hits:
+                return hits[0]
+    return Path("__missing__")
+
+
+def _model_search_tokens() -> List[str]:
+    tokens = [
+        model_slug(_abl.MODEL_NAME),
+        _abl.MODEL_SHORT,
+        "qwen25_7b",
+        "qwen25",
+        "qwen2.5-7b",
+        "qwen2.5-7b-instruct",
+        "hf_qwen25_7b_bf16",
+    ]
+    out: List[str] = []
+    for tok in tokens:
+        tok_s = str(tok).strip().lower()
+        if tok_s and tok_s not in out:
+            out.append(tok_s)
+    return out
+
+
+def _score_result_path(path: Path) -> int:
+    p = str(path).lower().replace("\\", "/")
+    score = 0
+    for i, tok in enumerate(_model_search_tokens()):
+        if tok in p:
+            score += 20 - i
+    if "/swa/" in p:
+        score += 3
+    if "/compare/" in p:
+        score -= 5
+    return score
+
+
+def _find_country_result_csv(out_dir: Path, country: str, prefix: str) -> Path:
+    filename = f"{prefix}_{country}.csv"
+    best_path = Path("__missing__")
+    best_score = -10**9
+    for root in _candidate_result_roots(out_dir):
+        if not root.exists():
+            continue
+        for hit in root.rglob(filename):
+            score = _score_result_path(hit)
+            if score > best_score:
+                best_score = score
+                best_path = hit
+    return best_path
+
+
+def _load_human_amce_map(country: str, out_dir: Path) -> Dict[str, float]:
+    long_csv = _find_named_file(out_dir, ["human_amce_long.csv"])
+    if long_csv.is_file():
+        try:
+            df = pd.read_csv(long_csv)
+            needed = {"country", "dimension", "human_amce"}
+            if needed.issubset(df.columns):
+                sub = df[df["country"] == country]
+                if not sub.empty:
+                    return {
+                        str(r["dimension"]): float(r["human_amce"])
+                        for _, r in sub.iterrows()
+                        if pd.notna(r["human_amce"])
+                    }
+        except Exception:
+            pass
+
+    for cand in [Path(HUMAN_AMCE_PATH), Path("WVS_data/country_specific_ACME.csv")]:
+        if cand.is_file():
+            vals = load_human_amce(str(cand), country)
+            if vals:
+                return vals
+    return {}
+
+
+def _materialize_summary_inputs(countries: List[str], out_dir: Path) -> Dict[str, Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    main_csv = out_dir / "autogen_main_results_qwen25_7b.csv"
+    vanilla_csv = out_dir / "autogen_vanilla_results_qwen25_7b.csv"
+    disca_csv = out_dir / "autogen_disca_results_qwen25_7b.csv"
+    model_amce_csv = out_dir / "autogen_model_amce_long_qwen25_7b.csv"
+    human_amce_csv = out_dir / "autogen_human_amce_long.csv"
+    vanilla_per_dim_csv = out_dir / "autogen_vanilla_per_dim_qwen25_7b.csv"
+    disca_per_dim_csv = out_dir / "autogen_disca_per_dim_qwen25_7b.csv"
+
+    main_rows: List[Dict] = []
+    vanilla_rows: List[Dict] = []
+    disca_rows: List[Dict] = []
+    model_amce_rows: List[Dict] = []
+    human_amce_rows: List[Dict] = []
+    vanilla_per_dim_rows: List[Dict] = []
+    disca_per_dim_rows: List[Dict] = []
+
+    for country in countries:
+        swa_path = _find_country_result_csv(out_dir, country, "swa_results")
+        van_path = _find_country_result_csv(out_dir, country, "vanilla_results")
+        if not swa_path.is_file() or not van_path.is_file():
+            continue
+        try:
+            swa_df = pd.read_csv(swa_path)
+            van_df = pd.read_csv(van_path)
+        except Exception:
+            continue
+
+        human = _load_human_amce_map(country, out_dir)
+        if not human:
+            continue
+
+        swa_amce = compute_amce_from_preferences(swa_df)
+        van_amce = compute_amce_from_preferences(van_df)
+        if len(swa_amce) < 2 or len(van_amce) < 2:
+            continue
+
+        swa_align = compute_alignment_metrics(swa_amce, human)
+        van_align = compute_alignment_metrics(van_amce, human)
+        if not (np.isfinite(swa_align.get("mis", np.nan)) and np.isfinite(van_align.get("mis", np.nan))):
+            continue
+
+        main_rows.append({
+            "country": country,
+            "vanilla_mis": float(van_align["mis"]),
+            "disca_mis": float(swa_align["mis"]),
+        })
+        vanilla_rows.append({
+            "country": country,
+            "mis": float(van_align["mis"]),
+            "vanilla_mis": float(van_align["mis"]),
+        })
+        disca_rows.append({
+            "country": country,
+            "vanilla_mis": float(van_align["mis"]),
+            "disca_mis": float(swa_align["mis"]),
+            "pearson_r": float(swa_align.get("pearson_r", np.nan)),
+        })
+
+        for dim, value in swa_amce.items():
+            model_amce_rows.append({
+                "country": country,
+                "dimension": dim,
+                "model_amce": float(value),
+            })
+        for dim, value in human.items():
+            human_amce_rows.append({
+                "country": country,
+                "dimension": dim,
+                "human_amce": float(value),
+            })
+
+        van_breakdown = compute_per_dimension_alignment(van_amce, human)
+        dis_breakdown = compute_per_dimension_alignment(swa_amce, human)
+        for dim, stats in van_breakdown.items():
+            vanilla_per_dim_rows.append({
+                "country": country,
+                "dimension": dim,
+                "abs_err": float(stats["abs_err"]),
+            })
+        for dim, stats in dis_breakdown.items():
+            disca_per_dim_rows.append({
+                "country": country,
+                "dimension": dim,
+                "abs_err": float(stats["abs_err"]),
+            })
+
+    outputs = {
+        "main_results": main_csv,
+        "vanilla_results": vanilla_csv,
+        "disca_results": disca_csv,
+        "model_amce": model_amce_csv,
+        "human_amce": human_amce_csv,
+        "vanilla_per_dim": vanilla_per_dim_csv,
+        "disca_per_dim": disca_per_dim_csv,
+    }
+    if main_rows:
+        pd.DataFrame(main_rows).to_csv(main_csv, index=False)
+        pd.DataFrame(vanilla_rows).to_csv(vanilla_csv, index=False)
+        pd.DataFrame(disca_rows).to_csv(disca_csv, index=False)
+        pd.DataFrame(model_amce_rows).drop_duplicates().to_csv(model_amce_csv, index=False)
+        pd.DataFrame(human_amce_rows).drop_duplicates().to_csv(human_amce_csv, index=False)
+        pd.DataFrame(vanilla_per_dim_rows).to_csv(vanilla_per_dim_csv, index=False)
+        pd.DataFrame(disca_per_dim_rows).to_csv(disca_per_dim_csv, index=False)
+    return outputs
 
 
 def run_experiment_1(
@@ -1777,17 +2004,59 @@ def main() -> None:
 
     countries = list(PAPER_20_COUNTRIES) if USE_ALL_PAPER_COUNTRIES else list(COUNTRIES)
 
-    def _opt_path(explicit: str, fallback_name: str) -> Path:
-        return Path(explicit) if explicit else out_dir / fallback_name
+    derived_inputs = _materialize_summary_inputs(countries, out_dir)
 
-    scenario_csv = _opt_path(SCENARIO_CSV, "scenario_analysis_all_countries.csv")
-    main_results_csv = _opt_path(MAIN_RESULTS_CSV, "main_results_phi4.csv")
-    vanilla_csv = _opt_path(VANILLA_RESULTS_CSV, "vanilla_qwen25_7b.csv")
-    disca_csv = _opt_path(DISCA_RESULTS_CSV, "disca_qwen25_7b.csv")
-    model_amce_csv = Path(MODEL_AMCE_CSV) if MODEL_AMCE_CSV else Path("")
-    human_amce_long = Path(HUMAN_AMCE_LONG_CSV) if HUMAN_AMCE_LONG_CSV else Path("")
-    vanilla_per_dim_csv = Path(VANILLA_PER_DIM_CSV) if VANILLA_PER_DIM_CSV else Path("")
-    disca_per_dim_csv = Path(DISCA_PER_DIM_CSV) if DISCA_PER_DIM_CSV else Path("")
+    def _resolve_input(explicit: str, fallback_names: List[str], derived: Path | None = None) -> Path:
+        if explicit:
+            p = Path(explicit)
+            if p.exists():
+                return p
+        named = _find_named_file(out_dir, fallback_names)
+        if named.is_file():
+            return named
+        if derived and derived.exists():
+            return derived
+        return Path(explicit) if explicit else Path("__missing__")
+
+    scenario_csv = _resolve_input(
+        SCENARIO_CSV,
+        ["scenario_analysis_all_countries.csv", "scenario_analysis.csv"],
+    )
+    main_results_csv = _resolve_input(
+        MAIN_RESULTS_CSV,
+        ["main_results_phi4.csv", "main_results_qwen25_7b.csv", "autogen_main_results_qwen25_7b.csv"],
+        derived_inputs["main_results"],
+    )
+    vanilla_csv = _resolve_input(
+        VANILLA_RESULTS_CSV,
+        ["vanilla_qwen25_7b.csv", "autogen_vanilla_results_qwen25_7b.csv"],
+        derived_inputs["vanilla_results"],
+    )
+    disca_csv = _resolve_input(
+        DISCA_RESULTS_CSV,
+        ["disca_qwen25_7b.csv", "main_results_qwen25_7b.csv", "autogen_disca_results_qwen25_7b.csv"],
+        derived_inputs["disca_results"],
+    )
+    model_amce_csv = _resolve_input(
+        MODEL_AMCE_CSV,
+        ["model_amce_long_qwen25_7b.csv", "autogen_model_amce_long_qwen25_7b.csv", "phi4_model_amce_long.csv"],
+        derived_inputs["model_amce"],
+    )
+    human_amce_long = _resolve_input(
+        HUMAN_AMCE_LONG_CSV,
+        ["human_amce_long.csv", "autogen_human_amce_long.csv"],
+        derived_inputs["human_amce"],
+    )
+    vanilla_per_dim_csv = _resolve_input(
+        VANILLA_PER_DIM_CSV,
+        ["vanilla_per_dim_qwen25_7b.csv", "autogen_vanilla_per_dim_qwen25_7b.csv"],
+        derived_inputs["vanilla_per_dim"],
+    )
+    disca_per_dim_csv = _resolve_input(
+        DISCA_PER_DIM_CSV,
+        ["disca_per_dim_qwen25_7b.csv", "autogen_disca_per_dim_qwen25_7b.csv"],
+        derived_inputs["disca_per_dim"],
+    )
 
     exp6_countries = list(EXP6_COUNTRIES)
     exp6_ablations = list(EXP6_ABLATIONS)
