@@ -31,8 +31,8 @@ IMPORTANT, please:
 
 \item {\bf Claims}
     \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The abstract and \S\ref{sec:intro} state three claims: (i) DISCA is a train-free inference-time controller that requires no per-country reward models or extra training data; (ii) it cuts macro MIS by 10--24\% on seven open-weight backbones across 20 countries and 6 moral dimensions; (iii) calibration competes with scale (Phi-4 14B beats Llama-3.3-70B in absolute MIS). All three are substantiated in Table~\ref{tab:main_macro_summary} and Figure~\ref{fig:scaling_vs_calibration}; scope and assumptions (binary dilemmas with decision-token logits, WVS-7 vintage) are made explicit in \S\ref{sec:discussion} and Appendix~\ref{app:limitations}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the abstract and introduction do not include the claims made in the paper.
@@ -43,8 +43,8 @@ IMPORTANT, please:
 
 \item {\bf Limitations}
     \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: \S\ref{sec:discussion} bounds generalisation with three caveats (alignment to a survey statistic vs.\ perceived legitimacy; PT value function as aggregation kernel rather than cognitive model; decision-token logit requirement). Appendix~\ref{app:limitations} expands these with: WVS-to-trolley linkage being indirect, the inter-persona reward assumption, geographic coverage (20 of 100+ MultiTP countries; sparse personas for under-sampled countries), WVS Wave~7 vintage, and 4-bit/Int8 quantisation artefacts on IS stability.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper has no limitation while the answer \answerNo{} means that the paper has limitations, but those are not discussed in the paper. 
@@ -59,8 +59,8 @@ IMPORTANT, please:
 
 \item {\bf Theory assumptions and proofs}
     \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The single theoretical result, Theorem~\ref{thm:shrinkage} (minimax-optimality of disagreement-driven shrinkage in the James--Stein sense for panels of $N\geq 4$), is stated in the main text with all assumptions (panel size, Gaussian persona shifts, $\ell_2$ risk). The full proof, including referenced lemmas, is given in Appendix~\ref{app:bias_variance}. A short proof sketch and the connection to Eq.~\ref{eq:util_total} appear in \S\ref{sec:method}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include theoretical results. 
@@ -73,8 +73,8 @@ IMPORTANT, please:
 
     \item {\bf Experimental result reproducibility}
     \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: \S\ref{sec:method} gives the full algorithm (Algorithm~1, Eqs.~\ref{eq:util_total}--\ref{eq:dpbr_rel}); the full hyperparameter table (Table~\ref{tab:hyperparams}) lists every numerical default with the validation procedure (synthetic 200-scenario pool, transferability check on a 50-scenario MultiTP English subset). All backbones are publicly available open-weight checkpoints. Preprocessing (cap=80, oversample=36), seeds (3), and per-country preprocessing details are documented in Appendices~\ref{app:dataset_sens},~\ref{sec:multiseed}. We additionally release a self-contained reference implementation (\texttt{DISCA\_Alignment/}) with the same defaults and a single-command sweep entry point.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -93,8 +93,8 @@ IMPORTANT, please:
 
 \item {\bf Open access to data and code}
     \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: We release \texttt{DISCA\_Alignment/} (anonymised for review; MIT-licensed) as supplemental material. The package is a self-contained slice of the research codebase: a single CLI entry point (\texttt{run.py}) drives the per-model 20-country sweep, with backend selection (\texttt{vllm} / \texttt{hf\_native} / \texttt{unsloth}) and explicit flags for the three external data paths (\texttt{--multitp-data}, \texttt{--wvs-data}, \texttt{--human-amce}). The README documents install (Python 3.10+, CUDA 12.x), HF token wiring for gated models, exact commands, and the output schema (per-country baseline / DPBR CSVs and a comparison file). MultiTP, WVS-7 Wave, and the human AMCE table are publicly available datasets cited in \S\ref{sec:exp:data}; access instructions are reproduced in the README.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that paper does not include experiments requiring code.
@@ -110,8 +110,8 @@ IMPORTANT, please:
 
 \item {\bf Experimental setting/details}
     \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer) necessary to understand the results?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: There is no training (the method is inference-time on frozen weights); we therefore detail all decoding and controller settings. \S\ref{sec:experiments} specifies the dataset (MultiTP, 20 countries), preprocessing (deduplication, category cap=80, oversample to $\geq$36 per dimension), the seven main backbones with sizes, and the metric definitions (MIS, Pearson $r$, JSD, win rate). All hyperparameters and how they were chosen are tabulated in Table~\ref{tab:hyperparams} with the synthetic-pool grid-search procedure described in Appendix~\ref{app:hyperparams}. Sensitivity sweeps for the temperature family (Appendix~\ref{app:temp_sensitivity}), category cap (Appendix~\ref{app:r2_oversampling}), and the controller knobs ($s$, $\lambda_{\text{coop}}$, $\sigma$, $T_{\text{cat}}$) appear in Appendix~\ref{app:hyperparams}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -121,8 +121,8 @@ IMPORTANT, please:
 
 \item {\bf Experiment statistical significance}
     \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The headline table (Table~\ref{tab:main_macro_summary}) reports macro MIS as mean $\pm$ standard deviation across 3 independent seeds (independent IS noise draws; the underlying model weights and data are fixed). A separate multi-seed stability analysis (Appendix~\ref{sec:multiseed}) gives per-country variability, and a bootstrap confidence interval on JSD ($\pm 0.004$, Appendix~\ref{app:robustness_summary}) quantifies the noise floor for distributional metrics. We explicitly state that conclusions are stable well within the bootstrap noise floor; sensitivity sweeps along nine independent axes confirm this.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -138,8 +138,8 @@ IMPORTANT, please:
 
 \item {\bf Experiments compute resources}
     \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: Appendix~\ref{app:trigger} (Table~\ref{tab:r2_latency_compact}) reports per-scenario wall-clock on a single H100 GPU: 0.083--0.086 s/scenario for DISCA at $K\in\{64,128,256\}$ vs.\ 0.023 s/scenario for vanilla decoding (3.57--3.72$\times$ overhead). Backbone-level cost is given in Figure~\ref{fig:latency_vs_mis}: 350~ms/scenario for Phi-4 vs.\ 1414~ms for Llama-3.3-70B with DISCA. Sub-70B backbones run on a single H100 in BF16 via vLLM; the 70B backbone uses 4-bit Unsloth on the same hardware. The released code's CLI also runs end-to-end on a Kaggle T4/P100 dual-GPU node for sub-14B models. We acknowledge in Appendix~\ref{app:engineering} that exploratory experiments (25 controller variants on a 3-backbone $\times$ 5-country prototyping panel) consumed substantially more compute than the reported runs.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not include experiments.
@@ -150,8 +150,8 @@ IMPORTANT, please:
     
 \item {\bf Code of ethics}
     \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: The authors have reviewed the NeurIPS Code of Ethics. The work uses only public, ethically-collected datasets (MultiTP~\citep{jin2025multitp}, World Values Survey Wave~7, Moral Machine human AMCEs~\citep{awad2018moral}); it conducts no new human-subjects research and introduces no scraped data. Anonymity is preserved in the submission. Negative-impact considerations (risk of encoding harmful majorities) are explicitly discussed in \S\ref{sec:discussion} with a per-persona utility floor mitigation validated in Table~\ref{tab:r2_persona_floor}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the authors have not reviewed the NeurIPS Code of Ethics.
@@ -162,8 +162,8 @@ IMPORTANT, please:
 
 \item {\bf Broader impacts}
     \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: \S\ref{sec:discussion} discusses both directions. Positive: a train-free, low-overhead controller lets practitioners respect cross-national preference heterogeneity at deployment time without finetuning per country, lowering the barrier to culturally pluralistic alignment. Negative: aligning to majority survey statistics could entrench harmful majorities or marginalise minority views~\citep{zewail2025moral}, and alignment to a survey statistic is not equivalent to legitimacy~\citep{atari2023humans}. We propose and validate a per-persona utility floor that caps how far any single persona's post-correction utility can drop from vanilla (Table~\ref{tab:r2_persona_floor}), and we are explicit that DISCA is a research artefact, not a deployment-ready normative system.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that there is no societal impact of the work performed.
@@ -176,8 +176,8 @@ IMPORTANT, please:
     
 \item {\bf Safeguards}
     \item[] Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pre-trained language models, image generators, or scraped datasets)?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: We do not release any pretrained models, generative models, or scraped datasets. The released artefact (\texttt{DISCA\_Alignment/}) is an inference-time controller layered over publicly available open-weight LLMs whose existing safeguards remain in place. The method itself produces no novel generative capability beyond that of the underlying models; the per-persona utility floor (Table~\ref{tab:r2_persona_floor}) is included as an in-method safeguard against majoritarian skew.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper poses no such risks.
@@ -188,8 +188,8 @@ IMPORTANT, please:
 
 \item {\bf Licenses for existing assets}
     \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: All third-party assets are cited with version information. Datasets: MultiTP~\citep{jin2025multitp}, the Moral Machine human AMCE table~\citep{awad2018moral}, and World Values Survey Wave~7 (\texttt{WVS\_Cross-National\_Wave\_7\_inverted\_csv\_v6\_0.csv}) are used under the terms of the respective public releases. Models: Phi-4 and Phi-3.5-mini (MIT), Llama-3.3-70B (Llama-3 Community License), Qwen-2.5/3-VL (Apache-2.0/Qwen license), Gemma family (Gemma terms of use), Magistral-Small-2509 (Apache-2.0). Code dependencies (Transformers, vLLM, Unsloth, bitsandbytes) are listed with version pins in the released \texttt{requirements.txt}; we use them under their stated licenses (mostly Apache-2.0/MIT). The \texttt{compute\_ACME} reference implementation we follow is credited to~\citet{jin2025multitp} in Appendix~\ref{app:amce}.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not use existing assets.
@@ -204,8 +204,8 @@ IMPORTANT, please:
 
 \item {\bf New assets}
     \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerYes{}
+    \item[] Justification: We release the DISCA reference implementation (\texttt{DISCA\_Alignment/}) as a new code asset under the MIT License. The package ships with: a top-level README documenting installation, backend selection (vLLM / HF native / Unsloth), the three external data flags, environment variables, the quick-start command, and the output schema; a flat \texttt{disca/} module with one-purpose files (controller, dual-pass core, runner, AMCE/metrics, persona generation, multilingual scenarios, model loader); pinned dependencies in \texttt{requirements.txt}; and a single CLI entry point (\texttt{run.py --help}). The submission archive is anonymised. All hyperparameter defaults match Table~\ref{tab:hyperparams} in the main paper.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not release new assets.
@@ -215,9 +215,9 @@ IMPORTANT, please:
     \end{itemize}
 
 \item {\bf Crowdsourcing and research with human subjects}
-    \item[] Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? 
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)?
+    \item[] Answer: \answerNA{}
+    \item[] Justification: The paper conducts no new crowdsourcing or human-subjects research. Human reference data is reused from the existing public Moral Machine experiment~\citep{awad2018moral} as packaged by MultiTP~\citep{jin2025multitp}, and from the World Values Survey Wave~7 public microdata; we make no new contact with participants and recruit no annotators.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not involve crowdsourcing nor research with human subjects.
@@ -227,8 +227,8 @@ IMPORTANT, please:
 
 \item {\bf Institutional review board (IRB) approvals or equivalent for research with human subjects}
     \item[] Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained?
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    \item[] Answer: \answerNA{}
+    \item[] Justification: No new human-subjects research is conducted. The work is a secondary analysis of pre-existing public datasets (Moral Machine human AMCEs, MultiTP scenarios, WVS-7 microdata), each of which carries its own ethics review at the original collection point; no further IRB approval applies.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the paper does not involve crowdsourcing nor research with human subjects.
@@ -239,9 +239,9 @@ IMPORTANT, please:
 
 \item {\bf Declaration of LLM usage}
     \item[] Question: Does the paper describe the usage of LLMs if it is an important, original, or non-standard component of the core methods in this research? Note that if the LLM is used only for writing, editing, or formatting purposes and does \emph{not} impact the core methodology, scientific rigor, or originality of the research, declaration is not required.
-    %this research? 
-    \item[] Answer: \answerTODO{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
-    \item[] Justification: \justificationTODO{}
+    %this research?
+    \item[] Answer: \answerYes{}
+    \item[] Justification: LLMs are central to the work in two ways, both fully described. (i) Frozen open-weight LLMs (Phi-4, Llama-3.3-70B, Magistral-24B, Qwen3-VL-8B, Qwen2.5-7B, Phi-3.5-mini, Gemma-4-E2B) are the \emph{subject} that DISCA steers; their identities, sizes, and decoding settings are documented in \S\ref{sec:exp:models} and Appendix~\ref{app:model_landscape}. (ii) For the open-ended extension (\S\ref{sec:method:openended}), an LLM parses free-form responses into a (choice, confidence) pair to recover a pseudo-logit-gap; this auxiliary use is documented in that section. A separate synthetic 200-scenario tuning pool generated by GPT-4 is disclosed in Appendix~\ref{app:hyperparams} along with its limitations. LLMs were not used to generate the paper's claims, results, or proofs.
     \item[] Guidelines:
     \begin{itemize}
         \item The answer \answerNA{} means that the core method development in this research does not involve LLMs as any important, original, or non-standard components.

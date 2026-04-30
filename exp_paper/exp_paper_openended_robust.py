@@ -374,6 +374,101 @@ def _format_summary_text(agg: pd.DataFrame) -> str:
     return "\n".join(lines)
 
 
+def _build_noiseless_paper_table(baseline_wide: pd.DataFrame) -> pd.DataFrame:
+    """Build paper-ready noiseless table from baseline comparison_wide.csv.
+
+    Output schema mirrors the manuscript table:
+      country, van, raw, oracle_d, hybrid, delta_pct, hybrid_source
+    where delta_pct = 100 * (van - hybrid) / van.
+    """
+    if baseline_wide.empty:
+        return pd.DataFrame()
+    req = {"country", "van_mis", "raw_mis", "oracle_d_mis", "hybrid_mis"}
+    if not req.issubset(set(baseline_wide.columns)):
+        return pd.DataFrame()
+    df = baseline_wide.copy()
+    df["delta_pct"] = 100.0 * (df["van_mis"] - df["hybrid_mis"]) / df["van_mis"]
+    out = pd.DataFrame({
+        "country": df["country"],
+        "van": df["van_mis"],
+        "raw": df["raw_mis"],
+        "oracle_d": df["oracle_d_mis"],
+        "hybrid": df["hybrid_mis"],
+        "delta_pct": df["delta_pct"],
+        "hybrid_source": df.get("hybrid_source", ""),
+    })
+    # Keep paper country order as emitted by pipeline; append mean row.
+    mean_row = {
+        "country": "MEAN",
+        "van": float(out["van"].mean()),
+        "raw": float(out["raw"].mean()),
+        "oracle_d": float(out["oracle_d"].mean()),
+        "hybrid": float(out["hybrid"].mean()),
+        "delta_pct": float(out["delta_pct"].mean()),
+        "hybrid_source": "",
+    }
+    out = pd.concat([out, pd.DataFrame([mean_row])], ignore_index=True)
+    return out
+
+
+def _to_latex_noiseless(tbl: pd.DataFrame) -> str:
+    """Render the noiseless main table as a compact LaTeX tabular block."""
+    if tbl.empty:
+        return "% empty noiseless table\n"
+    lines: List[str] = []
+    lines.append("\\begin{tabular}{lccccc}")
+    lines.append("\\toprule")
+    lines.append("Country & VAN & RAW & ORACLE\\_D & HYBRID & $\\Delta\\%$ \\\\")
+    lines.append("\\midrule")
+    for _, r in tbl.iterrows():
+        c = str(r["country"])
+        if c == "MEAN":
+            lines.append("\\midrule")
+            lines.append(
+                f"\\textbf{{MEAN}} & \\textbf{{{r['van']:.4f}}} & "
+                f"\\textbf{{{r['raw']:.4f}}} & \\textbf{{{r['oracle_d']:.4f}}} & "
+                f"\\textbf{{{r['hybrid']:.4f}}} & \\textbf{{{r['delta_pct']:+.2f}\\%}} \\\\"
+            )
+        else:
+            lines.append(
+                f"{c} & {r['van']:.4f} & {r['raw']:.4f} & {r['oracle_d']:.4f} & "
+                f"\\textbf{{{r['hybrid']:.4f}}} & {r['delta_pct']:+.2f}\\% \\\\"
+            )
+    lines.append("\\bottomrule")
+    lines.append("\\end{tabular}")
+    return "\n".join(lines) + "\n"
+
+
+def _to_latex_robustness(agg: pd.DataFrame) -> str:
+    """Render robustness aggregate as LaTeX table (mean±std MIS)."""
+    if agg.empty:
+        return "% empty robustness table\n"
+    methods = ("van", "raw", "safe", "oracle_c", "oracle_d", "hybrid")
+    label = {
+        "van": "VAN",
+        "raw": "RAW",
+        "safe": "SAFE",
+        "oracle_c": "ORACLE$_C$",
+        "oracle_d": "ORACLE$_D$",
+        "hybrid": "HYBRID",
+    }
+    lines: List[str] = []
+    lines.append("\\begin{tabular}{c" + "c" * len(methods) + "}")
+    lines.append("\\toprule")
+    lines.append("$\\sigma$ & " + " & ".join(label[m] for m in methods) + " \\\\")
+    lines.append("\\midrule")
+    for _, r in agg.iterrows():
+        cells: List[str] = []
+        for m in methods:
+            mu = float(r.get(f"{m}_mis_mean", float("nan")))
+            sd = float(r.get(f"{m}_mis_std", float("nan")))
+            cells.append(f"{mu:.4f}$\\pm${sd:.4f}")
+        lines.append(f"{float(r['noise_sigma']):.2f} & " + " & ".join(cells) + " \\\\")
+    lines.append("\\bottomrule")
+    lines.append("\\end{tabular}")
+    return "\n".join(lines) + "\n"
+
+
 # ----------------------------------------------------------------------------
 # Main
 # ----------------------------------------------------------------------------
@@ -492,6 +587,24 @@ def main() -> None:
     print(f"[ROBUST] wrote summary table:        {summary_path}")
     print()
     print(summary_text)
+
+    # ── Step 4: paper bundle (one-click NeurIPS artifacts) ────────────────
+    # Export (a) main noiseless table and (b) robustness table in CSV + TeX
+    # so the user can run this single script and paste outputs directly.
+    baseline_wide_path = _run_dir_for(base_root, sigma0, seed0) / "compare" / "comparison_wide.csv"
+    if baseline_wide_path.exists():
+        baseline_wide = pd.read_csv(baseline_wide_path)
+        noiseless_tbl = _build_noiseless_paper_table(baseline_wide)
+        if not noiseless_tbl.empty:
+            noiseless_csv = cmp_dir / "paper_noiseless_table.csv"
+            noiseless_tbl.to_csv(noiseless_csv, index=False)
+            noiseless_tex = cmp_dir / "paper_noiseless_table.tex"
+            noiseless_tex.write_text(_to_latex_noiseless(noiseless_tbl), encoding="utf-8")
+            print(f"[ROBUST] wrote paper noiseless CSV:  {noiseless_csv}")
+            print(f"[ROBUST] wrote paper noiseless TeX:  {noiseless_tex}")
+    robust_tex = cmp_dir / "paper_robustness_table.tex"
+    robust_tex.write_text(_to_latex_robustness(overall), encoding="utf-8")
+    print(f"[ROBUST] wrote paper robust TeX:     {robust_tex}")
 
     # Persist the sweep + hyperparameters + grid to a sidecar JSON for
     # reproducibility traceability in the paper appendix.
