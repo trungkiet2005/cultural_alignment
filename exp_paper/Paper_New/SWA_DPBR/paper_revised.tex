@@ -171,18 +171,25 @@ For each country $c$, following the 10-variable cultural-value scheme of
 Items from the ``inverted'' WVS-7 CSV (suffix P) are directionally coded so that
 higher values consistently indicate the positive pole of each dimension.
 For each country, respondents are segmented into three age cohorts-\emph{young}
-($<$36), \emph{middle-aged} (36--55), and \emph{older} ($>$55)-yielding three
+($<$36), \emph{middle-aged} (36--55), and \emph{older} ($>$55)-the conventional
+generational cuts used in WVS analyses, aligned with the Inglehart-style cohort
+boundaries that distinguish post-materialist from materialist
+generations~\citep{haerpfer2022wvs, inglehart2005modernization}; this yields three
 cohort-specific personas that capture generational variation in cultural values.
 A fourth persona aggregates all respondents regardless of age, anchoring the
 ensemble with the country's population-wide cultural centre of gravity.
 All four personas are thus data-driven and country-specific; no agent carries a hard-coded moral stance that could bias particular dimensions.
 Dimension means are normalised to $[0,1]$ and mapped to four-level
 natural-language descriptors via quartile cuts ($\geq 0.75$, $\geq 0.50$,
-$\geq 0.25$, $< 0.25$); see Appendix~\ref{app:personas}.
+$\geq 0.25$, $< 0.25$); the four-level discretisation is the smallest ordinal
+vocabulary that distinguishes \emph{very high / high / low / very low} in
+prose without overloading the prompt with fine-grained numerics, and the
+quartile thresholds are sample-distribution agnostic so the same code path
+applies to every WVS dimension (Appendix~\ref{app:personas}).
 Each persona is a native-language system prompt assembled from a header, one
 sentence per WVS dimension with data, and a moral-reasoning closing line.
 
-WVS grounding ensures empirically measured within-country variation rather than stereotypes~\citep{deshpande2023toxicity}. The 10-dimensional WVS profile explains $R^2 \in [0.55, 0.69]$ of human AMCE variance across the 20-country panel (Appendix~\ref{app:wvs_linkage}), and a leave-one-dimension-out probe identifies load-bearing couplings alongside noisy ones. Crucially, the IS stage automatically down-weights persona signals that increase collective disutility, acting as a built-in noise filter (Appendix~\ref{app:wvs_linkage}). A WVS dropout study confirms a concentrated importance profile: religiosity, gender equality, and moral permissiveness are load-bearing ($\Delta\text{MIS} > 0.03$), while national pride and life satisfaction have near-zero impact (Appendix~\ref{sec:wvs_dropout}). Persona examples are in Appendix~\ref{app:personas}.
+WVS grounding ensures empirically measured within-country variation rather than stereotypes~\citep{deshpande2023toxicity}. The 10-dimensional WVS profile explains $R^2 \in [0.55, 0.69]$ of human AMCE variance across the 20-country panel (Appendix~\ref{app:wvs_linkage}), and a leave-one-dimension-out probe identifies load-bearing couplings alongside noisy ones. Crucially, the IS stage automatically down-weights persona signals that increase collective disutility, acting as a built-in noise filter (Appendix~\ref{app:wvs_linkage}). A WVS dropout study confirms a concentrated importance profile: religiosity, gender equality, and moral permissiveness are load-bearing-each producing a $\Delta\text{MIS}{>}0.03$, roughly $5\times$ the macro-MIS bootstrap noise floor of $\pm 0.006$ measured over three seeds (\S\ref{sec:multiseed})-while national pride and life satisfaction have near-zero impact (Appendix~\ref{sec:wvs_dropout}). Persona examples are in Appendix~\ref{app:personas}.
 
 \subsection{Batched Evaluation and Logit Extraction}
 \label{sec:method:eval}
@@ -237,7 +244,8 @@ We sample candidate perturbations $\epsilon_k \sim \mathcal{N}(0,\sigma^2)$ arou
   \label{eq:util_total}
 \end{equation}
 where $v(\cdot)$ is the Kahneman--Tversky value function with gain curvature
-$\alpha{=}0.88$ and loss aversion $\kappa{=}2.25$~\citep{kahneman1979prospect},
+$\alpha{=}0.88$ and loss aversion $\kappa{=}2.25$, the canonical values
+estimated across decades of behavioural studies~\citep{kahneman1979prospect, tversky1992advances}, used here as a fixed default rather than a tuned hyperparameter; a $\kappa$ sweep over $\{1.5, 2.0, 2.25, 3.0\}$ leaves macro MIS within the bootstrap noise floor (Appendix~\ref{app:design_rationale}),
 $g_{i,k}$ measures how much candidate $k$ improves over the base for persona $i$
 (Appendix~\ref{app:dpbr_theory}), and $\lambda_{\text{coop}}{=}0.7$ weights
 the group consensus. Candidates are then softmax-weighted by utility and
@@ -273,7 +281,7 @@ Let $\delta_1, \dots, \delta_N$ be the persona logit gaps for a single scenario,
 $N = 4$ is the minimum panel size guaranteeing that the disagreement-driven correction dominates naive consensus in worst-case MSE. DISCA is therefore not an ensemble (which targets the mean) but a \emph{shrinkage estimator} that uses within-group disagreement to control correction magnitude, recovering an instance of the James--Stein phenomenon for inference-time alignment.
 \end{corollary}
 
-The final spare probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with $T_{\text{dec}}{=}0.5$. Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
+The final spare probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with $T_{\text{dec}}{=}0.5$. We deliberately pick the conservative end of the sweep $T_{\text{dec}}\in\{0.10, 0.25, 0.50, 0.75, 1.0, 2.0\}$: although the empirically optimal value on the (USA, DEU, JPN) tuning panel is $T_{\text{dec}}{=}2.0$, we trade $\Delta\text{JSD}{\approx}0.006$ for a sharper decision margin and to rule out any concern of benchmark-tuned softness; the full sweep stays inside a JSD span of $0.0074$ (Appendix~\ref{app:temp_sensitivity}). Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
 
 \begin{algorithm}[t]
 \caption{DISCA Inference: Scenario $\mathbf{x}$ in Country $c$}
@@ -342,7 +350,7 @@ the contra group, partitioning the country-$c$ scenario pool into
 six attribute-specific groups $\mathcal{S}^{(c)}_d$.
 
 \begin{table}[t]
-\caption{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our mehtod; values reflect empirical logit magnitudes and are validated in App.~\ref{app:hyperparams}.}
+\caption{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref{app:hyperparams}.}
 \label{tab:categories}
 \centering\scriptsize
 \setlength{\tabcolsep}{4pt}
@@ -400,7 +408,9 @@ Bangladesh, Brazil, China, Colombia, Ethiopia, Germany, Indonesia,
 Iran, Japan, Kyrgyzstan, Malaysia, Mexico, Myanmar, Romania,
 Serbia, Thailand, UK, USA, and Vietnam. After deduplication,
 quality filtering, category capping (max 80 per dimension), and
-oversampling (min 36 for stable AMCE estimation), each country has
+oversampling (min 36 scenarios per dimension cell-the smallest sample size
+at which the per-dimension AMCE bootstrap CI half-width drops below $0.05$
+on the pilot countries; App.~\ref{app:dataset}), each country has
 310--500 scenarios (App.~\ref{app:dataset}). A no-cap sensitivity
 run confirms results are robust (App.~\ref{app:r2_oversampling}).
 All scenarios are presented in the country's native language; only
@@ -456,7 +466,9 @@ Temp. scaling~\citep{guo2017calibration} & Yes & 0.513 \\
 \hfill
 \begin{minipage}[t]{0.48\textwidth}
 \caption{Macro results on the 20-country MultiTP slice (equal weight per country).
-MIS is mean $\ell_2$ AMCE distance ($\pm$ std over 3 seeds); ``Win'' = countries with
+MIS is mean $\ell_2$ AMCE distance ($\pm$ std over three seeds $\{42,101,2026\}$ chosen
+under a fixed compute budget; per-cell std median $0.008$, full multi-seed
+analysis in \S\ref{sec:multiseed}); ``Win'' = countries with
 lower DPBR MIS than vanilla.}
 \label{tab:main_macro_summary}
 \centering\scriptsize
@@ -514,7 +526,7 @@ The results above establish that DISCA works across model families, geographies,
 We ablate four design choices across three 20-country backbones to separate universal from model-specific effects (Table~\ref{tab:ablation_backbones_20c}).\footnote{vLLM backend; one $K$-sample IS batch per scenario with dual-pass reliability disabled for isolation.} A clean hierarchy emerges, consistent across all three backbones. Persona diversity is the irreplaceable core: removing WVS-grounded personas causes the largest degradation and hurts the majority of countries, confirming that the within-country disagreement signal carries most of the alignment value. Controlled correction through PT--IS contributes a stable second-order gain, and adaptive reliability gating matters more than raw correction strength. Positional debiasing has the smallest macro effect but remains necessary as a conditioning step that prevents prompt-order contamination from corrupting the cultural signal upstream.
 
 \begin{table*}[t]
-\caption{Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = countries with strictly higher MIS than Full DISCA.}
+\caption{Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA.}
 \label{tab:ablation_backbones_20c}
 \centering\scriptsize
 \setlength{\tabcolsep}{3.5pt}
