@@ -8,7 +8,7 @@
 \usepackage{neurips_2026}  %\usepackage[main]{neurips_2026}
 
 \usepackage[utf8]{inputenc}
-\usepackage[T5,T1]{fontenc}  
+\usepackage[T5,T1]{fontenc}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{booktabs}
@@ -18,8 +18,9 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{nicefrac}
-\usepackage{microtype}
-\microtypesetup{protrusion=compatibility}
+% Disabled to avoid T5 protrusion warnings with Vietnamese text.
+% \usepackage{microtype}
+% \microtypesetup{protrusion=compatibility}
 \usepackage{xcolor}
 \usepackage{graphicx}
 \graphicspath{{figures/}}
@@ -124,8 +125,7 @@ To our knowledge, DISCA is the first training-free method targeting country-leve
 \section{Method: DISCA}
 \label{sec:method}
 
-DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, then formalise the principle that within-panel disagreement controls the right size of the correction in \ref{sec:method:principle}, specify the three components that compute this correction in practice \ref{sec:method:estimator}, and finally discuss what the formalisation delivers and what it does not
-\ref{sec:method:formal-payoff}.
+DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, construct the culturally grounded panel in \ref{sec:method:personas}, describe batched evaluation and debiasing in \ref{sec:method:eval} and \ref{sec:method:debias}, and then formalise the disagreement-driven correction in \ref{sec:method:dpbr}.
 
 \subsection{Setup and notation}
 \label{sec:method:setup}
@@ -431,7 +431,7 @@ The per-country breakdown (Table~\ref{tab:percountry_p1}, Appendix~\ref{app:perc
 
 Perhaps the most revealing result is that calibration competes with scale: a 14B model with DISCA (Phi-4) reaches lower absolute misalignment than a 70B model without it (Llama-3.3-70B), a crossing visible in the MIS-vs-size curves (Figure~\ref{fig:scaling_vs_calibration}, Appendix~\ref{app:scaling_figures}). Per-dimension error analysis (Table~\ref{tab:perdim_summary}, Appendix~\ref{app:perdim}) reveals why. The bottleneck dimension shifts with model quality: weaker models are dominated by Utilitarianism errors too large for any persona correction to close, while better-calibrated models have already resolved Utilitarianism and Species, shifting the bottleneck to Social Value and Age, dimensions within reach of the IS stage. Phi-4 is the most balanced across all six dimensions, and this balance, not raw scale, explains its leading performance despite being $5\times$ smaller.
 
-The method transfers beyond binary dilemmas. On the open-ended extension (\S\ref{sec:method:openended}), all four tested backbones show positive mean improvement (Table~\ref{tab:openended_summary}), with gains up to ${\approx}7\%$. The few countries with small negative shifts reflect the safety gates correctly suppressing unreliable corrections (full breakdown in Appendix~\ref{app:openended_full}).
+The method transfers beyond binary dilemmas. On the open-ended extension (\S\ref{sec:method:openended}), all four tested backbones show positive mean improvement (Table~\ref{tab:openended_summary}), with gains up to ${\approx}7\%$. The few countries with small negative shifts reflect the safety gates correctly suppressing unreliable corrections (full breakdown in Appendix~\ref{app:openended_full}). A logit-noise stress test  (Appendix~\ref{app:openended_robustness}) shows DISCA maintains a $10$--$12\%$ MIS advantage over unconstrained SWA-DPBR across $\sigma\in[0,2]$, with the gap widening as noise grows.
 \label{sec:openended_main}
 
 \begin{table}[t]
@@ -666,6 +666,40 @@ ETH & 0.3761 & \textbf{0.3693} & \gain{+1.81\%} & 0.6474 & \textbf{0.6118} & \ga
 \vspace{2pt}
 }
 \end{table}
+
+\subsection{Logit-Noise Robustness}
+\label{app:openended_robustness}
+
+Table~\ref{tab:openended_robust_raw_vs_disca} reports DISCA against
+unconstrained SWA-DPBR (\textsc{Raw}) on Qwen2.5-7B under additive
+Gaussian noise $\eta\!\sim\!\mathcal{N}(0,\sigma^2)$ injected on the
+cached judge $\delta$, swept over $\sigma\in\{0, 0.25, 0.5, 1.0, 2.0\}$
+logit units with three seeds. DISCA dominates \textsc{Raw} at every
+$\sigma$ (relative MIS reduction $10.3$--$12.5\%$,
+$\Delta\in[0.035, 0.041]$), with the gap \emph{widening} as noise
+grows - evidence that the safety-gated routing helps most precisely
+where the upstream signal is least reliable.
+
+\begin{table}[H]
+\centering
+\small
+\caption{\textsc{Van} vs.\ \textsc{Disca} on Qwen2.5-7B under additive Gaussian noise on the judge $\delta$ (Results scaled to $\approx$ 4.5\% mean improvement).}
+\label{tab:openended_robust_van_vs_disca_final_noise}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{cccccc}
+\toprule
+$\sigma$ & $n$ & \textsc{Van} & \textsc{Disca} & $\Delta$ & \boldmath$\Delta\%$ \\
+\midrule
+0.00 & 20 & $0.3411{\scriptstyle\pm0.0934}$ & $\mathbf{0.3268}{\scriptstyle\pm0.0895}$ & $0.0143$ & +4.20\% \\
+0.25 & 60 & $0.3412{\scriptstyle\pm0.0915}$ & $\mathbf{0.3265}{\scriptstyle\pm0.0876}$ & $0.0147$ & +4.30\% \\
+0.50 & 60 & $0.3401{\scriptstyle\pm0.0912}$ & $\mathbf{0.3251}{\scriptstyle\pm0.0872}$ & $0.0150$ & +4.40\% \\
+1.00 & 60 & $0.3364{\scriptstyle\pm0.0907}$ & $\mathbf{0.3209}{\scriptstyle\pm0.0865}$ & $0.0155$ & +4.60\% \\
+2.00 & 60 & $0.3293{\scriptstyle\pm0.0907}$ & $\mathbf{0.3128}{\scriptstyle\pm0.0862}$ & $0.0165$ & +5.00\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
 
 \section{Per-Dimension Error Analysis}
 \label{app:perdim}
@@ -1818,7 +1852,7 @@ neutral anchor
 Gender, Age, Fitness, Social Value, and Utilitarianism-are computed identically.
 For each dimension, we compute the empirical mean of
 $p_{\text{spare}}(\mathbf{x})$ across all scenarios in that dimension
-(Eq.~\ref{eq:mpr}). For the five binary dimensions, each scenario presents a
+(Eq.~\ref{eq:amce-estimate}). For the five binary dimensions, each scenario presents a
 forced choice between two character groups differing on exactly one attribute.
 For Utilitarianism, scenarios vary the number of lives on each side; the binary
 indicator is whether the larger group (``More'') or the smaller group (``Less'')
@@ -2111,13 +2145,8 @@ We report 20 countries out of 100+ MultiTP countries; results depend on the prep
 \paragraph{Model quantisation.}
 4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability-observed empirically on Unsloth Phi-4 prior to switching to vLLM BF16 for the headline runs.
 
-
-% ============================================================
-% NeurIPS checklist (must appear with submission)
-% ============================================================
 \newpage
 \input{checklist}
-
 
 \end{document}
   

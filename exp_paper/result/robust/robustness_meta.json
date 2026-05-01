@@ -1,0 +1,49 @@
+{
+  "sigma_grid": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    2.0
+  ],
+  "seeds": [
+    42,
+    123,
+    456
+  ],
+  "n_scenarios": 500,
+  "run_batch": "all",
+  "countries": [
+    "USA",
+    "GBR",
+    "DEU",
+    "ARG",
+    "BRA",
+    "MEX",
+    "COL",
+    "VNM",
+    "MMR",
+    "THA",
+    "MYS",
+    "IDN",
+    "CHN",
+    "JPN",
+    "BGD",
+    "IRN",
+    "SRB",
+    "ROU",
+    "KGZ",
+    "ETH"
+  ],
+  "model": "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1",
+  "alpha_max": 0.3,
+  "dpbr_r_min": 0.85,
+  "min_vanilla_conf": 0.5,
+  "magnitude_ratio_max": 2.5,
+  "blend_floor": 0.5,
+  "persona_std_max": 3.0,
+  "country_min_alpha": 0.05,
+  "exp24_var_scale": "0.04",
+  "noise_model": "additive Gaussian on judge δ (logit gap)",
+  "noise_seeding": "np.random.SeedSequence([noise_seed, hash(country) & 0xFFFFFFFF]); iid draws applied to vanilla and 4 persona deltas per scenario"
+}
