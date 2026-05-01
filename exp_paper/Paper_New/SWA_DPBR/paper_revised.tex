@@ -317,13 +317,35 @@ To extend DISCA to open-ended scenarios, the model generates free-form responses
 \label{sec:experiments}
 % ============================================================
 
-\subsection{Dataset}
+\subsection{Dataset and metric}
 \label{sec:exp:data}
 
-We evaluate on MultiTP~\citep{jin2025multitp}: trolley-problem vignettes in native languages across six moral dimensions (Table~\ref{tab:categories}), fixing 20 countries spanning four continents. After deduplication, quality filtering, category capping (max 80 per dimension), and oversampling (min 36 for stable AMCE estimation), each country has 310--500 scenarios (Appendix~\ref{app:dataset}). A no-cap sensitivity run confirms results are robust (Appendix~\ref{app:r2_oversampling}).
+We evaluate on MultiTP~\citep{jin2025multitp}, which adapts the
+Moral Machine trolley-problem protocol~\citep{awad2018moral} to
+language-model evaluation. Each scenario $x$ describes two groups
+of people the autonomous vehicle could spare and asks the model to
+choose between them via decision tokens $A$ and $B$. Each scenario
+isolates one of six moral attributes (Table~\ref{tab:categories}),
+with the two groups matched on the other five. As a concrete
+example, an Age scenario might ask the model whether to spare a
+group of three young children or three elderly adults; across many
+such Age scenarios, the average rate at which the model spares the
+younger group becomes the model's AMCE on Age.
+
+Following the Moral Machine convention, one side of each attribute
+is labelled the \emph{preferred} side. The label is a measurement
+convention from conjoint analysis~\citep{awad2018moral}, not a
+normative claim: it names the side the AMCE measures \emph{toward},
+so that AMCE values are signed consistently across attributes. We
+assign decision token $B$ to the preferred group and token $A$ to
+the contra group, partitioning the country-$c$ scenario pool into
+six attribute-specific groups $\mathcal{S}^{(c)}_d$.
 
 \begin{table}[t]
-\caption{The six moral dimensions in MultiTP.}
+\caption{The six moral dimensions in MultiTP. $T_c$ is the
+per-attribute logit temperature used by the method
+(\S\ref{sec:method:estimator}); values reflect empirical logit
+magnitudes and are validated in App.~\ref{app:hyperparams}.}
 \label{tab:categories}
 \centering\scriptsize
 \setlength{\tabcolsep}{4pt}
@@ -340,6 +362,53 @@ Utilitarianism & More lives & Fewer lives & 1.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\paragraph{Sparing probability and AMCE.}
+The frozen model $f_\theta$ produces logits $z(x) = [z_a, z_b]$ at
+the decision-token position; the decision gap is $\delta(x) = z_b -
+z_a$. The sparing probability under decoding temperature
+$T_{\text{dec}}$ is $p_{\text{spare}}(x) = \sigma(\delta(x) /
+T_{\text{dec}})$, the model's probability of sparing the preferred
+group on scenario $x$. The model's Average Marginal Component
+Effect (AMCE) on attribute $d$ is the empirical mean of
+$p_{\text{spare}}$ across $\mathcal{S}^{(c)}_d$:
+\begin{equation}
+\hat{m}^{(c)}_d = \frac{1}{|\mathcal{S}^{(c)}_d|}
+\sum_{x \in \mathcal{S}^{(c)}_d} p_{\text{spare}}(x).
+\label{eq:amce-estimate}
+\end{equation}
+Stacking across the six attributes gives the model's AMCE vector
+$\hat{m}^{(c)} \in \mathbb{R}^6$. The human AMCE vector $h^{(c)}
+\in \mathbb{R}^6$ for country $c$ is aggregated from 40M+ Moral
+Machine judgments~\citep{awad2018moral, jin2025multitp}, on the
+same scale as $\hat{m}^{(c)}$.
+
+\paragraph{Misalignment score.}
+The primary metric is the \emph{misalignment score},
+$\mathrm{MIS}(c) = \|\hat{m}^{(c)} - h^{(c)}\|_2$, the $\ell_2$
+distance between the model's six-dimensional AMCE vector and the
+country's human AMCE vector (lower is better). The full pipeline
+is: per-scenario logit gap $\delta \to$ per-scenario sparing
+probability $p_{\text{spare}} \to$ per-attribute AMCE
+$\hat{m}^{(c)}_d \to$ six-vector $\hat{m}^{(c)} \to$ MIS distance
+to $h^{(c)}$. Our method (\S\ref{sec:method}) modifies $\delta$ at
+decode time to bring $\hat{m}^{(c)}$ closer to $h^{(c)}$. We
+report MIS macro-averaged over the 20-country panel with equal
+weight per country; secondary diagnostics include Pearson
+correlation $r$ (shape agreement) and Jensen--Shannon divergence
+(distributional distance).
+
+\paragraph{Scenario pool.}
+We evaluate on 20 countries spanning four continents: Argentina,
+Bangladesh, Brazil, China, Colombia, Ethiopia, Germany, Indonesia,
+Iran, Japan, Kyrgyzstan, Malaysia, Mexico, Myanmar, Romania,
+Serbia, Thailand, UK, USA, and Vietnam. After deduplication,
+quality filtering, category capping (max 80 per dimension), and
+oversampling (min 36 for stable AMCE estimation), each country has
+310--500 scenarios (App.~\ref{app:dataset}). A no-cap sensitivity
+run confirms results are robust (App.~\ref{app:r2_oversampling}).
+All scenarios are presented in the country's native language; only
+the decision tokens $A$ and $B$ remain in English to ensure consistent token-ID extraction across model families.
 
 \subsection{Models}
 \label{sec:exp:models}
