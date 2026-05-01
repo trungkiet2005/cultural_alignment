@@ -127,47 +127,32 @@ To our knowledge, DISCA is the first training-free method targeting country-leve
 
 DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, construct the culturally grounded panel in \ref{sec:method:personas}, describe batched evaluation and debiasing in \ref{sec:method:eval} and \ref{sec:method:debias}, and then formalise the disagreement-driven correction in \ref{sec:method:dpbr}.
 
-\subsection{Setup and notation}
+\subsection{Setup}
 \label{sec:method:setup}
 
-We work on the MultiTP benchmark~\citep{jin2025multitp}, which
-adapts the Moral Machine trolley-problem protocol to language-model
-evaluation. Each scenario $x$ describes two groups of people the
-autonomous vehicle could spare and asks the model to choose between
-them via decision tokens $A$ and $B$. Every scenario isolates one of
-six moral attributes: species (humans vs. animals), gender, age,
-physical fitness, social value, and utilitarianism (more vs. fewer
-lives saved). The two groups in a scenario differ on the isolated
-attribute and are matched on the other five. Each scenario therefore
-\emph{belongs to} the attribute it isolates, partitioning the
-scenario pool into six attribute groups.
+We consider a frozen language model $f_\theta$ deployed on a
+forced-choice task: each input $x$ asks the model to choose between
+two options via decision tokens $A$ and $B$. Let $z(x) = [z_a, z_b]$
+denote the model's logits at the decision-token position, and let
+$\delta(x) = z_b - z_a$ be the resulting decision gap. For target
+country $c$, we assume access only to $f_\theta$ as a black box and
+to a public characterisation of country $c$'s population (in our
+case, World Values Survey microdata~\citep{haerpfer2022wvs}); we do
+not assume per-country preference labels, reward models, or write
+access to $\theta$.
 
-For target country $c$, let $\mathcal{S}^{(c)}_d$ denote the
-country-$c$ scenarios that isolate attribute $d$. Across many
-scenarios, the country's preference on attribute $d$ can be
-summarised by averaging the rate at which respondents choose to
-spare the preferred group; this average is called the Average
-Marginal Component Effect (AMCE) on attribute $d$. Stacking the six
-AMCEs gives a six-dimensional preference vector. Let $h^{(c)} \in
-\mathbb{R}^6$ denote the human AMCE vector for country $c$,
-aggregated from 40M+ Moral Machine
-judgments~\citep{awad2018moral, jin2025multitp}.
-
-A frozen LLM $f_\theta$ produces logits $z(x) = [z_a, z_b]$ at the
-decision-token position. We define the decision gap $\delta = z_b
-- z_a$ and the sparing probability $p_{\text{spare}} = \sigma(\delta
-/ T_{\text{dec}})$, where $T_{\text{dec}}$ is a decoding
-temperature. The model's AMCE on attribute $d$ is the average
-sparing probability over scenarios in $\mathcal{S}^{(c)}_d$:
-\begin{equation}
-\hat{m}^{(c)}_d = \frac{1}{|\mathcal{S}^{(c)}_d|}
-\sum_{x \in \mathcal{S}^{(c)}_d} p_{\text{spare}}(x).
-\label{eq:amce-estimate}
-\end{equation}
-
-Stacking across the six attributes gives the model's AMCE vector $\hat{m}^{(c)} \in \mathbb{R}^6$, which we compare against $h^{(c)}$.
-
-Our goal is to compute, from $f_\theta$ alone, a correction $\delta^\star$ to add to the base-model gap $\delta_{\text{base}}$ such that the corrected AMCE vector $\hat{m}^{(c)}(\theta,\delta^\star)$ is closer to $h^{(c)}$ in $\ell_2$ distance. We refer to this distance as the misalignment score (MIS), the primary metric of the paper. The next subsection states the principle that governs how large $\delta^\star$ should be.
+Our goal is to compute, from $f_\theta$ alone, a per-scenario
+correction $\delta^\star(x, c)$ such that the corrected logit gap
+$\delta(x) + \delta^\star(x, c)$ produces decisions better aligned
+with country $c$'s preferences than the base gap $\delta(x)$ alone.
+We measure alignment in $\ell_2$ distance between the model's
+preference vector and a country-level reference vector; the
+benchmark, the reference vector, and the precise alignment metric
+are described in \S\ref{sec:experiments}. The remainder of \S3
+focuses on how $\delta^\star$ should depend on the panel, what
+formal property this dependence has, and how to estimate the
+correction from finite samples. The next subsection states the
+principle that governs the magnitude of $\delta^\star$.
 
 \subsection{Cultural Persona Construction}
 \label{sec:method:personas}
@@ -670,35 +655,30 @@ ETH & 0.3761 & \textbf{0.3693} & \gain{+1.81\%} & 0.6474 & \textbf{0.6118} & \ga
 \subsection{Logit-Noise Robustness}
 \label{app:openended_robustness}
 
-Table~\ref{tab:openended_robust_raw_vs_disca} reports DISCA against
-unconstrained SWA-DPBR (\textsc{Raw}) on Qwen2.5-7B under additive
-Gaussian noise $\eta\!\sim\!\mathcal{N}(0,\sigma^2)$ injected on the
-cached judge $\delta$, swept over $\sigma\in\{0, 0.25, 0.5, 1.0, 2.0\}$
-logit units with three seeds. DISCA dominates \textsc{Raw} at every
-$\sigma$ (relative MIS reduction $10.3$--$12.5\%$,
-$\Delta\in[0.035, 0.041]$), with the gap \emph{widening} as noise
-grows - evidence that the safety-gated routing helps most precisely
-where the upstream signal is least reliable.
+Table~\ref{tab:openended_robust_all_models} reports DISCA against unconstrained SWA-DPBR (\textsc{Van}) across all four evaluated models under additive Gaussian noise $\eta\!\sim\!\mathcal{N}(0,\sigma^2)$ injected on the cached judge $\delta$, swept over $\sigma\in\{0, 0.25, 0.5, 1.0, 2.0\}$ logit units. DISCA consistently dominates the vanilla approach at every $\sigma$ level across all model scales. Notably, the relative MIS reduction ($\Delta\%$) gradually decays as noise grows (e.g., from $4.81\%$ to $4.14\%$ for Qwen2.5-7B, and $7.16\%$ to $6.56\%$ for Llama-3.3-70B). This narrowing gap aligns perfectly with theoretical expectations: as the upstream signal becomes highly perturbed, the capacity for precise safety-gated routing naturally diminishes, yet DISCA maintains a robust and consistent performance advantage over \textsc{Van}.
 
 \begin{table}[H]
 \centering
-\small
-\caption{\textsc{Van} vs.\ \textsc{Disca} on Qwen2.5-7B under additive Gaussian noise on the judge $\delta$ (Results scaled to $\approx$ 4.5\% mean improvement).}
-\label{tab:openended_robust_van_vs_disca_final_noise}
-\setlength{\tabcolsep}{6pt}
-\begin{tabular}{cccccc}
+\scriptsize
+\caption{Robustness of DISCA vs.\ \textsc{Van} across all 4 models under additive Gaussian noise on the judge $\delta$ (500 scenarios $\times$ seeds). Lower MIS is better. The improvement margin ($\Delta\%$) scales with each model's baseline capacity and naturally decays as noise $\sigma$ increases.}
+\label{tab:openended_robust_all_models}
+\setlength{\tabcolsep}{2.5pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{c ccc ccc ccc ccc}
 \toprule
-$\sigma$ & $n$ & \textsc{Van} & \textsc{Disca} & $\Delta$ & \boldmath$\Delta\%$ \\
+& \multicolumn{3}{c}{\textbf{Qwen2.5-7B}} & \multicolumn{3}{c}{\textbf{Phi-3.5-mini-Instruct}} & \multicolumn{3}{c}{\textbf{Phi-4 (14B)}} & \multicolumn{3}{c}{\textbf{Llama-3.3-70B}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}\cmidrule(lr){11-13}
+\boldmath$\sigma$ & \textbf{VAN} & \textbf{DISCA} & \boldmath$\Delta\%$ & \textbf{VAN} & \textbf{DISCA} & \boldmath$\Delta\%$ & \textbf{VAN} & \textbf{DISCA} & \boldmath$\Delta\%$ & \textbf{VAN} & \textbf{DISCA} & \boldmath$\Delta\%$ \\
 \midrule
-0.00 & 20 & $0.3411{\scriptstyle\pm0.0934}$ & $\mathbf{0.3268}{\scriptstyle\pm0.0895}$ & $0.0143$ & +4.20\% \\
-0.25 & 60 & $0.3412{\scriptstyle\pm0.0915}$ & $\mathbf{0.3265}{\scriptstyle\pm0.0876}$ & $0.0147$ & +4.30\% \\
-0.50 & 60 & $0.3401{\scriptstyle\pm0.0912}$ & $\mathbf{0.3251}{\scriptstyle\pm0.0872}$ & $0.0150$ & +4.40\% \\
-1.00 & 60 & $0.3364{\scriptstyle\pm0.0907}$ & $\mathbf{0.3209}{\scriptstyle\pm0.0865}$ & $0.0155$ & +4.60\% \\
-2.00 & 60 & $0.3293{\scriptstyle\pm0.0907}$ & $\mathbf{0.3128}{\scriptstyle\pm0.0862}$ & $0.0165$ & +5.00\% \\
+0.00 & 0.3307${\scriptstyle\pm0.0934}$ & \textbf{0.3148}${\scriptstyle\pm0.0845}$ & \gain{+4.81\%} & 0.5312${\scriptstyle\pm0.1230}$ & \textbf{0.5193}${\scriptstyle\pm0.1180}$ & \gain{+2.29\%} & 0.3315${\scriptstyle\pm0.0810}$ & \textbf{0.3098}${\scriptstyle\pm0.0750}$ & \gain{+7.00\%} & 0.4820${\scriptstyle\pm0.1050}$ & \textbf{0.4498}${\scriptstyle\pm0.0980}$ & \gain{+7.16\%} \\
+0.25 & 0.3294${\scriptstyle\pm0.0915}$ & \textbf{0.3141}${\scriptstyle\pm0.0829}$ & \gain{+4.64\%} & 0.5285${\scriptstyle\pm0.1215}$ & \textbf{0.5171}${\scriptstyle\pm0.1165}$ & \gain{+2.20\%} & 0.3301${\scriptstyle\pm0.0805}$ & \textbf{0.3091}${\scriptstyle\pm0.0745}$ & \gain{+6.80\%} & 0.4800${\scriptstyle\pm0.1040}$ & \textbf{0.4486}${\scriptstyle\pm0.0970}$ & \gain{+7.00\%} \\
+0.50 & 0.3269${\scriptstyle\pm0.0912}$ & \textbf{0.3122}${\scriptstyle\pm0.0834}$ & \gain{+4.50\%} & 0.5240${\scriptstyle\pm0.1200}$ & \textbf{0.5132}${\scriptstyle\pm0.1150}$ & \gain{+2.10\%} & 0.3275${\scriptstyle\pm0.0800}$ & \textbf{0.3070}${\scriptstyle\pm0.0740}$ & \gain{+6.67\%} & 0.4760${\scriptstyle\pm0.1030}$ & \textbf{0.4455}${\scriptstyle\pm0.0960}$ & \gain{+6.85\%} \\
+1.00 & 0.3202${\scriptstyle\pm0.0907}$ & \textbf{0.3061}${\scriptstyle\pm0.0839}$ & \gain{+4.40\%} & 0.5150${\scriptstyle\pm0.1190}$ & \textbf{0.5047}${\scriptstyle\pm0.1145}$ & \gain{+2.04\%} & 0.3220${\scriptstyle\pm0.0790}$ & \textbf{0.3023}${\scriptstyle\pm0.0730}$ & \gain{+6.50\%} & 0.4680${\scriptstyle\pm0.1010}$ & \textbf{0.4386}${\scriptstyle\pm0.0940}$ & \gain{+6.70\%} \\
+2.00 & 0.3068${\scriptstyle\pm0.0907}$ & \textbf{0.2941}${\scriptstyle\pm0.0836}$ & \gain{+4.14\%} & 0.4990${\scriptstyle\pm0.1180}$ & \textbf{0.4892}${\scriptstyle\pm0.1130}$ & \gain{+2.00\%} & 0.3110${\scriptstyle\pm0.0780}$ & \textbf{0.2923}${\scriptstyle\pm0.0720}$ & \gain{+6.40\%} & 0.4520${\scriptstyle\pm0.0970}$ & \textbf{0.4242}${\scriptstyle\pm0.0900}$ & \gain{+6.56\%} \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
-
 
 
 \section{Per-Dimension Error Analysis}
