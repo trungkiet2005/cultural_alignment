@@ -1,359 +1,1213 @@
 {
-  "filepath": "exp_paper/Paper_New/SWA_DPBR/references.bib",
-  "total_entries": 56,
-  "valid_entries": 56,
-  "errors": [],
-  "warnings": [
+  "summary": {
+    "total_entries": 56,
+    "pass": 5,
+    "warn": 51,
+    "fail": 0,
+    "verified": 34
+  },
+  "results": [
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry aisp2025: Missing recommended field \"volume\"",
-      "entry": "aisp2025"
+      "key": "ahmad2024largescale",
+      "type": "article",
+      "title": "Large-scale moral machine experiment on large language models",
+      "status": "pass",
+      "verified": true,
+      "errors": [],
+      "warnings": [],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.1371/journal.pone.0322776",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://doi.org/10.1371/journal.pone.0322776",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.1371/journal.pone.0322776",
+      "url": "https://doi.org/10.1371/journal.pone.0322776"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry aisp2025: Missing recommended field \"pages\"",
-      "entry": "aisp2025"
+      "key": "aisp2025",
+      "type": "article",
+      "title": "Test-Time Alignment of {LLMs} via Sampling-Based Optimal Control in Pre-Logit Space",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2510.26219",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry an2026logit: Missing recommended field \"volume\"",
-      "entry": "an2026logit"
+      "key": "an2026logit",
+      "type": "article",
+      "title": "Steering Language Models Before They Speak: Logit-Level Interventions",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2601.10960",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry an2026logit: Missing recommended field \"pages\"",
-      "entry": "an2026logit"
+      "key": "arditi2025refusal",
+      "type": "inproceedings",
+      "title": "Refusal in language models is mediated by a single direction",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry atari2023humans: Missing recommended field \"volume\"",
-      "entry": "atari2023humans"
+      "key": "atari2023humans",
+      "type": "article",
+      "title": "Which Humans?",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.31234/osf.io/5b26t",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.31234/osf.io/5b26t",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry atari2023humans: Missing recommended field \"pages\"",
-      "entry": "atari2023humans"
+      "key": "awad2018moral",
+      "type": "article",
+      "title": "The moral machine experiment",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry bobbili2025pita: Missing recommended field \"volume\"",
-      "entry": "bobbili2025pita"
+      "key": "bobbili2025pita",
+      "type": "article",
+      "title": "{PITA}: Preference-Guided Inference-Time Alignment for {LLM} Post-Training",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2507.20067",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry bobbili2025pita: Missing recommended field \"pages\"",
-      "entry": "bobbili2025pita"
+      "key": "chand2026nofree",
+      "type": "article",
+      "title": "No Free Lunch in Language Model Bias Mitigation? {T}argeted Bias Reduction Can Exacerbate Unmitigated {LLM} Biases",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "DOI gateway returned 403, Crossref confirms DOI exists"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.3390/ai7010024",
+          "ok": false,
+          "status": 403
+        },
+        {
+          "type": "crossref",
+          "target": "https://api.crossref.org/works/10.3390/ai7010024",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.3390/ai7010024",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry chen2025diffpo: Missing recommended field \"volume\"",
-      "entry": "chen2025diffpo"
+      "key": "chen2025diffpo",
+      "type": "inproceedings",
+      "title": "{D}iff{PO}: Diffusion-styled Preference Optimization for Inference Time Alignment of Large Language Models",
+      "status": "pass",
+      "verified": true,
+      "errors": [],
+      "warnings": [],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.18653/v1/2025.acl-long.926",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://aclanthology.org/2025.acl-long.926/",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2503.04240",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.18653/v1/2025.acl-long.926",
+      "url": "https://aclanthology.org/2025.acl-long.926/"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry deshpande2023toxicity: Missing recommended field \"volume\"",
-      "entry": "deshpande2023toxicity"
+      "key": "deshpande2023toxicity",
+      "type": "inproceedings",
+      "title": "Toxicity in {ChatGPT}: Analyzing Persona-assigned Language Models",
+      "status": "pass",
+      "verified": true,
+      "errors": [],
+      "warnings": [],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.18653/v1/2023.findings-emnlp.88",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://aclanthology.org/2023.findings-emnlp.88/",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2304.05335",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.18653/v1/2023.findings-emnlp.88",
+      "url": "https://aclanthology.org/2023.findings-emnlp.88/"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry du2023improving: Missing recommended field \"volume\"",
-      "entry": "du2023improving"
+      "key": "du2023improving",
+      "type": "inproceedings",
+      "title": "Improving Factuality and Reasoning in Language Models through Multiagent Debate",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "url",
+          "target": "https://proceedings.mlr.press/v235/du24e.html",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2305.14325",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": "https://proceedings.mlr.press/v235/du24e.html"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry du2023improving: Missing recommended field \"pages\"",
-      "entry": "du2023improving"
+      "key": "durmus2023global",
+      "type": "article",
+      "title": "Towards measuring the representation of subjective global opinions in language models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2306.16388",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry durmus2023global: Missing recommended field \"volume\"",
-      "entry": "durmus2023global"
+      "key": "efron1979bootstrap",
+      "type": "article",
+      "title": "Bootstrap methods: another look at the jackknife",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry durmus2023global: Missing recommended field \"pages\"",
-      "entry": "durmus2023global"
+      "key": "elvira2021advances",
+      "type": "article",
+      "title": "Advances in importance sampling",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry elvira2021advances: Missing recommended field \"volume\"",
-      "entry": "elvira2021advances"
+      "key": "ethayarajh2024kto",
+      "type": "inproceedings",
+      "title": "{KTO}: Model Alignment as Prospect Theoretic Optimization",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2402.01306",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry ethayarajh2024kto: Missing recommended field \"pages\"",
-      "entry": "ethayarajh2024kto"
+      "key": "gal2016dropout",
+      "type": "inproceedings",
+      "title": "Dropout as a {B}ayesian Approximation: Representing Model Uncertainty in Deep Learning",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry gal2016dropout: Missing recommended field \"pages\"",
-      "entry": "gal2016dropout"
+      "key": "greco2026personas",
+      "type": "article",
+      "title": "Culturally Grounded Personas in Large Language Models: Characterization and Alignment with Socio-Psychological Value Frameworks",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2601.22396",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry greco2026personas: Missing recommended field \"volume\"",
-      "entry": "greco2026personas"
+      "key": "guo2017calibration",
+      "type": "inproceedings",
+      "title": "On Calibration of Modern Neural Networks",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/1706.04599",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry greco2026personas: Missing recommended field \"pages\"",
-      "entry": "greco2026personas"
+      "key": "haerpfer2022wvs",
+      "type": "misc",
+      "title": "{World Values Survey}: Round Seven -- Country-Pooled Datafile",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry hendrycks2021aligning: Missing recommended field \"pages\"",
-      "entry": "hendrycks2021aligning"
+      "key": "hendrycks2021aligning",
+      "type": "inproceedings",
+      "title": "Aligning {AI} with Shared Human Values",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry jin2025multitp: Missing recommended field \"volume\"",
-      "entry": "jin2025multitp"
+      "key": "henrich2010weirdest",
+      "type": "article",
+      "title": "The weirdest people in the world?",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry jin2025multitp: Missing recommended field \"pages\"",
-      "entry": "jin2025multitp"
+      "key": "inglehart2005modernization",
+      "type": "book",
+      "title": "Modernization, Cultural Change, and Democracy: The Human Development Sequence",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: isbn",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry khan2025randomness: Missing recommended field \"volume\"",
-      "entry": "khan2025randomness"
+      "key": "james1961estimation",
+      "type": "inproceedings",
+      "title": "Estimation with Quadratic Loss",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "url",
+          "target": "https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Estimation-with-Quadratic-Loss/bsmsp/1200512173",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": "https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Estimation-with-Quadratic-Loss/bsmsp/1200512173"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry khanov2024args: Missing recommended field \"volume\"",
-      "entry": "khanov2024args"
+      "key": "jin2022exceptions",
+      "type": "inproceedings",
+      "title": "When to make exceptions: Exploring language models as accounts of human moral judgment",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry khanov2024args: Missing recommended field \"pages\"",
-      "entry": "khanov2024args"
+      "key": "jin2025multitp",
+      "type": "inproceedings",
+      "title": "{Language Model Alignment in Multilingual Trolley Problems}",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "url",
+          "target": "https://openreview.net/forum?id=VEqPDZIDAh",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2407.02273",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": "https://openreview.net/forum?id=VEqPDZIDAh"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry khanuja2026steering: Missing recommended field \"volume\"",
-      "entry": "khanuja2026steering"
+      "key": "kahneman1979prospect",
+      "type": "article",
+      "title": "Prospect theory: An analysis of decision under risk",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry khanuja2026steering: Missing recommended field \"pages\"",
-      "entry": "khanuja2026steering"
+      "key": "khan2025randomness",
+      "type": "inproceedings",
+      "title": "Randomness, Not Representation: The Unreliability of Evaluating Cultural Alignment in {LLMs}",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "DOI gateway returned 403, Crossref confirms DOI exists",
+        "URL not resolvable (403)"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.1145/3715275.3732147",
+          "ok": false,
+          "status": 403
+        },
+        {
+          "type": "crossref",
+          "target": "https://api.crossref.org/works/10.1145/3715275.3732147",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://dl.acm.org/doi/10.1145/3715275.3732147",
+          "ok": false,
+          "status": 403
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2503.08688",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.1145/3715275.3732147",
+      "url": "https://dl.acm.org/doi/10.1145/3715275.3732147"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry kim2025persona: Missing recommended field \"volume\"",
-      "entry": "kim2025persona"
+      "key": "khanov2024args",
+      "type": "inproceedings",
+      "title": "{ARGS}: Alignment as Reward-Guided Search",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "url",
+          "target": "https://openreview.net/forum?id=shgx0eqdw6",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2402.01694",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": "https://openreview.net/forum?id=shgx0eqdw6"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry kim2025persona: Missing recommended field \"pages\"",
-      "entry": "kim2025persona"
+      "key": "khanuja2026steering",
+      "type": "article",
+      "title": "Steering {LLMs} for Culturally Localized Generation",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2603.23301",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry kirk2024prism: Missing recommended field \"volume\"",
-      "entry": "kirk2024prism"
+      "key": "kim2025persona",
+      "type": "article",
+      "title": "Exploring Persona-dependent LLM Alignment for the Moral Machine Experiment",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.48550/arXiv.2504.10886",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://arxiv.org/abs/2504.10886",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2504.10886",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.48550/arXiv.2504.10886",
+      "url": "https://arxiv.org/abs/2504.10886"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry levine2018reinforcement: Missing recommended field \"volume\"",
-      "entry": "levine2018reinforcement"
+      "key": "kirk2024prism",
+      "type": "article",
+      "title": "The {PRISM} Alignment Dataset: What Participatory, Representative and Individualised Human Feedback Reveals About the Subjective and Multicultural Alignment of Large Language Models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2404.16019",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry levine2018reinforcement: Missing recommended field \"pages\"",
-      "entry": "levine2018reinforcement"
+      "key": "kish1965survey",
+      "type": "book",
+      "title": "Survey Sampling",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: isbn",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry mudgal2024controlled: Missing recommended field \"volume\"",
-      "entry": "mudgal2024controlled"
+      "key": "kleiman2017learning",
+      "type": "article",
+      "title": "Learning a commonsense moral theory",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry mudgal2024controlled: Missing recommended field \"pages\"",
-      "entry": "mudgal2024controlled"
+      "key": "kwon2025dropouts",
+      "type": "inproceedings",
+      "title": "Dropouts in Confidence: Moral Uncertainty in Human-{LLM} Alignment",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2511.13290",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry payne2025prospect: Missing recommended field \"volume\"",
-      "entry": "payne2025prospect"
+      "key": "levine2018reinforcement",
+      "type": "article",
+      "title": "Reinforcement learning and control as probabilistic inference: {T}utorial and review",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/1805.00909",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry payne2025prospect: Missing recommended field \"pages\"",
-      "entry": "payne2025prospect"
+      "key": "liang2024encouraging",
+      "type": "inproceedings",
+      "title": "Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate",
+      "status": "pass",
+      "verified": true,
+      "errors": [],
+      "warnings": [],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.18653/v1/2024.emnlp-main.992",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://aclanthology.org/2024.emnlp-main.992/",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.18653/v1/2024.emnlp-main.992",
+      "url": "https://aclanthology.org/2024.emnlp-main.992/"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry ryan2024unintended: Missing recommended field \"volume\"",
-      "entry": "ryan2024unintended"
+      "key": "liu2024lost",
+      "type": "article",
+      "title": "Lost in the middle: How language models use long contexts",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry santurkar2023opinions: Missing recommended field \"volume\"",
-      "entry": "santurkar2023opinions"
+      "key": "mudgal2024controlled",
+      "type": "inproceedings",
+      "title": "Controlled Decoding from Language Models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "url",
+          "target": "https://proceedings.mlr.press/v235/mudgal24a.html",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2310.17022",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": "https://proceedings.mlr.press/v235/mudgal24a.html"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry santurkar2023opinions: Missing recommended field \"pages\"",
-      "entry": "santurkar2023opinions"
+      "key": "myung2024blend",
+      "type": "inproceedings",
+      "title": "{BLEnD}: A Benchmark for {LLMs} on Everyday Knowledge in Diverse Cultures and Languages",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2406.09948",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry sorensen2024roadmap: Missing recommended field \"volume\"",
-      "entry": "sorensen2024roadmap"
+      "key": "nie2023moca",
+      "type": "inproceedings",
+      "title": "{MoCa}: Measuring Human-Language Model Alignment on Causal and Moral Judgment Tasks",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry sorensen2024roadmap: Missing recommended field \"pages\"",
-      "entry": "sorensen2024roadmap"
+      "key": "payne2025prospect",
+      "type": "article",
+      "title": "An Analysis of {AI} Decision under Risk: Prospect Theory Emerges in Large Language Models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2508.00902",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry turner2023activation: Missing recommended field \"pages\"",
-      "entry": "turner2023activation"
+      "key": "qiu2025cross",
+      "type": "misc",
+      "title": "Multimodal Cultural Safety: Evaluation Framework and Alignment Strategies",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry wang2023selfconsistency: Missing recommended field \"pages\"",
-      "entry": "wang2023selfconsistency"
+      "key": "ryan2024unintended",
+      "type": "inproceedings",
+      "title": "Unintended Impacts of {LLM} Alignment on Global Representation",
+      "status": "pass",
+      "verified": true,
+      "errors": [],
+      "warnings": [],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.18653/v1/2024.acl-long.853",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://aclanthology.org/2024.acl-long.853/",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2402.15018",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.18653/v1/2024.acl-long.853",
+      "url": "https://aclanthology.org/2024.acl-long.853/"
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry yao2024caredio: Missing recommended field \"volume\"",
-      "entry": "yao2024caredio"
+      "key": "santurkar2023opinions",
+      "type": "article",
+      "title": "Whose opinions do language models reflect?",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2303.17548",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry yao2024caredio: Missing recommended field \"pages\"",
-      "entry": "yao2024caredio"
+      "key": "schwartz2012refining",
+      "type": "article",
+      "title": "Refining the theory of basic individual values",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry zewail2025moral: Missing recommended field \"pages\"",
-      "entry": "zewail2025moral"
+      "key": "sorensen2024roadmap",
+      "type": "article",
+      "title": "A roadmap to pluralistic alignment",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2402.05070",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry zhang2026culturemanager: Missing recommended field \"volume\"",
-      "entry": "zhang2026culturemanager"
+      "key": "takemoto2024moral",
+      "type": "article",
+      "title": "The moral machine experiment on large language models",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry zhang2026culturemanager: Missing recommended field \"pages\"",
-      "entry": "zhang2026culturemanager"
+      "key": "todorov2009generalized",
+      "type": "article",
+      "title": "Efficient computation of optimal actions",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "volume",
-      "severity": "medium",
-      "message": "Entry zou2023representation: Missing recommended field \"volume\"",
-      "entry": "zou2023representation"
+      "key": "turner2023activation",
+      "type": "inproceedings",
+      "title": "Activation Addition: Steering Language Models Without Optimization",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
     },
     {
-      "type": "missing_recommended_field",
-      "field": "pages",
-      "severity": "medium",
-      "message": "Entry zou2023representation: Missing recommended field \"pages\"",
-      "entry": "zou2023representation"
+      "key": "tversky1992advances",
+      "type": "article",
+      "title": "Advances in prospect theory: Cumulative representation of uncertainty",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
+    },
+    {
+      "key": "wang2023selfconsistency",
+      "type": "inproceedings",
+      "title": "Self-Consistency Improves Chain of Thought Reasoning in Language Models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.48550/arXiv.2203.11171",
+          "ok": true,
+          "status": 200
+        },
+        {
+          "type": "url",
+          "target": "https://arxiv.org/abs/2203.11171",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.48550/arXiv.2203.11171",
+      "url": "https://arxiv.org/abs/2203.11171"
+    },
+    {
+      "key": "williams2017mppi",
+      "type": "article",
+      "title": "Information-theoretic model predictive control: Theory and applications to autonomous driving",
+      "status": "warn",
+      "verified": false,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [],
+      "doi": "",
+      "url": ""
+    },
+    {
+      "key": "yao2024caredio",
+      "type": "article",
+      "title": "{CAReDiO}: Cultural Alignment of {LLM} via Representativeness and Distinctiveness Guided Data Optimization",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2504.08820",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
+    },
+    {
+      "key": "zewail2025moral",
+      "type": "article",
+      "title": "Moral stereotyping in large language models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: pages",
+        "DOI gateway returned 403, Crossref confirms DOI exists"
+      ],
+      "checks": [
+        {
+          "type": "doi",
+          "target": "https://doi.org/10.1073/pnas.2519941123",
+          "ok": false,
+          "status": 403
+        },
+        {
+          "type": "crossref",
+          "target": "https://api.crossref.org/works/10.1073/pnas.2519941123",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "10.1073/pnas.2519941123",
+      "url": ""
+    },
+    {
+      "key": "zhang2026culturemanager",
+      "type": "article",
+      "title": "Mind the Gap in Cultural Alignment: Task-Aware Culture Management for Large Language Models",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2602.22475",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
+    },
+    {
+      "key": "zou2023representation",
+      "type": "article",
+      "title": "Representation engineering: A top-down approach to {AI} transparency",
+      "status": "warn",
+      "verified": true,
+      "errors": [],
+      "warnings": [
+        "missing recommended field: volume",
+        "missing recommended field: pages",
+        "missing recommended field: doi",
+        "no DOI"
+      ],
+      "checks": [
+        {
+          "type": "arxiv",
+          "target": "https://arxiv.org/abs/2310.01405",
+          "ok": true,
+          "status": 200
+        }
+      ],
+      "doi": "",
+      "url": ""
     }
-  ],
-  "duplicates": []
+  ]
 }

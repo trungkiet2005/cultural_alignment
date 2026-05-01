@@ -8,7 +8,7 @@
 \usepackage{neurips_2026}  %\usepackage[main]{neurips_2026}
 
 \usepackage[utf8]{inputenc}
-\usepackage[T5,T1]{fontenc}  
+\usepackage[T5,T1]{fontenc}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{booktabs}
@@ -18,8 +18,9 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{nicefrac}
-\usepackage{microtype}
-\microtypesetup{protrusion=compatibility}
+% Disabled to avoid T5 protrusion warnings with Vietnamese text.
+% \usepackage{microtype}
+% \microtypesetup{protrusion=compatibility}
 \usepackage{xcolor}
 \usepackage{graphicx}
 \graphicspath{{figures/}}
@@ -124,8 +125,7 @@ To our knowledge, DISCA is the first training-free method targeting country-leve
 \section{Method: DISCA}
 \label{sec:method}
 
-DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, then formalise the principle that within-panel disagreement controls the right size of the correction in \ref{sec:method:principle}, specify the three components that compute this correction in practice \ref{sec:method:estimator}, and finally discuss what the formalisation delivers and what it does not
-\ref{sec:method:formal-payoff}.
+DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, construct the culturally grounded panel in \ref{sec:method:personas}, describe batched evaluation and debiasing in \ref{sec:method:eval} and \ref{sec:method:debias}, and then formalise the disagreement-driven correction in \ref{sec:method:dpbr}.
 
 \subsection{Setup and notation}
 \label{sec:method:setup}
@@ -1818,7 +1818,7 @@ neutral anchor
 Gender, Age, Fitness, Social Value, and Utilitarianism-are computed identically.
 For each dimension, we compute the empirical mean of
 $p_{\text{spare}}(\mathbf{x})$ across all scenarios in that dimension
-(Eq.~\ref{eq:mpr}). For the five binary dimensions, each scenario presents a
+(Eq.~\ref{eq:amce-estimate}). For the five binary dimensions, each scenario presents a
 forced choice between two character groups differing on exactly one attribute.
 For Utilitarianism, scenarios vary the number of lives on each side; the binary
 indicator is whether the larger group (``More'') or the smaller group (``Less'')
@@ -2111,13 +2111,8 @@ We report 20 countries out of 100+ MultiTP countries; results depend on the prep
 \paragraph{Model quantisation.}
 4-bit/Int8 quantisation may introduce logit artefacts affecting IS stability-observed empirically on Unsloth Phi-4 prior to switching to vLLM BF16 for the headline runs.
 
-
-% ============================================================
-% NeurIPS checklist (must appear with submission)
-% ============================================================
 \newpage
 \input{checklist}
-
 
 \end{document}
   

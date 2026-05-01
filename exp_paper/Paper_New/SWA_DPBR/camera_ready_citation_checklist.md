@@ -1,0 +1,102 @@
+# Camera-Ready Manual Citation Checklist
+
+- Source tex: `paper_revised.tex`
+- Source bib: `references.bib`
+- Unique cited keys in tex: **87**
+- Cited keys found in bib: **0**
+- Cited keys missing in bib: **87**
+
+## Cited Keys Found in references.bib
+
+| Key | Type | Venue / Journal | DOI | URL | Check |
+|---|---|---|---|---|---|
+
+## Cited Keys Missing from references.bib
+
+- `achille2018invariance`
+- `agueh2011barycenters`
+- `aguehcarlier2011barycenters`
+- `alvarez2016fixedpoint`
+- `alvarezesteban2016bw`
+- `arandjelovic2016netvlad`
+- `baevski2022data2vec`
+- `bau2024`
+- `bendavid2010theory`
+- `bhatia2019bures`
+- `biederman1987rbc`
+- `cargo2023`
+- `caron2021dino`
+- `chen2024sdpl`
+- `chen2025multilevel`
+- `chizat2018unbalanced`
+- `complexuav2025`
+- `cuturidoucet2014fastbary`
+- `dai2022fsra`
+- `dai2023denseuav`
+- `demic2025bmvc`
+- `deuser2023sample4geo`
+- `dey2019doodle`
+- `ding2021practical`
+- `dosovitskiy2021vit`
+- `dtst2024`
+- `du2024ccr`
+- `dumoulin2018featurewise`
+- `feydy2019sinkhorn`
+- `freestyleret`
+- `fscoco2022`
+- `ganin2015dann`
+- `ge2024multi`
+- `ge2024multilevel`
+- `gsalign2025`
+- `he2021transreid`
+- `he2022mae`
+- `higgins2017beta`
+- `hinton2015distilling`
+- `holefvgg`
+- `hu2018cvmnet`
+- `kendall2018multi`
+- `kim2020proxy`
+- `kipf2017gcn`
+- `locatello2019challenging`
+- `locatello2020slot`
+- `luo2019bagoftricks`
+- `luo2023segclip`
+- `lv2024srln`
+- `marr1978representation`
+- `oord2018infonce`
+- `oquab2024dinov2`
+- `ovsjanikov2012functional`
+- `partiallydoesit`
+- `perez2018film`
+- `sangkloy2016sketchy`
+- `sbs2020`
+- `scenediff`
+- `scenesketcherv2`
+- `scenetrilogy`
+- `sener2018mtl`
+- `shen2023mccg`
+- `shi2020polar`
+- `siamvgg`
+- `sketchycoco2020`
+- `sketchyscene`
+- `sun2018beyond`
+- `sun2020circle`
+- `tishby2000ib`
+- `vaswani2017attention`
+- `velickovic2018gat`
+- `wang2018mgn`
+- `wang2020alignment`
+- `wang2021tent`
+- `wang2022lpn`
+- `wang2024segcn`
+- `wang2025mcfa`
+- `workman2015widearea`
+- `xia2024dac`
+- `xu2025ceusp`
+- `yang2024camp`
+- `yang2025dinov2uav`
+- `ye2021reidsurvey`
+- `zhang2025glqinet`
+- `zheng2020university1652`
+- `zhou2022ibot`
+- `zhu2023sues200`

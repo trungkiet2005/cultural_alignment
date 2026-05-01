@@ -2,83 +2,70 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{longtable}
 \usepackage{booktabs}
-\usepackage[hidelinks]{hyperref}
-\title{Citation Audit Report (Final)}
-\date{}
+\usepackage{xcolor}
 \begin{document}
-\maketitle
-\section*{Summary}
-\begin{itemize}
-\item Total bibliography entries: 56
-\item Keys cited in \texttt{paper\_revised.tex}: 56
-\item Missing citation keys vs. bibliography: 0
-\item Unused bibliography keys vs. paper: 0
-\item Verified resolvable (Crossref DOI or arXiv DOI or publisher URL): 56
-\item Unverified after final pass: 0
-\end{itemize}
-\paragraph{Important.} Automated checks cannot substitute for the conference template and final human proofread; this file is an internal audit artifact.
-\section*{Verified entries}
-\begin{longtable}{p{0.28\linewidth}p{0.62\linewidth}}
-\toprule
-Key & Evidence \\
-\midrule
+\section*{Citation Audit Report}
+Total=56, pass=5, warn=51, fail=0, externally verified=34.
+\subsection*{Detailed Checks}
+\begin{longtable}{p{0.18\linewidth}p{0.1\linewidth}p{0.1\linewidth}p{0.55\linewidth}}
+\toprule Key & Status & Verified & Notes \\ \midrule
 \endhead
-ahmad2024largescale & \href{https://doi.org/10.1371/journal.pone.0322776}{link} \\
-aisp2025 & \href{https://doi.org/10.48550/arXiv.2510.26219}{link} \\
-an2026logit & \href{https://doi.org/10.48550/arXiv.2601.10960}{link} \\
-arditi2025refusal & \href{https://doi.org/10.48550/arXiv.2406.11717}{link} \\
-atari2023humans & \href{https://doi.org/10.31234/osf.io/5b26t}{link} \\
-awad2018moral & \href{https://doi.org/10.1038/s41586-018-0637-6}{link} \\
-bobbili2025pita & \href{https://doi.org/10.48550/arXiv.2507.20067}{link} \\
-chand2026nofree & \href{https://doi.org/10.3390/ai7010024}{link} \\
-chen2025diffpo & \href{https://doi.org/10.18653/v1/2025.acl-long.926}{link} \\
-deshpande2023toxicity & \href{https://doi.org/10.18653/v1/2023.findings-emnlp.88}{link} \\
-du2023improving & \href{https://doi.org/10.48550/arXiv.2305.14325}{link} \\
-durmus2023global & \href{https://doi.org/10.48550/arXiv.2306.16388}{link} \\
-efron1979bootstrap & \href{https://doi.org/10.1214/aos/1176344552}{link} \\
-elvira2021advances & \href{https://doi.org/10.1002/9781118445112.stat08284}{link} \\
-ethayarajh2024kto & \href{https://doi.org/10.48550/arXiv.2402.01306}{link} \\
-gal2016dropout & \href{https://doi.org/10.48550/arXiv.1506.02142}{link} \\
-greco2026personas & \href{https://doi.org/10.48550/arXiv.2601.22396}{link} \\
-guo2017calibration & \href{https://doi.org/10.48550/arXiv.1706.04599}{link} \\
-haerpfer2022wvs & \href{https://doi.org/10.14281/18241.20}{link} \\
-hendrycks2021aligning & \href{https://doi.org/10.48550/arXiv.2008.02275}{link} \\
-henrich2010weirdest & \href{https://doi.org/10.1017/S0140525X0999152X}{link} \\
-inglehart2005modernization & \href{https://doi.org/10.1017/CBO9780511790881}{link} \\
-james1961estimation & \href{https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Estimation-with-Quadratic-Loss/bsmsp/1200512173}{link} \\
-jin2022exceptions & \href{https://doi.org/10.52202/068431-2063}{link} \\
-jin2025multitp & \href{https://doi.org/10.48550/arXiv.2407.02273}{link} \\
-kahneman1979prospect & \href{https://doi.org/10.2307/1914185}{link} \\
-khan2025randomness & \href{https://doi.org/10.1145/3715275.3732147}{link} \\
-khanov2024args & \href{https://doi.org/10.48550/arXiv.2402.01694}{link} \\
-khanuja2026steering & \href{https://doi.org/10.48550/arXiv.2603.23301}{link} \\
-kim2025persona & \href{https://doi.org/10.48550/arXiv.2504.10886}{link} \\
-kirk2024prism & \href{https://doi.org/10.52202/079017-3342}{link} \\
-kish1965survey & \href{https://www.wiley.com/en-us/Survey+Sampling-p-9780471489009}{link} \\
-kleiman2017learning & \href{https://doi.org/10.1016/j.cognition.2017.03.005}{link} \\
-kwon2025dropouts & \href{https://doi.org/10.1609/aaai.v40i44.41088}{link} \\
-levine2018reinforcement & \href{https://doi.org/10.48550/arXiv.1805.00909}{link} \\
-liang2024encouraging & \href{https://doi.org/10.18653/v1/2024.emnlp-main.992}{link} \\
-liu2024lost & \href{https://doi.org/10.1162/tacl_a_00638}{link} \\
-mudgal2024controlled & \href{https://doi.org/10.48550/arXiv.2310.17022}{link} \\
-myung2024blend & \href{https://doi.org/10.52202/079017-2483}{link} \\
-nie2023moca & \href{https://doi.org/10.52202/075280-3426}{link} \\
-payne2025prospect & \href{https://doi.org/10.48550/arXiv.2508.00902}{link} \\
-qiu2025cross & \href{https://mlanthology.org/tmlr/2025/qiu2025tmlr-multimodal/}{link} \\
-ryan2024unintended & \href{https://doi.org/10.18653/v1/2024.acl-long.853}{link} \\
-santurkar2023opinions & \href{https://doi.org/10.48550/arXiv.2303.17548}{link} \\
-schwartz2012refining & \href{https://doi.org/10.1037/a0029393}{link} \\
-sorensen2024roadmap & \href{https://doi.org/10.48550/arXiv.2402.05070}{link} \\
-takemoto2024moral & \href{https://doi.org/10.1098/rsos.231393}{link} \\
-todorov2009generalized & \href{https://doi.org/10.1073/pnas.0710743106}{link} \\
-turner2023activation & \href{https://doi.org/10.48550/arXiv.2308.10248}{link} \\
-tversky1992advances & \href{https://doi.org/10.1007/bf00122574}{link} \\
-wang2023selfconsistency & \href{https://doi.org/10.48550/arXiv.2203.11171}{link} \\
-williams2017mppi & \href{https://doi.org/10.1109/tro.2018.2865891}{link} \\
-yao2024caredio & \href{https://doi.org/10.48550/arXiv.2504.08820}{link} \\
-zewail2025moral & \href{https://doi.org/10.1073/pnas.2519941123}{link} \\
-zhang2026culturemanager & \href{https://doi.org/10.48550/arXiv.2602.22475}{link} \\
-zou2023representation & \href{https://doi.org/10.48550/arXiv.2310.01405}{link} \\
+ahmad2024largescale & pass & yes & DOI: 10.1371/journal.pone.0322776 \\ URL: https://doi.org/10.1371/journal.pone.0322776 \\
+aisp2025 & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+an2026logit & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+arditi2025refusal & warn & no & WARN: no DOI \\
+atari2023humans & warn & yes & DOI: 10.31234/osf.io/5b26t \\ WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\
+awad2018moral & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+bobbili2025pita & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+chand2026nofree & warn & yes & DOI: 10.3390/ai7010024 \\ WARN: DOI gateway returned 403, Crossref confirms DOI exists \\
+chen2025diffpo & pass & yes & DOI: 10.18653/v1/2025.acl-long.926 \\ URL: https://aclanthology.org/2025.acl-long.926/ \\
+deshpande2023toxicity & pass & yes & DOI: 10.18653/v1/2023.findings-emnlp.88 \\ URL: https://aclanthology.org/2023.findings-emnlp.88/ \\
+du2023improving & warn & yes & URL: https://proceedings.mlr.press/v235/du24e.html \\ WARN: no DOI \\
+durmus2023global & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+efron1979bootstrap & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+elvira2021advances & warn & no & WARN: missing recommended field: volume \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+ethayarajh2024kto & warn & yes & WARN: missing recommended field: pages \\ WARN: no DOI \\
+gal2016dropout & warn & no & WARN: missing recommended field: pages \\ WARN: no DOI \\
+greco2026personas & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+guo2017calibration & warn & yes & WARN: no DOI \\
+haerpfer2022wvs & warn & no & WARN: no DOI \\
+hendrycks2021aligning & warn & no & WARN: missing recommended field: pages \\ WARN: no DOI \\
+henrich2010weirdest & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+inglehart2005modernization & warn & no & WARN: missing recommended field: isbn \\ WARN: no DOI \\
+james1961estimation & warn & yes & URL: https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Estimation-with-Quadratic-Loss/bsmsp/1200512173 \\ WARN: no DOI \\
+jin2022exceptions & warn & no & WARN: no DOI \\
+jin2025multitp & warn & yes & URL: https://openreview.net/forum?id=VEqPDZIDAh \\ WARN: missing recommended field: pages \\ WARN: no DOI \\
+kahneman1979prospect & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+khan2025randomness & warn & yes & DOI: 10.1145/3715275.3732147 \\ URL: https://dl.acm.org/doi/10.1145/3715275.3732147 \\ WARN: DOI gateway returned 403, Crossref confirms DOI exists \\ WARN: URL not resolvable (403) \\
+khanov2024args & warn & yes & URL: https://openreview.net/forum?id=shgx0eqdw6 \\ WARN: missing recommended field: pages \\ WARN: no DOI \\
+khanuja2026steering & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+kim2025persona & warn & yes & DOI: 10.48550/arXiv.2504.10886 \\ URL: https://arxiv.org/abs/2504.10886 \\ WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\
+kirk2024prism & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+kish1965survey & warn & no & WARN: missing recommended field: isbn \\ WARN: no DOI \\
+kleiman2017learning & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+kwon2025dropouts & warn & yes & WARN: missing recommended field: pages \\ WARN: no DOI \\
+levine2018reinforcement & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+liang2024encouraging & pass & yes & DOI: 10.18653/v1/2024.emnlp-main.992 \\ URL: https://aclanthology.org/2024.emnlp-main.992/ \\
+liu2024lost & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+mudgal2024controlled & warn & yes & URL: https://proceedings.mlr.press/v235/mudgal24a.html \\ WARN: no DOI \\
+myung2024blend & warn & yes & WARN: missing recommended field: pages \\ WARN: no DOI \\
+nie2023moca & warn & no & WARN: missing recommended field: pages \\ WARN: no DOI \\
+payne2025prospect & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+qiu2025cross & warn & no & WARN: no DOI \\
+ryan2024unintended & pass & yes & DOI: 10.18653/v1/2024.acl-long.853 \\ URL: https://aclanthology.org/2024.acl-long.853/ \\
+santurkar2023opinions & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+schwartz2012refining & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+sorensen2024roadmap & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+takemoto2024moral & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+todorov2009generalized & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+turner2023activation & warn & no & WARN: missing recommended field: pages \\ WARN: no DOI \\
+tversky1992advances & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+wang2023selfconsistency & warn & yes & DOI: 10.48550/arXiv.2203.11171 \\ URL: https://arxiv.org/abs/2203.11171 \\ WARN: missing recommended field: pages \\
+williams2017mppi & warn & no & WARN: missing recommended field: doi \\ WARN: no DOI \\
+yao2024caredio & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+zewail2025moral & warn & yes & DOI: 10.1073/pnas.2519941123 \\ WARN: missing recommended field: pages \\ WARN: DOI gateway returned 403, Crossref confirms DOI exists \\
+zhang2026culturemanager & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
+zou2023representation & warn & yes & WARN: missing recommended field: volume \\ WARN: missing recommended field: pages \\ WARN: missing recommended field: doi \\ WARN: no DOI \\
 \bottomrule
 \end{longtable}
 \end{document}
