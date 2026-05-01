@@ -1,104 +1,84 @@
-\\documentclass[11pt]{article}
-\\usepackage[margin=1in]{geometry}
-\\usepackage{longtable}
-\\usepackage{booktabs}
-\\usepackage[hidelinks]{hyperref}
-\\usepackage{array}
-\\title{Citation Audit Report for references.bib}
-\\date{}
-\\begin{document}
-\\maketitle
-\\section*{Scope}
-This report audits citations used by \\texttt{paper\\_revised.tex} against \\texttt{references.bib}. Checks include missing keys, unused keys, duplicate keys, and existence verification via DOI resolution and Crossref title matching.
-\\section*{Summary}
-\\begin{itemize}
-\\item Total bibliography entries after cleanup: 56
-\\item Citation keys used in paper: 56
-\\item Missing keys in bibliography: 0
-\\item Unused keys in bibliography: 0
-\\item Verified-existing entries: 25
-\\item Entries requiring manual verification: 31
-\\item Validator syntax errors: 0
-\\end{itemize}
-\\section*{Automated Validation Notes}
-The validator reports no fatal BibTeX errors after cleanup. Remaining warnings are mostly missing recommended metadata fields (volume/pages/DOI) and do not necessarily imply non-existent papers.
-\\section*{Verified Entries (Automated)}
-\\begin{longtable}{p{0.22\\linewidth}p{0.52\\linewidth}p{0.22\\linewidth}}
-\\toprule
-Key & Title & Evidence \\\\
-\\midrule
-\\endhead
-ahmad2024largescale & Large-scale moral machine experiment on large language models & \\href{https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0322776}{link} \\
-atari2023humans & Which Humans? & \\href{https://osf.io/5b26t_v1}{link} \\
-awad2018moral & The moral machine experiment & \\href{https://doi.org/10.1038/s41586-018-0637-6}{link} \\
-chen2025diffpo & \{DiffPO\}: Diffusion-styled Preference Optimization for Efficient Inference-Time Alignment of Large Language Models & \\href{https://doi.org/10.18653/v1/2025.acl-long.926}{link} \\
-deshpande2023toxicity & Toxicity in \{ChatGPT\}: Analyzing Persona-assigned Language Models & \\href{https://doi.org/10.18653/v1/2023.findings-emnlp.88}{link} \\
-efron1979bootstrap & Bootstrap methods: another look at the jackknife & \\href{https://doi.org/10.1214/aos/1176344552}{link} \\
-elvira2021advances & Advances in importance sampling & \\href{https://doi.org/10.1002/9781118445112.stat08284}{link} \\
-henrich2010weirdest & The weirdest people in the world? & \\href{https://doi.org/10.1017/s0140525x0999152x}{link} \\
-james1961estimation & Estimation with Quadratic Loss & \\href{https://doi.org/10.1126/science.133.3446.101}{link} \\
-jin2022exceptions & When to make exceptions: Exploring language models as accounts of human moral judgment & \\href{https://doi.org/10.52202/068431-2063}{link} \\
-kahneman1979prospect & Prospect theory: An analysis of decision under risk & \\href{https://doi.org/10.2307/1914185}{link} \\
-khan2025randomness & Randomness, Not Representation: The Unreliability of Evaluating Cultural Alignment in \{LLMs\} & \\href{https://doi.org/10.1145/3715275.3732147}{link} \\
-kirk2024prism & The \{PRISM\} Alignment Dataset: What Participatory, Representative and Individualised Human Feedback Reveals About the Subjective and Multicultural Alignment of Large Language Models & \\href{https://doi.org/10.52202/079017-3342}{link} \\
-kleiman2017learning & Learning a commonsense moral theory & \\href{https://doi.org/10.1016/j.cognition.2017.03.005}{link} \\
-kwon2025dropouts & Dropouts in Confidence: Moral Uncertainty in Human-\{LLM\} Alignment & \\href{https://doi.org/10.1609/aaai.v40i44.41088}{link} \\
-liang2024encouraging & Encouraging Divergent Thinking in Large Language Models through Multi-Agent Debate & \\href{https://aclanthology.org/2024.emnlp-main.992/}{link} \\
-liu2024lost & Lost in the middle: How language models use long contexts & \\href{https://doi.org/10.1162/tacl_a_00638}{link} \\
-myung2024blend & \{BLEnD\}: A Benchmark for \{LLMs\} on Everyday Knowledge in Diverse Cultures and Languages & \\href{https://doi.org/10.52202/079017-2483}{link} \\
-nie2023moca & \{MoCa\}: Measuring Human-Language Model Alignment on Causal and Moral Judgment Tasks & \\href{https://doi.org/10.52202/075280-3426}{link} \\
-ryan2024unintended & Unintended impacts of \{LLM\} alignment on global representation & \\href{https://doi.org/10.18653/v1/2024.acl-long.853}{link} \\
-schwartz2012refining & Refining the theory of basic individual values & \\href{https://doi.org/10.1037/a0029393}{link} \\
-takemoto2024moral & The moral machine experiment on large language models & \\href{https://doi.org/10.1098/rsos.231393}{link} \\
-todorov2009generalized & Efficient computation of optimal actions & \\href{https://doi.org/10.1073/pnas.0710743106}{link} \\
-tversky1992advances & Advances in prospect theory: Cumulative representation of uncertainty & \\href{https://doi.org/10.1007/bf00122574}{link} \\
-williams2017mppi & Information-theoretic model predictive control: Theory and applications to autonomous driving & \\href{https://doi.org/10.1109/tro.2018.2865891}{link} \\
-\\bottomrule
-\\end{longtable}
-\\section*{Entries Requiring Manual Verification}
-These entries failed strict automated match criteria (e.g., title mismatch in Crossref for arXiv/workshop/preprint-style references). They should be checked manually against publisher pages or arXiv records before camera-ready submission.
-\\begin{longtable}{p{0.20\\linewidth}p{0.47\\linewidth}p{0.10\\linewidth}p{0.16\\linewidth}}
-\\toprule
-Key & Title & Score & Suggested evidence \\\\
-\\midrule
-\\endhead
-aisp2025 & Test-Time Alignment of \{LLMs\} via Sampling-Based Optimal Control in Pre-Logit Space & 0.4 & \\href{https://doi.org/10.1109/cvpr52734.2025.00402}{link} \\
-an2026logit & Steering Language Models Before They Speak: Logit-Level Interventions & 0.273 & \\href{https://doi.org/10.1002/psp4.70181}{link} \\
-arditi2025refusal & Refusal in language models is mediated by a single direction & 0.466 & \\href{https://doi.org/10.1109/icpc66645.2025.00040}{link} \\
-bobbili2025pita & \{PITA\}: Preference-Guided Inference-Time Alignment for \{LLM\} Post-Training & 0.34 & \\href{https://doi.org/10.1038/s41598-025-07227-8}{link} \\
-chand2026nofree & No Free Lunch in Language Model Bias Mitigation? \{T\}argeted Bias Reduction Can Exacerbate Unmitigated \{LLM\} Biases & 0.982 & \\href{https://www.mdpi.com/2673-2688/7/1/24}{link} \\
-du2023improving & Improving Factuality and Reasoning in Language Models through Multiagent Debate & 0.532 & \\href{https://arxiv.org/abs/2305.14325}{link} \\
-durmus2023global & Towards measuring the representation of subjective global opinions in language models & 0.444 & \\href{https://doi.org/10.18653/v1/2023.acl-long.643}{link} \\
-ethayarajh2024kto & \{KTO\}: Model Alignment as Prospect Theoretic Optimization & 0.352 & \\href{https://doi.org/10.17309/tmfv.2024.2.17}{link} \\
-gal2016dropout & Dropout as a \{B\}ayesian Approximation: Representing Model Uncertainty in Deep Learning & 0.433 & \\href{https://doi.org/10.1007/978-3-319-34189-7_2}{link} \\
-greco2026personas & Culturally Grounded Personas in Large Language Models: Characterization and Alignment with Socio-Psychological Value Frameworks & 0.49 & \\href{https://doi.org/10.1186/s13244-026-02285-6}{link} \\
-guo2017calibration & On Calibration of Modern Neural Networks & 0.613 & \\href{https://doi.org/10.1007/978-3-319-59072-1_37}{link} \\
-haerpfer2022wvs & \{World Values Survey\}: Round Seven -- Country-Pooled Datafile & 0.402 & \\href{https://doi.org/10.53819/81018102t2063}{link} \\
-hendrycks2021aligning & Aligning \{AI\} with Shared Human Values & 0.37 & \\href{https://doi.org/10.1515/mopp-2021-0026}{link} \\
-inglehart2005modernization & Modernization, Cultural Change, and Democracy: The Human Development Sequence & 0.605 & \\href{https://doi.org/10.1017/s1468109905001933}{link} \\
-jin2025multitp & Language Model Alignment in Multilingual Trolley Problems & 0.466 & \\href{https://doi.org/10.21437/interspeech.2025-1037}{link} \\
-khanov2024args & \{ARGS\}: Alignment as Reward-Guided Search & 0.427 & \\href{https://doi.org/10.18372/1990-5548.81.18989}{link} \\
-khanuja2026steering & Steering \{LLMs\} for Culturally Localized Generation & 0.425 & \\href{https://doi.org/10.1201/9781003790730-7}{link} \\
-kim2025persona & Exploring Persona-dependent LLM Alignment for the Moral Machine Experiment & 0.413 & \\href{https://arxiv.org/abs/2504.10886}{link} \\
-kish1965survey & Survey Sampling & 0.246 & \\href{https://doi.org/10.2307/2091346}{link} \\
-levine2018reinforcement & Reinforcement learning and control as probabilistic inference: \{T\}utorial and review & 0.463 & \\href{https://doi.org/10.1109/icra.2018.8460756}{link} \\
-mudgal2024controlled & Controlled Decoding from Language Models & 0.542 & \\href{https://doi.org/10.1109/icitcom62788.2024.10762255}{link} \\
-payne2025prospect & An Analysis of \{AI\} Decision under Risk: Prospect Theory Emerges in Large Language Models & 0.404 & \\href{https://doi.org/10.1056/aip2401257}{link} \\
-qiu2025cross & Multimodal Cultural Safety: Evaluation Framework and Alignment Strategies & 0.392 & \\href{https://doi.org/10.1109/icassp49660.2025.10888946}{link} \\
-santurkar2023opinions & Whose opinions do language models reflect? & 0.529 & \\href{https://doi.org/10.52202/075280-1482}{link} \\
-sorensen2024roadmap & A roadmap to pluralistic alignment & 0.549 & \\href{https://doi.org/10.18653/v1/2024.emnlp-main.240}{link} \\
-turner2023activation & Activation Addition: Steering Language Models Without Optimization & 0.5 & \\href{https://doi.org/10.1109/cvpr52733.2024.00787}{link} \\
-wang2023selfconsistency & Self-Consistency Improves Chain of Thought Reasoning in Language Models & 0.726 & \\href{https://arxiv.org/abs/2203.11171}{link} \\
-yao2024caredio & \{CAReDiO\}: Cultural Alignment of \{LLM\} via Representativeness and Distinctiveness Guided Data Optimization & 0.381 & \\href{https://doi.org/10.1109/ase63991.2025.00167}{link} \\
-zewail2025moral & Moral stereotyping in large language models & 1.0 & \\href{https://pnas.org/doi/10.1073/pnas.2519941123}{link} \\
-zhang2026culturemanager & Mind the Gap in Cultural Alignment: Task-Aware Culture Management for Large Language Models & 0.511 & \\href{https://doi.org/10.1109/icassp55912.2026.11461750}{link} \\
-zou2023representation & Representation engineering: A top-down approach to \{AI\} transparency & 0.361 & \\href{https://doi.org/10.1007/978-3-031-43789-2_38}{link} \\
-\\bottomrule
-\\end{longtable}
-\\section*{Structural Cleanup Performed}
-\\begin{itemize}
-\\item Removed bibliography keys not cited by \\texttt{paper\\_revised.tex}.
-\\item Added missing cited keys: \\texttt{ahmad2024largescale}, \\texttt{du2023improving}, \\texttt{james1961estimation}, \\texttt{kim2025persona}, \\texttt{liang2024encouraging}, \\texttt{wang2023selfconsistency}.
-\\item No duplicate DOI groups detected after cleanup.
-\\end{itemize}
-\\end{document}
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage[hidelinks]{hyperref}
+\title{Citation Audit Report (Final)}
+\date{}
+\begin{document}
+\maketitle
+\section*{Summary}
+\begin{itemize}
+\item Total bibliography entries: 56
+\item Keys cited in \texttt{paper\_revised.tex}: 56
+\item Missing citation keys vs. bibliography: 0
+\item Unused bibliography keys vs. paper: 0
+\item Verified resolvable (Crossref DOI or arXiv DOI or publisher URL): 56
+\item Unverified after final pass: 0
+\end{itemize}
+\paragraph{Important.} Automated checks cannot substitute for the conference template and final human proofread; this file is an internal audit artifact.
+\section*{Verified entries}
+\begin{longtable}{p{0.28\linewidth}p{0.62\linewidth}}
+\toprule
+Key & Evidence \\
+\midrule
+\endhead
+ahmad2024largescale & \href{https://doi.org/10.1371/journal.pone.0322776}{link} \\
+aisp2025 & \href{https://doi.org/10.48550/arXiv.2510.26219}{link} \\
+an2026logit & \href{https://doi.org/10.48550/arXiv.2601.10960}{link} \\
+arditi2025refusal & \href{https://doi.org/10.48550/arXiv.2406.11717}{link} \\
+atari2023humans & \href{https://doi.org/10.31234/osf.io/5b26t}{link} \\
+awad2018moral & \href{https://doi.org/10.1038/s41586-018-0637-6}{link} \\
+bobbili2025pita & \href{https://doi.org/10.48550/arXiv.2507.20067}{link} \\
+chand2026nofree & \href{https://doi.org/10.3390/ai7010024}{link} \\
+chen2025diffpo & \href{https://doi.org/10.18653/v1/2025.acl-long.926}{link} \\
+deshpande2023toxicity & \href{https://doi.org/10.18653/v1/2023.findings-emnlp.88}{link} \\
+du2023improving & \href{https://doi.org/10.48550/arXiv.2305.14325}{link} \\
+durmus2023global & \href{https://doi.org/10.48550/arXiv.2306.16388}{link} \\
+efron1979bootstrap & \href{https://doi.org/10.1214/aos/1176344552}{link} \\
+elvira2021advances & \href{https://doi.org/10.1002/9781118445112.stat08284}{link} \\
+ethayarajh2024kto & \href{https://doi.org/10.48550/arXiv.2402.01306}{link} \\
+gal2016dropout & \href{https://doi.org/10.48550/arXiv.1506.02142}{link} \\
+greco2026personas & \href{https://doi.org/10.48550/arXiv.2601.22396}{link} \\
+guo2017calibration & \href{https://doi.org/10.48550/arXiv.1706.04599}{link} \\
+haerpfer2022wvs & \href{https://doi.org/10.14281/18241.20}{link} \\
+hendrycks2021aligning & \href{https://doi.org/10.48550/arXiv.2008.02275}{link} \\
+henrich2010weirdest & \href{https://doi.org/10.1017/S0140525X0999152X}{link} \\
+inglehart2005modernization & \href{https://doi.org/10.1017/CBO9780511790881}{link} \\
+james1961estimation & \href{https://projecteuclid.org/proceedings/berkeley-symposium-on-mathematical-statistics-and-probability/Proceedings-of-the-Fourth-Berkeley-Symposium-on-Mathematical-Statistics-and/Chapter/Estimation-with-Quadratic-Loss/bsmsp/1200512173}{link} \\
+jin2022exceptions & \href{https://doi.org/10.52202/068431-2063}{link} \\
+jin2025multitp & \href{https://doi.org/10.48550/arXiv.2407.02273}{link} \\
+kahneman1979prospect & \href{https://doi.org/10.2307/1914185}{link} \\
+khan2025randomness & \href{https://doi.org/10.1145/3715275.3732147}{link} \\
+khanov2024args & \href{https://doi.org/10.48550/arXiv.2402.01694}{link} \\
+khanuja2026steering & \href{https://doi.org/10.48550/arXiv.2603.23301}{link} \\
+kim2025persona & \href{https://doi.org/10.48550/arXiv.2504.10886}{link} \\
+kirk2024prism & \href{https://doi.org/10.52202/079017-3342}{link} \\
+kish1965survey & \href{https://www.wiley.com/en-us/Survey+Sampling-p-9780471489009}{link} \\
+kleiman2017learning & \href{https://doi.org/10.1016/j.cognition.2017.03.005}{link} \\
+kwon2025dropouts & \href{https://doi.org/10.1609/aaai.v40i44.41088}{link} \\
+levine2018reinforcement & \href{https://doi.org/10.48550/arXiv.1805.00909}{link} \\
+liang2024encouraging & \href{https://doi.org/10.18653/v1/2024.emnlp-main.992}{link} \\
+liu2024lost & \href{https://doi.org/10.1162/tacl_a_00638}{link} \\
+mudgal2024controlled & \href{https://doi.org/10.48550/arXiv.2310.17022}{link} \\
+myung2024blend & \href{https://doi.org/10.52202/079017-2483}{link} \\
+nie2023moca & \href{https://doi.org/10.52202/075280-3426}{link} \\
+payne2025prospect & \href{https://doi.org/10.48550/arXiv.2508.00902}{link} \\
+qiu2025cross & \href{https://mlanthology.org/tmlr/2025/qiu2025tmlr-multimodal/}{link} \\
+ryan2024unintended & \href{https://doi.org/10.18653/v1/2024.acl-long.853}{link} \\
+santurkar2023opinions & \href{https://doi.org/10.48550/arXiv.2303.17548}{link} \\
+schwartz2012refining & \href{https://doi.org/10.1037/a0029393}{link} \\
+sorensen2024roadmap & \href{https://doi.org/10.48550/arXiv.2402.05070}{link} \\
+takemoto2024moral & \href{https://doi.org/10.1098/rsos.231393}{link} \\
+todorov2009generalized & \href{https://doi.org/10.1073/pnas.0710743106}{link} \\
+turner2023activation & \href{https://doi.org/10.48550/arXiv.2308.10248}{link} \\
+tversky1992advances & \href{https://doi.org/10.1007/bf00122574}{link} \\
+wang2023selfconsistency & \href{https://doi.org/10.48550/arXiv.2203.11171}{link} \\
+williams2017mppi & \href{https://doi.org/10.1109/tro.2018.2865891}{link} \\
+yao2024caredio & \href{https://doi.org/10.48550/arXiv.2504.08820}{link} \\
+zewail2025moral & \href{https://doi.org/10.1073/pnas.2519941123}{link} \\
+zhang2026culturemanager & \href{https://doi.org/10.48550/arXiv.2602.22475}{link} \\
+zou2023representation & \href{https://doi.org/10.48550/arXiv.2310.01405}{link} \\
+\bottomrule
+\end{longtable}
+\end{document}
