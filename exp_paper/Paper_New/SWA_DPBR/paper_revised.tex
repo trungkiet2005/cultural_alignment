@@ -342,10 +342,7 @@ the contra group, partitioning the country-$c$ scenario pool into
 six attribute-specific groups $\mathcal{S}^{(c)}_d$.
 
 \begin{table}[t]
-\caption{The six moral dimensions in MultiTP. $T_c$ is the
-per-attribute logit temperature used by the method
-(\S\ref{sec:method:estimator}); values reflect empirical logit
-magnitudes and are validated in App.~\ref{app:hyperparams}.}
+\caption{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our mehtod; values reflect empirical logit magnitudes and are validated in App.~\ref{app:hyperparams}.}
 \label{tab:categories}
 \centering\scriptsize
 \setlength{\tabcolsep}{4pt}
@@ -391,14 +388,13 @@ country's human AMCE vector (lower is better). The full pipeline
 is: per-scenario logit gap $\delta \to$ per-scenario sparing
 probability $p_{\text{spare}} \to$ per-attribute AMCE
 $\hat{m}^{(c)}_d \to$ six-vector $\hat{m}^{(c)} \to$ MIS distance
-to $h^{(c)}$. Our method (\S\ref{sec:method}) modifies $\delta$ at
+to $h^{(c)}$. Our method modifies $\delta$ at
 decode time to bring $\hat{m}^{(c)}$ closer to $h^{(c)}$. We
 report MIS macro-averaged over the 20-country panel with equal
 weight per country; secondary diagnostics include Pearson
 correlation $r$ (shape agreement) and Jensen--Shannon divergence
 (distributional distance).
 
-\paragraph{Scenario pool.}
 We evaluate on 20 countries spanning four continents: Argentina,
 Bangladesh, Brazil, China, Colombia, Ethiopia, Germany, Indonesia,
 Iran, Japan, Kyrgyzstan, Malaysia, Mexico, Myanmar, Romania,
@@ -838,7 +834,7 @@ USA and Japan, 47\% on China, 40\% on Indonesia-with the two losses
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.78\linewidth]{amce_pca.pdf}
+  \includegraphics[width=0.78\linewidth]{SWA_DPBR/figures/fig_oral_4_amce_pca.pdf}
   \caption{\textbf{Geometric story: DISCA pulls model AMCE vectors toward the
   human cluster.} 2D PCA projection of the six-dimensional human, vanilla,
   and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two
@@ -928,7 +924,7 @@ corrections-matching the ``diminishing returns'' pattern discussed in
 \section{Factual Cultural QA Evaluation (BLEnD)}
 \label{app:blend}
 
-DISCA is designed as a \emph{value-alignment} tool: it steers moral preferences expressed through a scalar logit gap between two decision tokens. A natural question is whether the same persona-disagreement signal transfers to \emph{factual cultural knowledge}, where the correct answer is a specific token or span in a ${\sim}\!32$k-vocabulary softmax---a fundamentally different objective landscape. We evaluate on the BLEnD benchmark~\citep{myung2024blend} (52.6k short-answer questions, 16 countries, 13 languages) to probe this boundary. Phi-4 (14B) was evaluated
+DISCA is designed as a \emph{value-alignment} tool: it steers moral preferences expressed through a scalar logit gap between two decision tokens. A natural question is whether the same persona-disagreement signal transfers to \emph{factual cultural knowledge}, where the correct answer is a specific token or span in a ${\sim}\!32$k-vocabulary softmax-a fundamentally different objective landscape. We evaluate on the BLEnD benchmark~\citep{myung2024blend} (52.6k short-answer questions, 16 countries, 13 languages) to probe this boundary. Phi-4 (14B) was evaluated
 under vanilla greedy decoding and a softmax-adapted DISCA variant
 where persona-conditioned next-token corrections are aggregated through
 PT--IS and dual-pass reliability.
@@ -975,8 +971,8 @@ Azerbaijan & 28.78 & 24.92 & \gain{+0.43} & \gain{+0.48} \\
 
 \paragraph{The value--fact boundary.}
 Aggregate SEM-B across all 16 countries drops by 4.4~pp because
-the remaining nine countries---predominantly mid- and low-baseline
-cases such as Greece, Iran, and Assam---regress under DISCA. This is not a failure of the method but a \emph{scope delineation}: value alignment and fact retrieval occupy fundamentally different regions of the decoding-objective space. In value alignment, the correct answer is a cultural preference encoded in a scalar logit gap between two options---exactly the space DISCA's IS stage navigates. In factual QA, the correct answer is a single token in a ${\sim}\!32$k-entry vocabulary; injecting perturbations into this high-dimensional softmax adds noise that drowns the cultural signal when the baseline is mid-range. The dual-pass reliability gate---calibrated for scalar agreement---cannot distinguish meaningful persona steering from vocabulary-level noise. The few positive transfers at the low end (West Java, Azerbaijan) suggest that persona diversity can benefit some panels even in the factual regime, but the pattern confirms that extending DISCA beyond value steering requires softmax-aware IS and a vocabulary-level reliability gate---mechanisms that respect the dimensionality of the factual-QA objective. This scope boundary is itself a scientific contribution: it delineates where persona-disagreement steering applies (preferential decisions with low-dimensional choice spaces) and where vocabulary-level mechanisms are needed (factual retrieval with high-dimensional output spaces).
+the remaining nine countries-predominantly mid- and low-baseline
+cases such as Greece, Iran, and Assam-regress under DISCA. This is not a failure of the method but a \emph{scope delineation}: value alignment and fact retrieval occupy fundamentally different regions of the decoding-objective space. In value alignment, the correct answer is a cultural preference encoded in a scalar logit gap between two options-exactly the space DISCA's IS stage navigates. In factual QA, the correct answer is a single token in a ${\sim}\!32$k-entry vocabulary; injecting perturbations into this high-dimensional softmax adds noise that drowns the cultural signal when the baseline is mid-range. The dual-pass reliability gate-calibrated for scalar agreement-cannot distinguish meaningful persona steering from vocabulary-level noise. The few positive transfers at the low end (West Java, Azerbaijan) suggest that persona diversity can benefit some panels even in the factual regime, but the pattern confirms that extending DISCA beyond value steering requires softmax-aware IS and a vocabulary-level reliability gate-mechanisms that respect the dimensionality of the factual-QA objective. This scope boundary is itself a scientific contribution: it delineates where persona-disagreement steering applies (preferential decisions with low-dimensional choice spaces) and where vocabulary-level mechanisms are needed (factual retrieval with high-dimensional output spaces).
 \section{Post-Hoc Diagnostics}
 \label{app:r2_reliability_audit}
 \label{app:r2_logit_conditioning}
@@ -1017,6 +1013,93 @@ DISCA-consensus & $0.089$          & $11/120$          & $0.31$          & $0.10
 \bottomrule
 \end{tabular}
 \end{table}
+
+\subsection{Scenario-level conditioning of the DISCA correction}
+\label{sec:scenario_disagreement_correction}
+
+Theorem~\ref{thm:shrinkage} formalises DISCA as a shrinkage estimator
+whose strength is governed by within-panel disagreement
+$D^2 = \tfrac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$: the JS factor in
+part~(ii) is $1 - (N\!-\!3)D^2/(N\Delta^2)$, so $D^2$ controls the
+\emph{ratio} $|\delta^\star|/|\Delta|$ rather than $|\delta^\star|$ in
+isolation. A simpler but operationally important question, complementary
+to the theorem, is whether DISCA's applied correction is in fact driven
+by disagreement \emph{at the scenario level}, or whether it collapses
+into a per-country offset. Using Qwen2.5-7B as the backbone, we log
+\emph{per-scenario} $(D^2, |\delta^\star|)$ pairs from the full DISCA
+pipeline across $5$ countries (USA, JPN, DEU, VNM, ETH) and
+$310$ MultiTP scenarios per country ($n=1{,}550$ total), and compute
+Pearson's correlation between $\log_{10} D^2$ and $|\delta^\star|$.
+
+\textbf{Result.} The two quantities are positively and significantly
+correlated, $r = +0.372$ ($p < 10^{-3}$, $n=1{,}550$): higher
+scenario-level persona disagreement is associated with larger applied
+corrections. This is consistent with the scenario-conditioned shrinkage
+policy formalised by Theorem~\ref{thm:shrinkage}, with the caveat that
+the theorem governs the ratio $|\delta^\star|/|\Delta|$ rather than the
+raw magnitude-a positive raw correlation arises when $|\Delta|$ also
+co-varies with $D^2$ across scenarios, which is the typical case when
+both are driven by the same underlying spread of persona logit gaps.
+At the country level (Table~\ref{tab:scenario_corr}), the extremes match
+expectation-ETH, with the lowest mean variance ($0.009$), receives the
+smallest mean correction ($0.009$); USA, with the highest mean variance
+($0.086$), receives the largest ($0.015$)-while the three middle
+countries (JPN, DEU, VNM) sit in a narrow band ($0.012$--$0.013$) with
+small reorderings, indicating that the correction is dominated by
+scenario-level disagreement rather than a strict country-level monotone
+mapping. Figure~\ref{fig:scenario_corr} visualises the full
+$1{,}550$-scenario point cloud with a Savitzky--Golay trend.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\linewidth]{scenario_correlation.pdf}
+  \caption{\textbf{Scenario-level conditioning of the DISCA correction.}
+  Per-scenario inter-persona variance (log scale) versus DISCA
+  correction magnitude $|\delta^\star|$, $n=1{,}550$ scenarios across
+  five countries on Qwen2.5-7B. Each dot is one scenario; the black
+  curve is a Savitzky--Golay smoothed trend. Pearson
+  $r{=}{+}0.372$, $p{<}10^{-3}$: when personas agree (left), DISCA
+  applies near-zero corrections; when they disagree (right), DISCA
+  applies larger corrections. The trend is positive but bounded, so
+  high-disagreement scenarios do not lead to runaway correction
+  magnitudes; isolating how much of this saturation is contributed by
+  the dual-pass reliability gate (versus the IS proposal scale) would
+  require a no-gate ablation that we leave to future work.}
+  \label{fig:scenario_corr}
+\end{figure}
+
+\begin{table}[H]
+\centering\small
+\caption{Per-country mean inter-persona variance $\overline{D^2}$ and
+mean correction magnitude $\overline{|\delta^\star|}$ ($n=310$ each).
+Countries are ordered by mean variance. The two extremes (ETH, USA)
+match expectation; the three middle countries sit in a narrow band,
+showing the correction is set primarily at the scenario level rather
+than by a strict country-level monotone mapping.}
+\label{tab:scenario_corr}
+\begin{tabular}{lccc}
+\toprule
+Country & $n$ & $\overline{D^2}$ & $\overline{|\delta^\star|}$ \\
+\midrule
+ETH & 310 & 0.009 & 0.009 \\
+JPN & 310 & 0.052 & 0.013 \\
+DEU & 310 & 0.055 & 0.012 \\
+VNM & 310 & 0.070 & 0.013 \\
+USA & 310 & 0.086 & 0.015 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{What this does and does not show.} A positive scenario-level
+correlation rules out the simplest collapsed alternative-a controller
+that applies a country-conditioned constant offset-and is consistent
+with the scenario-conditioned policy that Theorem~\ref{thm:shrinkage}
+prescribes. It is \emph{not} a direct verification of the JS shrinkage
+form in part~(ii), which makes a quantitative claim about the ratio
+$|\delta^\star|/|\Delta|$ that a marginal scatter cannot identify
+without controlling for $|\Delta|$. We therefore present this diagnostic
+as evidence of scenario-level conditioning, not as a tight numerical
+test of the JS shrinkage factor
 
 \subsection{Diagnosing negative Pearson \texorpdfstring{$r$}{r}}
 \label{sec:negative_r_diagnosis}
@@ -1074,13 +1157,13 @@ Life satisfaction & +0.005 \\
 
 DISCA's failure modes cluster by model architecture, not by continent or culture, and fall into three distinct, pre-deployable diagnostic categories.
 
-\paragraph{(1)~Collapsed logit entropy.} Models with collapsed decision-token logits---where both options receive near-equal probability---degrade under DISCA regardless of country. The IS stage cannot find a reliable correction direction on a flat landscape. This is detectable before deployment by computing vanilla decision margin per scenario (Appendix~\ref{app:r2_logit_conditioning}).
+\paragraph{(1)~Collapsed logit entropy.} Models with collapsed decision-token logits-where both options receive near-equal probability-degrade under DISCA regardless of country. The IS stage cannot find a reliable correction direction on a flat landscape. This is detectable before deployment by computing vanilla decision margin per scenario (Appendix~\ref{app:r2_logit_conditioning}).
 
 \paragraph{(2)~Headroom exhaustion.} Models with already-low vanilla MIS occasionally overshoot because the base logits leave too little room for correction, consistent with recent observations that targeted debiasing can spill into untargeted dimensions~\citep{chand2026nofree}. The reliability gate mitigates but does not eliminate this risk.
 
-\paragraph{(3)~Dimension-specific ordering errors.} Six of 20 countries show negative Pearson $r$ despite improved MIS, traced to a consistent Species$\leftrightarrow$Utilitarianism pairwise swap in 5/6 cases (Table~\ref{tab:negative_r_summary}, Appendix~\ref{sec:negative_r_diagnosis}). The negative-$r$ anomaly resolves once we note that MIS measures $\ell_2$ amplitude while $r$ measures shape---the two are genuinely orthogonal on a six-dimensional AMCE vector. Rank-based metrics (Kendall $\tau$, Spearman $\rho$; Appendix~\ref{app:rank_agreement}) confirm the correction is still beneficial (median Kendall $\tau$: $-0.07 \to +0.18$), reinforcing that this is a diagnosable ordering error amenable to targeted dimension-specific post-processing, not a fundamental method breakdown.
+\paragraph{(3)~Dimension-specific ordering errors.} Six of 20 countries show negative Pearson $r$ despite improved MIS, traced to a consistent Species$\leftrightarrow$Utilitarianism pairwise swap in 5/6 cases (Table~\ref{tab:negative_r_summary}, Appendix~\ref{sec:negative_r_diagnosis}). The negative-$r$ anomaly resolves once we note that MIS measures $\ell_2$ amplitude while $r$ measures shape-the two are genuinely orthogonal on a six-dimensional AMCE vector. Rank-based metrics (Kendall $\tau$, Spearman $\rho$; Appendix~\ref{app:rank_agreement}) confirm the correction is still beneficial (median Kendall $\tau$: $-0.07 \to +0.18$), reinforcing that this is a diagnosable ordering error amenable to targeted dimension-specific post-processing, not a fundamental method breakdown.
 
-All three failure modes are architecturally rather than culturally determined: success correlates with logit well-behavedness, not raw scale---Phi-4 (14B) leads the sweep while several 30B+ models degrade---quantified by per-scenario decision margin, entropy, and absolute logit gap (Appendix~\ref{app:r2_logit_conditioning}). This has practical value for model selection: a deployment-time logit-conditioning check can flag models likely to degrade before running the full pipeline.
+All three failure modes are architecturally rather than culturally determined: success correlates with logit well-behavedness, not raw scale-Phi-4 (14B) leads the sweep while several 30B+ models degrade-quantified by per-scenario decision margin, entropy, and absolute logit gap (Appendix~\ref{app:r2_logit_conditioning}). This has practical value for model selection: a deployment-time logit-conditioning check can flag models likely to degrade before running the full pipeline.
 
 \section{Additional Inference-Time Baselines}
 \label{app:r2_baselines}
@@ -1493,7 +1576,7 @@ equal-sized help''.
 Gain curvature $\alpha{=}0.88{<}1$ compresses large persona gains relative to
 small ones, preventing one outlier persona (perhaps from sparse WVS coverage)
 from dominating the utility~\citep{tversky1992advances}.
-\emph{(3)~Empirical compatibility with the base model.} Recent work shows that LLMs exhibit prospect-theoretic biases in decision-making under risk, with loss-aversion coefficients in the same neighbourhood as human respondents~\citep{payne2025prospect}. While we do not claim that logit-gap changes in an LLM are psychologically equivalent to monetary gains and losses in human subjects---the PT value function is used here as a \emph{controller aggregation kernel}, not as a cognitive model of the LLM---the empirical compatibility means we impose a utility shape that does not fight the model's own implicit asymmetries. Auxiliary runs with linear reward kernels and WVS-weighted linear kernels on the same pipeline confirm that the PT shape outperforms symmetric alternatives, and the robustness sweeps in Appendix~\ref{app:robustness_summary} show that the method's conclusions are stable across three logit-shift kernels, so the specific $\kappa{=}2.25$ is a well-motivated default rather than a sensitive tuning knob.
+\emph{(3)~Empirical compatibility with the base model.} Recent work shows that LLMs exhibit prospect-theoretic biases in decision-making under risk, with loss-aversion coefficients in the same neighbourhood as human respondents~\citep{payne2025prospect}. While we do not claim that logit-gap changes in an LLM are psychologically equivalent to monetary gains and losses in human subjects-the PT value function is used here as a \emph{controller aggregation kernel}, not as a cognitive model of the LLM-the empirical compatibility means we impose a utility shape that does not fight the model's own implicit asymmetries. Auxiliary runs with linear reward kernels and WVS-weighted linear kernels on the same pipeline confirm that the PT shape outperforms symmetric alternatives, and the robustness sweeps in Appendix~\ref{app:robustness_summary} show that the method's conclusions are stable across three logit-shift kernels, so the specific $\kappa{=}2.25$ is a well-motivated default rather than a sensitive tuning knob.
 
 \paragraph{Why importance sampling at all?}
 The cultural correction we seek is the argmax of a utility that values each
@@ -1787,7 +1870,7 @@ without any tunable hyperparameters.
     zero is retained for binary 0/1 items.
   \item \textbf{Cohort aggregation:} For each country and age cohort, each
     dimension's score is the unweighted mean of all valid
-    (respondent, item) values associated with that dimension --- i.e., for
+    (respondent, item) values associated with that dimension - i.e., for
     multi-item dimensions (e.g., Q177--Q182 for moral acceptability) every
     respondent contributes one value per item to a single pooled mean.
     For single-item dimensions this reduces to the standard
@@ -1836,7 +1919,7 @@ The linkage between the ten WVS cultural dimensions and the six MultiTP
 moral dimensions operates through two complementary mechanisms.
 
 \paragraph{Direct thematic overlap.}
-WVS \emph{gender equality} maps onto the Gender dimension---societies
+WVS \emph{gender equality} maps onto the Gender dimension-societies
 scoring higher exhibit weaker female-sparing
 preferences~\citep{awad2018moral}; \emph{religiosity} correlates with
 Species through religious anthropocentrism and human exceptionalism; and
@@ -1894,7 +1977,7 @@ Negative cells are also informative: \emph{tolerance of diversity}
 $\to$ Social Value $(-7.76)$ and \emph{gender equality} $\to$ Gender
 $(-3.42)$ indicate that, for those moral attributes, the corresponding
 WVS descriptor biases the persona ensemble \emph{away} from the
-human target, so removing the descriptor improves accuracy. Crucially, DISCA does not require manual feature selection to handle these noisy dimensions: the loss-averse importance-sampling stage (Eq.~\ref{eq:util_total}) automatically down-weights candidate perturbations that worsen any persona's alignment, effectively acting as a built-in noise filter. When a WVS dimension introduces bias for a particular moral attribute, the PT-IS utility penalises the resulting correction asymmetrically ($\kappa{=}2.25{\times}$ for losses vs.\ gains), ensuring that noisy persona signals are suppressed rather than propagated. This self-correcting property is why the method remains robust despite imperfect WVS-to-trolley mappings---a design-level answer to the concern that the linkage is ``indirect modulation'' rather than causal.
+human target, so removing the descriptor improves accuracy. Crucially, DISCA does not require manual feature selection to handle these noisy dimensions: the loss-averse importance-sampling stage (Eq.~\ref{eq:util_total}) automatically down-weights candidate perturbations that worsen any persona's alignment, effectively acting as a built-in noise filter. When a WVS dimension introduces bias for a particular moral attribute, the PT-IS utility penalises the resulting correction asymmetrically ($\kappa{=}2.25{\times}$ for losses vs.\ gains), ensuring that noisy persona signals are suppressed rather than propagated. This self-correcting property is why the method remains robust despite imperfect WVS-to-trolley mappings-a design-level answer to the concern that the linkage is ``indirect modulation'' rather than causal.
 
 \begin{table}[H]\centering\scriptsize
 \caption{WVS-dim $\times$ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf{Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to$ MultiTP links).}

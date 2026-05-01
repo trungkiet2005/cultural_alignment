@@ -593,9 +593,41 @@ def plot_amce_pca() -> None:
                alpha=0.95, edgecolors="black", linewidth=0.5,
                label="DISCA", zorder=4)
 
+    def _label_offset(pt: np.ndarray,
+                      center: np.ndarray,
+                      i: int,
+                      base: float,
+                      tangential: float) -> tuple[float, float]:
+        # Radial + tangential displacement reduces text collisions in dense clusters.
+        v = pt - center
+        norm = float(np.linalg.norm(v))
+        if norm < 1e-6:
+            v = np.array([1.0, 0.0])
+            norm = 1.0
+        radial = v / norm
+        tangent = np.array([-radial[1], radial[0]])
+        sign = -1.0 if (i % 2) else 1.0
+        off = base * radial + sign * tangential * tangent
+        return float(off[0]), float(off[1])
+
+    h_center = H2.mean(axis=0)
+    v_center = V2.mean(axis=0)
+    d_center = D2.mean(axis=0)
+
     for i, c in enumerate(countries):
-        ax.annotate(c, H2[i], xytext=(5, 5), textcoords="offset points",
-                    fontsize=8, color=COL_HUMN, alpha=0.85)
+        # Human labels stay compact near the left cluster.
+        hdx, hdy = _label_offset(H2[i], h_center, i, base=2.8, tangential=1.8)
+        ax.annotate(c, H2[i], xytext=(hdx, hdy), textcoords="offset points",
+                    fontsize=8, color=COL_HUMN, alpha=0.9)
+
+        # Vanilla / DISCA labels are pushed farther and in opposite tangential
+        # directions to reduce overlap between the two model clouds.
+        vdx, vdy = _label_offset(V2[i], v_center, i, base=5.0, tangential=3.4)
+        ddx, ddy = _label_offset(D2[i], d_center, i + 1, base=6.2, tangential=3.8)
+        ax.annotate(c, V2[i], xytext=(vdx, vdy), textcoords="offset points",
+                    fontsize=7.2, color=COL_VAN, alpha=0.88)
+        ax.annotate(c, D2[i], xytext=(ddx, ddy), textcoords="offset points",
+                    fontsize=7.2, color=COL_SWA, alpha=0.9)
 
     # Distance reduction summary printed inside the plot
     dist_van = float(np.mean(np.linalg.norm(V2 - H2, axis=1)))
@@ -616,7 +648,8 @@ def plot_amce_pca() -> None:
                  f"({PRETTY_MODEL.get(target_model)}, "
                  f"{n} countries, {100 * expl:.1f}% variance captured)",
                  fontsize=12, pad=10)
-    ax.legend(loc="upper right", fontsize=10.5, framealpha=0.95)
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0),
+              borderaxespad=0.0, fontsize=10.5, framealpha=0.95)
     ax.grid(True, alpha=0.25, lw=0.4)
     ax.set_aspect("equal", adjustable="datalim")
     plt.tight_layout()
