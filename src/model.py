@@ -411,9 +411,13 @@ def load_model_hf_native(
     # …). Skip the custom code and use the in-tree `Phi3ForCausalLM`, which is fully
     # up to date with the current transformers cache API.
     _is_phi3 = "phi-3" in _mn_low or "phi3" in _mn_low
+    # device_map: default "cuda" (single GPU). Set MORAL_DEVICE_MAP=auto to let
+    # accelerate shard the model across all visible GPUs (e.g. Kaggle T4×2 for
+    # 7B-class models that don't fit on one 16 GB T4 in bf16).
+    _device_map = os.environ.get("MORAL_DEVICE_MAP", "cuda").strip() or "cuda"
     common_kw: dict = {
         "trust_remote_code": not _is_phi3,
-        "device_map": "cuda",
+        "device_map": _device_map,
         **_tok_kw,
     }
     if attn_impl:

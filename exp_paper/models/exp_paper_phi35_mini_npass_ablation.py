@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Paper sweep — Phi-3.5-mini-instruct — N-pass DPBR ablation, 20 countries
-========================================================================
+Paper sweep — Qwen2.5-7B-Instruct — N-pass DPBR ablation, 20 countries
+======================================================================
 
 Question: the paper uses dual-pass (N=2). What about N = 1, 3, 4, 5, 6, …?
 
@@ -19,22 +19,27 @@ Kaggle OFFLINE setup (Internet OFF — same pattern as exp_paper_ablation_qwen25
   Required Kaggle inputs:
     1. Repo dataset:  cultural_alignment   (any version with src/, exp_paper/,
                        experiment_DM/exp_npass_dpbr.py present)
-    2. Model input:   microsoft/Phi-3.5-mini-instruct  (mounted under
-                       /kaggle/input/phi-3.5/transformers/mini-instruct/1, or
-                       override with MORAL_MODEL_PATH env)
+    2. Model input:   Qwen/Qwen2.5-7B-Instruct  (mounted under
+                       /kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1,
+                       or override with MORAL_MODEL_PATH env)
     3. Data dataset:  trungkiet/mutltitp-data   (provides MultiTP + WVS + ACME)
 
   Hard-wired paths (do NOT git-clone / pip-download — Internet stays OFF):
     PROJECT_DATASET_DIR     = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
     PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
-    MODEL_LOCAL_PATH        = "/kaggle/input/phi-3.5/transformers/mini-instruct/1"
+    MODEL_LOCAL_PATH        = "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1"
     MULTITP_DATA_PATH       = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data"
     WVS_DATA_PATH           = "/kaggle/input/datasets/trungkiet/mutltitp-data/WVS_Cross-National_Wave_7_inverted_csv_v6_0.csv"
     HUMAN_AMCE_PATH         = "/kaggle/input/datasets/trungkiet/mutltitp-data/data/data/country_specific_ACME.csv"
     WORK_DIR                = "/kaggle/working/cultural_alignment"
 
   Backend: HF native bf16 (HF_HUB_OFFLINE=1, TRANSFORMERS_OFFLINE=1).
-  Phi-3.5-mini @ 3.8B fits comfortably in bf16 on a T4 (≈ 7.6 GB / 16 GB).
+  Qwen2.5-7B @ 7.6B does NOT fit on a single 16 GB T4 once 5-agent batched
+  forward + activations are added (bare weights ≈ 15 GB; OOM during DPBR
+  extraction). On Kaggle pick the **GPU T4 x2** accelerator so the script
+  shards the model across both GPUs via accelerate (MORAL_DEVICE_MAP=auto,
+  default in this script). Single-GPU alternatives: L4 (24 GB) or P100 (16 GB,
+  marginal).
 
 Run:
     !python /kaggle/working/cultural_alignment/exp_paper/models/exp_paper_phi35_mini_npass_ablation.py
@@ -46,20 +51,26 @@ import subprocess
 import sys
 from pathlib import Path as _P
 
-# ╔══════════════════════════════════════════════════════════════════════════╗
-# ║  KAGGLE OFFLINE BOOTSTRAP — no Internet, no git clone, no pip download   ║
-# ╚══════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  KAGGLE OFFLINE BOOTSTRAP — no Internet, no git clone, no pip download    ║
+# ║  (mirrors exp_paper/ablation/exp_paper_ablation_qwen25_7b.py pattern)     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+print("=" * 70)
+print("  KAGGLE OFFLINE — Qwen2.5-7B N-pass DPBR Ablation (HF native, bf16)")
+print("  20 paper countries  ×  N ∈ {1, 2, 3, 4, 5, 6}")
+print("=" * 70)
 
 # Repo (mounted as Kaggle Dataset)
 PROJECT_DATASET_DIR     = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural-alignment"
 PROJECT_DATASET_DIR_ALT = "/kaggle/input/notebooks/foundnotkiet/git-moral/cultural_alignment"
 WORK_DIR                = "/kaggle/working/cultural_alignment"
 
-# Phi-3.5-mini-instruct (mounted as Kaggle Model input). Override with env
+# Qwen2.5-7B-Instruct (mounted as Kaggle Model input). Override with env
 # MORAL_MODEL_PATH if your Kaggle Model dataset is at a different mount point.
 MODEL_LOCAL_PATH = os.environ.get(
     "MORAL_MODEL_PATH",
-    "/kaggle/input/phi-3.5/transformers/mini-instruct/1",
+    "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1",
 )
 
 # Datasets (mounted from /kaggle/input)
@@ -77,8 +88,12 @@ os.environ["UNSLOTH_DISABLE_AUTO_COMPILE"] = "1"
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 # Backend: HF native bf16 — most reliable on offline Kaggle (no Unsloth weight
-# downloads, no vLLM JIT). Phi-3.5-mini @ 3.8B fits comfortably in bf16 on T4.
+# downloads, no vLLM JIT). Qwen2.5-7B @ 7.6B is too big for a single T4 16 GB
+# once activations + 5-agent batched forward are added. Spread across both T4s
+# via accelerate device_map="auto" (Kaggle "GPU T4 x2" accelerator).
 os.environ.setdefault("MORAL_MODEL_BACKEND", "hf_native")
+os.environ.setdefault("MORAL_DEVICE_MAP", "auto")  # T4×2 sharding
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 os.environ.setdefault("EXP24_ESS_ANCHOR_REG", "1")
 
 
@@ -120,7 +135,7 @@ def _setup_project() -> str:
 
 
 def _resolve_model_path() -> str:
-    """Resolve local Phi-3.5-mini-instruct weights — never hits the network.
+    """Resolve local Qwen2.5-7B-Instruct weights — never hits the network.
     Tries MODEL_LOCAL_PATH directly, then any subdir containing config.json,
     then a few common Kaggle Model layout fallbacks."""
     if not _on_kaggle():
@@ -132,20 +147,20 @@ def _resolve_model_path() -> str:
         for sub in _P(p).rglob("config.json"):
             return str(sub.parent)
     candidates = [
+        "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/1",
+        "/kaggle/input/models/qwen-lm/qwen2.5/transformers/7b-instruct/2",
         f"{p}/transformers/default/1",
-        f"{p}/transformers/mini-instruct/1",
-        f"{p}/transformers/mini-instruct/2",
+        f"{p}/transformers/7b-instruct/1",
         f"{p}/pytorch/default/1",
-        "/kaggle/input/phi-3.5/transformers/mini-instruct/1",
-        "/kaggle/input/phi-3-5/transformers/mini-instruct/1",
-        "/kaggle/input/phi35-mini-instruct/transformers/default/1",
+        "/kaggle/input/qwen-2.5/transformers/7b-instruct/1",
+        "/kaggle/input/qwen2.5-7b-instruct/transformers/default/1",
     ]
     for c in candidates:
         if os.path.isdir(c) and os.path.isfile(os.path.join(c, "config.json")):
             return c
     raise RuntimeError(
-        f"Phi-3.5-mini weights not found. Looked in:\n  {p}\nand common subdirs.\n"
-        "Add the Kaggle Model 'microsoft/phi-3.5-mini-instruct' as input, then "
+        f"Qwen2.5-7B weights not found. Looked in:\n  {p}\nand common subdirs.\n"
+        "Add the Kaggle Model 'Qwen/Qwen2.5-7B-Instruct' as input, then "
         "set MORAL_MODEL_PATH=/kaggle/input/<your-mount>."
     )
 
@@ -232,7 +247,7 @@ from exp_paper.paper_countries import (                       # noqa: E402
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 MODEL_NAME   = MODEL_LOCAL_PATH_RESOLVED  # local Kaggle Model path (offline)
-MODEL_SHORT  = "phi35_mini"
+MODEL_SHORT  = "qwen25_7b"
 EXP_BASE     = "EXP-24-NPASS"
 
 N_SCENARIOS  = 500
@@ -661,7 +676,7 @@ def _build_paper_report(
     # 4) Markdown paper table.
     md_path = cmp_root / "npass_paper_table.md"
     md_lines: List[str] = []
-    md_lines.append(f"# {EXP_BASE} ablation — Phi-3.5-mini-instruct, 20 countries\n")
+    md_lines.append(f"# {EXP_BASE} ablation — Qwen2.5-7B-Instruct, 20 countries\n")
     md_lines.append(f"Generalised DPBR rule: bootstrap_var = 2·Var_ddof1(δ*₁,…,δ*ₙ); ")
     md_lines.append(f"r = exp(−bv / {VAR_SCALE}); δ* = r·mean(δ*ᵢ).\n")
     md_lines.append(f"K per pass = {K_HALF}.  λ_coop = {LAMBDA_COOP}.  N_scenarios = {cfg.n_scenarios}.\n\n")
