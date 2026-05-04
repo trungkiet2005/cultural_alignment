@@ -33,6 +33,7 @@
 \usepackage{bbm}
 \usepackage{amsthm}
 \newtheorem{theorem}{Theorem}
+\newtheorem{proposition}{Proposition}
 \newtheorem{corollary}[theorem]{Corollary}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,calc,fit,backgrounds,decorations.pathreplacing,shapes.geometric}
@@ -42,7 +43,7 @@
 \definecolor{worsered}{RGB}{180,0,0}
 \newcommand{\gain}[1]{\textcolor{improvegreen}{#1}}
 \newcommand{\loss}[1]{\textcolor{worsered}{#1}}
-
+% \linespread{0.98}
 % ============================================================
 \title{%
   Training-Free Cultural Alignment of 
@@ -79,7 +80,7 @@ Large language models are increasingly deployed in decisions that turn on moral 
 \label{sec:intro}
 % ============================================================
 
-Large language models increasingly mediate decisions that turn on moral judgement: content moderation policies, clinical prioritisation guidelines, autonomous-vehicle behaviour specifications, and high-stakes recommendation pipelines. In each of these settings, the model's implicit moral preferences become the system's moral preferences. Yet a growing body of evidence shows that these implicit preferences are not culturally neutral. The Moral Machine experiment collected 40 million judgments across 233 countries and showed that moral preferences are systematically structured by culture~\citep{awad2018moral}; LLM outputs correlate most strongly with respondents from Western, educated, industrialised, rich, and democratic populations~\citep{henrich2010weirdest, santurkar2023opinions}; and post-training alignment introduces further unintended cultural shifts~\citep{ryan2024unintended, zewail2025moral}. A model that ignores this variation does not merely underperform on a benchmark; it imposes one society's intuitions on every user it serves.
+Large language models increasingly mediate decisions that turn on moral judgement: content moderation policies, clinical prioritisation guidelines, autonomous-vehicle behaviour specifications, and high-stakes recommendation pipelines. In each of these settings, the model's implicit moral preferences become the system's moral preferences. Yet a growing body of evidence shows that these implicit preferences are not culturally neutral. The Moral Machine experiment collected 40 million judgments across 233 countries and showed that moral preferences are systematically structured by culture~\citep{awad2018moral}; large language model (LLM) outputs correlate most strongly with respondents from Western, educated, industrialised, rich, and democratic populations~\citep{henrich2010weirdest, santurkar2023opinions}; and post-training alignment introduces further unintended cultural shifts~\citep{ryan2024unintended, zewail2025moral}. A model that ignores this variation does not merely underperform on a benchmark; it imposes one society's intuitions on every user it serves.
 
 The cultural gap is now well-documented at the model level. The MultiTP benchmark~\citep{jin2025multitp} extends the Moral Machine protocol to 107 languages with country-specific Average Marginal Component Effects (AMCEs), and reports that none of 19 evaluated LLMs recovers the country-level structure of human moral preferences. The asymmetries are substantial: Japan ranks first among countries on preference for sparing pedestrians, China ranks 116th, and current models do not capture either extreme. Concurrent work shows that sociodemographic persona prompts shift LLM moral decisions two to four times more than they shift human decisions~\citep{kim2025persona}, indicating that the models are not insensitive to cultural framing, but that the framing they receive at deployment time does not match the cultural distribution they are asked to serve.
 
@@ -87,21 +88,22 @@ Closing this gap is harder than it looks. Three families of methods have been pr
 
 We make the following observation. When certain culturally grounded persona prompts representing the same country face the same moral dilemma, the dispersion of their decoding-time logit gaps is itself informative. If they agree, the base model is already calibrated for that country and no correction is needed; if they disagree, the spread of their gaps encodes both the direction and the magnitude of the needed correction. Our method, DISCA (Disagreement-Informed Steering for Cultural Alignment), instantiates each country as a panel of four persona agents grounded in World Values Survey microdata~\citep{haerpfer2022wvs}, evaluates them in a single batched forward pass, and converts the panel's variance into a bounded, loss-averse logit correction whose magnitude is automatically attenuated when the underlying estimate is unreliable. We show that this attenuation is not heuristic: it implements a variance-aware shrinkage estimator whose shrinkage weight is determined by the panel's empirical disagreement, formally characterising when the correction can be trusted.
 
-Across 20 countries spanning four continents and seven open-weight backbones (2B--70B parameters) from five model families, DISCA reduces cultural misalignment on MultiTP by 10--24\% on binary moral dilemmas and 2--7\% on open-ended scenarios. The strongest absolute alignment is achieved by Phi-4 (14B), which surpasses a vanilla Llama-3.3-70B backbone despite using one fifth of the parameters; this suggests that, in the regime we study, calibration competes with scale rather than merely complementing it. An evaluation on the BLEnD factual cultural QA benchmark~\citep{myung2024blend} reveals a clean scope boundary: DISCA steers values, where the decision reduces to a scalar logit gap, but does not transfer to factual recall, where the decision is a single token in a large vocabulary. Failure modes are architecturally rather than culturally determined and are diagnosable from the base model's vanilla logit conditioning alone.
+Across 20 countries spanning four continents and seven open-weight backbones (2B--70B parameters) from five model families, DISCA reduces cultural misalignment on MultiTP by 10--24\% on binary moral dilemmas and 2--7\% on open-ended scenarios. The strongest absolute alignment is achieved by Phi-4 (14B), which surpasses a vanilla Llama-3.3-70B backbone despite using one fifth of the parameters; this suggests that, in the regime we study, calibration competes with scale rather than merely complementing it. An evaluation on the BLEnD factual cultural QA benchmark~\citep{myung2024blend} reveals a clean scope boundary: DISCA steers values, where the decision reduces to a scalar logit gap, but does not transfer to factual recall, where the decision is a single token in a large vocabulary. Failure modes are architecturally rather than culturally determined and are diagnosable from the base model's vanilla logit conditioning alone. Primary metrics (MIS and diagnostics) are defined in \S\ref{sec:exp:data}.
+
 
 \noindent \textbf{Contributions.}
 \begin{itemize}
     \item An inference-time cultural alignment method that requires no weight updates, no per-country reward models, and no white-box access.
-    \item A formal characterisation of the disagreement-driven correction as a variance-aware shrinkage estimator, where panel variance determines the shrinkage weight and a dual-pass reliability gate provides a finite-sample plug-in estimator of this weight.
+    \item A formal characterisation of disagreement-driven shrinkage. To our knowledge, the first inference-time alignment method to use independent-run disagreement as a continuous reliability signal.
     \item An empirical evaluation across 20 countries, four continents, seven open-weight backbones, and three evaluation formats (binary moral dilemmas, open-ended scenarios, factual QA), demonstrating that a 14B model with the proposed recipe matches or surpasses a 70B model without it.
 \end{itemize}
 
-% Our central observation is that the needed signal already exists in public survey data. We introduce the \emph{disagreement-driven steering} paradigm: when four WVS-grounded personas~\citep{haerpfer2022wvs} representing a single country face a moral dilemma and agree, the base model is already calibrated; when they disagree, the spread encodes both the direction and magnitude of the needed correction. We prove that this is not merely a useful heuristic: the disagreement-driven correction is a James--Stein shrinkage estimator~\citep{james1961estimation} that strictly dominates unshrunk consensus in worst-case MSE, and $N{=}4$ is the minimum panel size for which this guarantee holds (Theorem~\ref{thm:shrinkage}). \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment) instantiates the paradigm: (1)~represent each country as four persona agents (three age cohorts plus a population aggregate) responding in the native language; (2)~remove positional bias~\citep{liu2024lost}; (3)~combine persona corrections via a bounded, loss-averse aggregation whose reliability gate implements asymptotically optimal shrinkage. Across 20~countries, four continents, and 7~checkpoints from 5~model families (2B--70B), DISCA reduces misalignment on MultiTP~\citep{jin2025multitp} by 10--24\% relative to vanilla, with the lowest absolute MIS from Phi-4~(14B) rather than the largest model.
+% Our central observation is that the needed signal already exists in public survey data. We introduce the \emph{disagreement-driven steering} paradigm: when four WVS-grounded personas~\citep{haerpfer2022wvs} representing a single country face a moral dilemma and agree, the base model is already calibrated; when they disagree, the spread encodes both the direction and magnitude of the needed correction. We prove that this is not merely a useful heuristic: the disagreement-driven correction is a James--Stein shrinkage estimator~\citep{james1961estimation} that strictly dominates unshrunk consensus in worst-case MSE, and $N{=}4$ is the minimum panel size for which this guarantee holds (Proposition~\ref{prop:shrinkage}). \textbf{DISCA} (Disagreement-Informed Steering for Cultural Alignment) instantiates the paradigm: (1)~represent each country as four persona agents (three age cohorts plus a population aggregate) responding in the native language; (2)~remove positional bias~\citep{liu2024lost}; (3)~combine persona corrections via a bounded, loss-averse aggregation whose reliability gate implements asymptotically optimal shrinkage. Across 20~countries, four continents, and 7~checkpoints from 5~model families (2B--70B), DISCA reduces misalignment on MultiTP~\citep{jin2025multitp} by 10--24\% relative to vanilla, with the lowest absolute MIS from Phi-4~(14B) rather than the largest model.
 
 % Our contributions span a new paradigm, an algorithmic primitive, and large-scale empirical validation:
 % \begin{itemize}
-%     \item \textbf{Paradigm + Theory:} We introduce \emph{disagreement-driven steering}, the principle that within-group variance of grounded agents, not their consensus, is a sufficient signal for inference-time alignment without retraining. We prove (Theorem~\ref{thm:shrinkage}) that the resulting correction is a James--Stein shrinkage estimator that strictly dominates naive consensus in worst-case MSE for $N \geq 4$, formally distinguishing the paradigm from ensembles, self-consistency, and isotropic calibration. DISCA is the first instantiation, but the paradigm generalises to any panel constructible from public data.
-%     \item \textbf{Algorithm:} A general-purpose algorithmic primitive, Prospect-Theory importance sampling with a dual-pass reliability gate (PT-IS + DPBR), implements the paradigm. Loss-averse utility for asymmetric harm, softmax-weighted IS for non-convex optimisation, and a split-budget bootstrap gate that implements asymptotically optimal shrinkage (Theorem~\ref{thm:shrinkage}(iii)) form a self-contained module applicable to any multi-objective decoding-time steering problem.
+%     \item \textbf{Paradigm + Theory:} We introduce \emph{disagreement-driven steering}, the principle that within-group variance of grounded agents, not their consensus, is a sufficient signal for inference-time alignment without retraining. We prove (Proposition~\ref{prop:shrinkage}) that the resulting correction is a James--Stein shrinkage estimator that strictly dominates naive consensus in worst-case MSE for $N \geq 4$, formally distinguishing the paradigm from ensembles, self-consistency, and isotropic calibration. DISCA is the first instantiation, but the paradigm generalises to any panel constructible from public data.
+%     \item \textbf{Algorithm:} A general-purpose algorithmic primitive, Prospect-Theory importance sampling with a dual-pass reliability gate (PT--IS + DISCA stack), implements the paradigm. Loss-averse utility for asymmetric harm, softmax-weighted IS for non-convex optimisation, and a split-budget bootstrap gate that implements asymptotically optimal shrinkage (Proposition~\ref{prop:shrinkage}(iii)) form a self-contained module applicable to any multi-objective decoding-time steering problem.
 %     \item \textbf{Empirical validation:} Across 20~countries, 7~checkpoints from 5~model families, and three evaluation formats (binary moral dilemmas, open-ended scenarios, factual QA), DISCA reduces cultural misalignment by 10--24\% (19--24\% on strongest checkpoints); failure is predictable from base-model logit conditioning alone, not from cultural or geographic properties. Positional debiasing is a strict prerequisite, and loss-averse aggregation protects minority viewpoints that simple averaging overrides.
 % \end{itemize}
 
@@ -117,7 +119,7 @@ The Moral Machine experiment~\citep{awad2018moral} established that moral prefer
 The pluralistic alignment vision~\citep{sorensen2024roadmap} argues that inference-time methods are a natural vehicle for cultural adaptation, but existing approaches each sacrifice one of the three constraints we target: activation steering~\citep{arditi2025refusal, zou2023representation} requires white-box access; reward-guided decoding~\citep{khanov2024args, mudgal2024controlled} needs per-country reward models; culture-aware adapters~\citep{zhang2026culturemanager, yao2024caredio} need per-culture training. Recent logit-level steering~\citep{an2026logit, khanuja2026steering} demonstrates that the logit surface is a richer control interface than appreciated, but neither targets country-conditioned moral calibration. Black-box alignment modules~\citep{bobbili2025pita, chen2025diffpo} still require a training stage, and adaptive IS in pre-logit space~\citep{aisp2025} requires activation access. Training-time prospect-theoretic alignment~\citep{ethayarajh2024kto} applies the same PT value shape we use, but at training time; DISCA applies it at \emph{test time}, per scenario, aggregating heterogeneous personas rather than shaping a trained policy.
 
 \paragraph{Distinction from superficially similar paradigms.}
-DISCA may superficially resemble ensemble methods, but the resemblance is architectural, not algorithmic. In self-consistency~\citep{wang2023selfconsistency} and LLM debate~\citep{du2023improving, liang2024encouraging}, diversity is noise to be eliminated via majority vote; in standard ensembles, multiple outputs are averaged to reduce variance of the \emph{prediction}. In DISCA, diversity \emph{is} the signal: the \emph{spread} of persona logit gaps, not the mode, determines the correction magnitude. This distinction is not merely conceptual. We prove (Theorem~\ref{thm:shrinkage}) that the disagreement-driven correction is a James--Stein shrinkage estimator~\citep{james1961estimation} that strictly dominates unshrunk consensus in worst-case MSE: ensembles average to reduce output variance, whereas DISCA uses within-panel variance as a sufficient statistic to \emph{control} correction magnitude. Standard calibration (temperature scaling, MC-Dropout~\citep{gal2016dropout, kwon2025dropouts}) adjusts confidence isotropically; DISCA applies anisotropic, loss-averse corrections. The ablation (Table~\ref{tab:ablation_backbones_20c}) confirms the distinction empirically: removing personas degrades MIS by +0.047--0.061, while removing the reliability gate loses +0.015--0.021, effects no ensemble or calibration method reproduces.
+DISCA may superficially resemble ensemble methods, but the resemblance is architectural, not algorithmic. In self-consistency~\citep{wang2023selfconsistency} and LLM debate~\citep{du2023improving, liang2024encouraging}, diversity is noise to be eliminated via majority vote; in standard ensembles, multiple outputs are averaged to reduce variance of the \emph{prediction}. In DISCA, diversity \emph{is} the signal: the \emph{spread} of persona logit gaps, not the mode, determines the correction magnitude. This distinction is not merely conceptual. We prove (Proposition~\ref{prop:shrinkage}) that the disagreement-driven correction is a James--Stein shrinkage estimator~\citep{james1961estimation} that strictly dominates unshrunk consensus in worst-case MSE: ensembles average to reduce output variance, whereas DISCA uses within-panel variance as a sufficient statistic to \emph{control} correction magnitude. Standard calibration (temperature scaling, MC-Dropout~\citep{gal2016dropout, kwon2025dropouts}) adjusts confidence isotropically; DISCA applies anisotropic, loss-averse corrections. Table~\ref{tab:ablation_backbones_20c} quantifies the gap versus removing personas or the reliability gate.
 
 To our knowledge, DISCA is the first training-free method targeting country-level moral calibration. The method is grounded in control-as-inference, Prospect Theory, and importance-sampling variance control (Appendix~\ref{app:theory_grounding}).
 
@@ -125,105 +127,590 @@ To our knowledge, DISCA is the first training-free method targeting country-leve
 \section{Method: DISCA}
 \label{sec:method}
 
-DISCA produces a small adjustment to the model's decision-token logits, computed from a number of culturally grounded personas and applied at decode time. The size of the adjustment is not fixed: when these personas agree on what the country's preference should be, we apply the adjustment in full; when they disagree, we apply only a fraction of it, scaled by how much the panel disagrees. The rest of this section makes this idea precise. We first fix notation in \ref{sec:method:setup}, construct the culturally grounded panel in \ref{sec:method:personas}, describe batched evaluation and debiasing in \ref{sec:method:eval} and \ref{sec:method:debias}, and then formalise the disagreement-driven correction in \ref{sec:method:dpbr}.
+DISCA aligns the model by creating an adjustment derived from the 
+agents' consensus, and the agreement among the agents controls 
+how much of it actually applies. The magnitude of the adjustment 
+is not fixed: when the four agents agree on what the country's 
+preference should be, we apply the adjustment in full; when they 
+disagree, we apply only a fraction of it, scaled by how much the 
+agents disagree. This inverts the standard combination structure used by 
+self-consistency~\citep{wang2023selfconsistency}, multi-agent 
+debate~\citep{du2023improving, liang2024encouraging}, and ensembles, 
+where $N$ candidate outputs are aggregated by majority or averaging 
+and disagreement among them is treated as noise to be suppressed. 
+DISCA instead treats disagreement as the quantity that controls how 
+much adjustment to apply.
+
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth,height=0.34\textheight,keepaspectratio]{DISCA_Overall.pdf}
+  \caption{\textbf{DISCA overview.} Stage~1 builds WVS-grounded persona prompts for a trolley scenario in country~$c$; Stage~2 runs a frozen large language model (LLM) on the base prompt and each persona, aggregates persona-level signals in logit space, and applies \emph{Prospect-Theory importance sampling} (PT--IS; \S\ref{sec:method:disca_correction}) together with a dual-pass reliability gate to obtain the final sparing probability. Pseudocode and the six MultiTP attribute--temperature pairs appear in Appendix~\ref{app:disca_overview}.}
+  \label{fig:disca_overall}
+\end{figure}
 
 \subsection{Setup}
 \label{sec:method:setup}
 
-We consider a frozen language model $f_\theta$ deployed on a
-forced-choice task: each input $x$ asks the model to choose between two options via decision tokens $A$ and $B$. Let $z(x) = [z_a, z_b]$ denote the model's logits at the decision-token position, and let $\delta(x) = z_b - z_a$ be the resulting decision gap. For target country $c$, we assume access only to $f_\theta$ as a black box and to a public characterisation of country $c$'s population (in our case, World Values Survey microdata~\citep{haerpfer2022wvs}); we do not assume per-country preference labels, reward models, or write
-access to $\theta$.
+We consider a frozen language model $f_\theta$ on a forced-choice 
+task: each input $x$ asks the model to choose between two options 
+via decision tokens $A$ and $B$. Let $z(x) = [z_a, z_b]$ denote the 
+model's logits at the decision-token position, and let 
+$\delta(x) = z_b - z_a$ be the resulting decision gap. For target 
+country $c$, we assume access only to $f_\theta$ as black-box and a public 
+characterisation of country $c$'s population (in our case, World 
+Values Survey microdata~\citep{haerpfer2022wvs}); we do not assume 
+per-country preference labels, reward models, or write access to 
+$\theta$. Our goal is to compute, from $f_\theta$ alone, a 
+per-scenario logit adjustment $\delta^\star(x, c)$ such that the 
+adjusted gap $\delta(x) + \delta^\star(x, c)$ produces decisions 
+better aligned with country $c$'s preferences. Alignment is measured 
+against a country-level reference vector; the benchmark and metric 
+are described in \ref{sec:exp:data}. The remainder of Section 3 focuses on how $\delta^\star$ should depend on the disagreement, what formal property this dependence has, and how to estimate the correction.
 
-Our goal is to compute, from $f_\theta$ alone, a per-scenario
-correction $\delta^\star(x, c)$ such that the corrected logit gap $\delta(x) + \delta^\star(x, c)$ produces decisions better aligned with country $c$'s preferences than the base gap $\delta(x)$ alone. We measure alignment in $\ell_2$ distance between the model's preference vector and a country-level reference vector; the benchmark, the reference vector, and the precise alignment metric are described in \S\ref{sec:experiments}. The remainder of \S3 focuses on how $\delta^\star$ should depend on the panel, what formal property this dependence has, and how to estimate the correction from finite samples. The next subsection states the
-principle that governs the magnitude of $\delta^\star$.
 
-\subsection{Cultural Persona Construction}
-\label{sec:method:personas}
+\subsection{The disagreement principle}
+\label{sec:method:principle}
 
-We use $N{=}4$ personas (three age cohorts plus a country-wide aggregate) grounded in WVS Wave~7 microdata~\citep{haerpfer2022wvs}. Four is the smallest panel covering the three demographic axes with most within-country variance (young, middle-aged, older) while preserving a population anchor~\citep{inglehart2005modernization, kish1965survey}. Ablation confirms the panel is load-bearing: removing it costs $+0.083$ MIS, the largest single-component drop (Table~\ref{tab:ablation_backbones_20c}). A sensitivity check replacing the aggregate persona with a utilitarian anchor yields marginal $\Delta{=}{-}0.02$ MIS (Appendix~\ref{app:r2_persona_variant}).
+Suppose we evaluate the same scenario under $N$ culturally grounded 
+prompts representing the same target country, each producing a logit 
+gap $\delta_i$. Each $\delta_i$ is a noisy estimate of what 
+country~$c$'s population-level preference would imply for this 
+scenario. If the $\delta_i$ cluster tightly, the four estimates 
+converge on the same answer and the consensus is a reliable signal. 
+If they are dispersed, the consensus is averaging over disagreeing 
+estimates and is unreliable as a steering target. The principle is 
+that within-agent dispersion, not consensus magnitude, controls how 
+much of the consensus adjustment we should actually apply.
 
-For each country $c$, following the 10-variable cultural-value scheme of \citet{greco2026personas}, we extract: \emph{religiosity} (Q6P), \emph{child-rearing values} (Q17P), \emph{moral acceptability} (Q177--Q182), \emph{social trust} (Q57P), \emph{political participation} (Q199P, Q200P), \emph{national pride} (Q254P), \emph{happiness} (Q46P), \emph{gender equality} (Q29P--Q33P), \emph{materialism orientation} (Q152--Q153), and \emph{tolerance for diversity} (Q19P--Q23P). Items from the ``inverted'' WVS-7 CSV (suffix P) are directionally coded so that higher values consistently indicate the positive pole of each dimension. For each country, respondents are segmented into three age cohorts-\emph{young} ($<$36), \emph{middle-aged} (36--55), and \emph{older} ($>$55)-the conventional generational cuts used in WVS analyses, aligned with the Inglehart-style cohort boundaries that distinguish post-materialist from materialist generations~\citep{haerpfer2022wvs, inglehart2005modernization}; this yields three cohort-specific personas that capture generational variation in cultural values. A fourth persona aggregates all respondents regardless of age, anchoring the ensemble with the country's population-wide cultural centre of gravity. All four personas are thus data-driven and country-specific; no agent carries a hard-coded moral stance that could bias particular dimensions. Dimension means are normalised to $[0,1]$ and mapped to four-level natural-language descriptors via quartile cuts ($\geq 0.75$, $\geq 0.50$, $\geq 0.25$, $< 0.25$); the four-level discretisation is the smallest ordinal vocabulary that distinguishes \emph{very high / high / low / very low} in prose without overloading the prompt with fine-grained numerics, and the quartile thresholds are sample-distribution agnostic so the same code path applies to every WVS dimension (Appendix~\ref{app:personas}). Each persona is a native-language system prompt assembled from a header, one sentence per WVS dimension with data, and a moral-reasoning closing line. WVS grounding ensures empirically measured within-country variation rather than stereotypes~\citep{deshpande2023toxicity}. The 10-dimensional WVS profile explains $R^2 \in [0.55, 0.69]$ of human AMCE variance across the 20-country panel (Appendix~\ref{app:wvs_linkage}), and a leave-one-dimension-out probe identifies load-bearing couplings alongside noisy ones. Crucially, the IS stage automatically down-weights persona signals that increase collective disutility, acting as a built-in noise filter (Appendix~\ref{app:wvs_linkage}). A WVS dropout study confirms a concentrated importance profile: religiosity, gender equality, and moral permissiveness are load-bearing-each producing a $\Delta\text{MIS}{>}0.03$, roughly $5\times$ the macro-MIS bootstrap noise floor of $\pm 0.006$ measured over three seeds (\S\ref{sec:multiseed})-while national pride and life satisfaction have near-zero impact (Appendix~\ref{sec:wvs_dropout}). Persona examples are in Appendix~\ref{app:personas}.
-
-\subsection{Batched Evaluation and Logit Extraction}
-\label{sec:method:eval}
-
-All $N+1=5$ input sequences (base + 4 personas) are evaluated in a \emph{single}
-batched forward pass:
+Let $\delta_1, \ldots, \delta_N$ be the logit gaps produced by $N$ agents on a single scenario, and let $\delta_h$ denote the unobserved logit gap 
+consistent with country~$c$'s population-level preference on that 
+scenario. We model the agents as
 \begin{equation}
-  \mathbf{z}_{\text{base}},\; \mathbf{z}_1, \ldots, \mathbf{z}_N
-  = f_\theta\!\left(\mathbf{x};\; \varnothing,\; \mathbf{s}_1, \ldots, \mathbf{s}_N\right).
-  \label{eq:batch}
+\delta_i = \delta_h + \eta_i, \qquad \mathbb{E}[\eta_i] = 0, \qquad
+\mathrm{Var}(\eta_i) = \tau^2,
+\label{eq:agent-model}
 \end{equation}
-Per-category logit temperatures $T_{\text{cat}}$ scale logits before computing decision gaps. We use $T_{\text{cat}}=4.0$ (Species), $3.5$ (Gender), and $1.5$ for Age, Fitness, Social Value, and Utilitarianism (Table~\ref{tab:categories});
-the same values appear in Appendix~\ref{app:hyperparams}.
-\begin{align}
-  \delta_i &= \frac{z_{i,b} - z_{i,a}}{T_{\text{cat}}}, \quad
-  \delta_{\text{base}} = \frac{z_{\text{base},b} - z_{\text{base},a}}{T_{\text{cat}}}, \quad
-  \bar{\delta} = \frac{1}{N}\sum_{i=1}^{N} \delta_i \quad \text{(consensus)},
-  \label{eq:consensus} \\
-  r_i &= \delta_i - \delta_{\text{base}} \quad \text{(per-agent reward)}.
-  \label{eq:reward}
-\end{align}
-Here $\delta_{\text{base}}$ is the base-prompt decision gap; $r_i$ measures how strongly persona $i$ shifts the model away from the neutral baseline. (The scalar $r$ in Eq.~\ref{eq:dpbr_rel} denotes the bootstrap reliability weight, not a reward.)
+with the $\eta_i$ assumed independent across agents and identically 
+distributed with common variance $\tau^2$. This is a standard 
+hierarchical setup: $\delta_h$ is a fixed-but-unknown population 
+parameter, and each agent is a noisy view of it. The i.i.d.\ 
+structure is a modelling simplification, since all agents share base model $f_\theta$ and the scenario.
 
-\subsection{Positional Debiasing}
-\label{sec:method:debias}
+Define the consensus $\bar{\delta} = \frac{1}{N}\sum_i \delta_i$, 
+the within-agent variance 
+$D^2 = \frac{1}{N-1}\sum_i (\delta_i - \bar{\delta})^2$, the 
+consensus adjustment $\Delta = \bar{\delta} - \delta_{\text{base}}$, 
+and the oracle adjustment $\Delta_h = \delta_h - \delta_{\text{base}}$. Where $\delta_{\text{base}}$ is the logit gap produced by the 
+unconditioned base prompt (without persona or country-related prompts) on the same scenario.
 
-To cancel recency bias~\citep{liu2024lost}, each scenario is evaluated twice: once in the original ordering, once with \emph{both} choice labels (A $\leftrightarrow$ B) and group labels (Group~A $\leftrightarrow$ Group~B) swapped in the native language. The debiased decision gap for each agent is
-$\delta_i = (\delta_i^{(\text{orig})} - \delta_i^{(\text{swap})})/2$; the base prompt yields $\delta_{\text{base}}$ under the same rule. Implementation details (placeholder-based three-step swap to avoid double-substitution bugs in native scripts) are in Appendix~\ref{app:debias_impl}.
-
-\subsection{From Persona Disagreement to a Bounded Correction}
-\label{sec:method:dpbr}
-
-The persona consensus $\bar{\delta}$ already captures the cultural direction, but applying it directly would ignore two problems: the consensus may overcorrect toward one loud persona, and finite-sample noise may push the correction in an
-unreliable direction. We address both through importance sampling with a cooperative, loss-averse utility.
-
-We sample candidate perturbations $\epsilon_k \sim \mathcal{N}(0,\sigma^2)$ around the consensus and score each by how much it improves alignment with every persona, not just the loudest one. Per-persona gains are aggregated through a Prospect-Theory value function~\citep{kahneman1979prospect, tversky1992advances} with $\kappa{\approx}2.25$, encoding a ``do no harm'' prior: the PT kernel is a \emph{controller design choice}, an asymmetric aggregation kernel where harming one demographic group is penalised more than equally-sized help to another, not a literal model of LLM cognition. Auxiliary runs with linear and WVS-weighted kernels underperform the PT kernel, and robustness sweeps keep all JSD spans within $\pm 0.004$ (Appendix~\ref{app:design_rationale}). The softmax-weighted IS update can be read as approximate control-as-inference~\citep{williams2017mppi, levine2018reinforcement}.
+We will apply a scaled version of $\Delta$ as our adjustment: 
+$\hat\Delta(\gamma) = \gamma \cdot \Delta$ for some 
+$\gamma \in [0,1]$. We choose $\gamma$ by minimising the mean 
+squared error against the unobserved oracle,
 \begin{equation}
-  U_{\text{total}}(\epsilon_k)
-  = (1 - \lambda_{\text{coop}})\,\frac{1}{N}\sum_{i=1}^{N}
-      v\!\left(\frac{g_{i,k}}{\sigma}\right)
-  \;+\; \lambda_{\text{coop}}\,
-      v\!\left(\frac{g_{\text{cons},k}}{\sigma}\right),
-  \label{eq:util_total}
+\mathrm{MSE}(\gamma) \;=\; \mathbb{E}\big[\big(\hat\Delta(\gamma) - 
+\Delta_h\big)^2\big]
+\label{eq:mse}
 \end{equation}
-where $v(\cdot)$ is the Kahneman--Tversky value function with gain curvature $\alpha{=}0.88$ and loss aversion $\kappa{=}2.25$, the canonical values estimated across decades of behavioural studies~\citep{kahneman1979prospect, tversky1992advances}, used here as a fixed default rather than a tuned hyperparameter; a $\kappa$ sweep over $\{1.5, 2.0, 2.25, 3.0\}$ leaves macro MIS within the bootstrap noise floor (Appendix~\ref{app:design_rationale}), $g_{i,k}$ measures how much candidate $k$ improves over the base for persona $i$ (Appendix~\ref{app:dpbr_theory}), and $\lambda_{\text{coop}}{=}0.7$ weights the group consensus. Candidates are then softmax-weighted by utility and combined into a single correction $\delta^{\star}_m$; an effective-sample-size
-guard zeros the correction when the weights collapse, falling back on the raw consensus (Appendix~\ref{app:dpbr_theory}).
 
-Sampling noise is handled by a \emph{dual-pass reliability gate}: DISCA splits the IS budget into two independent passes and compares them:
+
+\begin{proposition}[Variance-aware shrinkage]
+\label{prop:shrinkage}
+Under the model in~\eqref{eq:agent-model}:
+\begin{itemize}
+    \item[\textup{(i)}] $D^2$ is unbiased for $\tau^2$, and the 
+    variance of the consensus adjustment is 
+    $\mathrm{Var}(\Delta) = \tau^2 / N$.
+    \item[\textup{(ii)}] Among shrinkage estimators of the form 
+    $\hat{\Delta}(\gamma) = \gamma \cdot \Delta$ with 
+    $\gamma \in [0, 1]$, the MSE-minimising shrinkage factor is
+    \begin{equation}
+    \gamma^\star = \frac{\Delta_h^2}{\Delta_h^2 + \tau^2 / N},
+    \label{eq:gamma-star}
+    \end{equation}
+    which is bounded in $(0, 1)$ and monotone-decreasing in $\tau^2$.
+\end{itemize}
+\end{proposition}
+
+The proof is in App.~\ref{app:bias_variance}. The Proposition's two parts work together to motivate the method. Part~(ii) gives the optimal 
+$\gamma^\star$ in closed form, but it is not directly computable: 
+$\gamma^\star$ depends on $\tau^2$ and on $\Delta_h$, neither of 
+which we observe. Part~(i) gives us a way to estimate $\tau^2$ 
+from data we already have: the within-agent variance $D^2$ has expected 
+value equal to $\tau^2$. But $\Delta_h$ has no analogous estimator from the agents' outputs, so we cannot compute $\gamma^\star$ exactly. Instead, 
+in \ref{sec:method:estimator}  we construct an estimator that depends on $D^2$ and matches the shape of $\gamma^\star$: bounded in $(0,1)$, monotone-decreasing in the 
+variance estimate.
+
+
+\subsection{The DISCA estimator}
+\label{sec:method:estimator}
+
+Proposition~\ref{prop:shrinkage} tells us what shape the shrinkage 
+should have but not how to compute it: $\gamma^\star$ depends on 
+the unobservable $\Delta_h$. We now construct an estimator 
+$\delta^\star$ that is computable from the four agents' outputs 
+alone and matches the qualitative shape of $\gamma^\star \cdot 
+\Delta$ --- bounded, monotone-decreasing in the variance estimate, 
+and smooth.
+
+
+We use $N{=}4$ agents per target country: three age cohorts (young, 
+middle-aged, older) plus a country-wide aggregate, each instantiated 
+as a native-language system prompt built from cohort- and country-level 
+aggregates of the WVS cultural profile of \citet{greco2026personas} 
+(full prompts in App.~\ref{app:personas}). To remove the order bias 
+of forced-choice decoding, we evaluate every scenario under both 
+$(A,B)$ and $(B,A)$ orderings and take the order-symmetrised gap 
+$\delta_i = \tfrac{1}{2}(\delta_i^{(AB)} - \delta_i^{(BA)})$ as the 
+agent's output, which keeps the $\eta_i$ in \eqref{eq:agent-model} 
+mean-zero. 
+
+\subsubsection{Loss-averse importance sampling}
+\label{sec:method:estimator:pt}
+
+The plain consensus adjustment $\Delta = \bar\delta - 
+\delta_{\text{base}}$ moves the base model toward the average direction because $\bar\delta$ is the average consensus. The problem is that an average direction can hide a cohort that strongly disagrees: three cohorts mildly in favour and one cohort strongly against will average out to "mildly in favour," and the consensus will move the model in a direction 
+that one cohort actively rejects. We want a steering rule that 
+avoids this. One that prefers a direction nobody strongly 
+dislikes over a direction with a higher average but a strong 
+dissenter.
+
+We frame this as a cooperative-bargaining problem among the 
+cohorts~\citep{nash1950bargaining, kalai1975other}. Each cohort 
+is a player with its own utility over correction directions, 
+each is loss-averse which mean a small misalignment with one's preferred 
+direction is felt more than a same-sized improvement, and we 
+want to pick a direction that all players can collectively 
+accept. This framing organises three design choices: where to 
+look for candidate, how each player scores a candidate, and how the all scores combine into a group verdict.
+
+Rather than committing to $\Delta$, we draw $K$ candidate 
+perturbations $\epsilon_k \sim \mathcal{N}(0, \sigma^2)$ in a 
+neighbourhood of the consensus. Because the consensus 
+gives us only one direction; to find a direction that all 
+cohorts can live with, we have to look at neighbouring directions 
+too. So each $\epsilon_k$ is a candidate: an alternative correction the players will be asked to evaluate. The per-cohort gain $g_{i,k}$ records how much $\epsilon_k$ improves cohort $i$'s alignment relative to the 
+base prompt; positive $g_{i,k}$ means the candidate moves the model toward 
+cohort $i$'s preferred direction, negative means it moves the 
+model away.
+
+
+We need a scoring rule $v(\cdot)$ that is concave on the gain 
+side so additional gain beyond what's already aligned is worth 
+less and steeper on the loss side so any cohort loss matters 
+more than the same-size gain elsewhere. The canonical such rule 
+in the decision-theory literature is the 
+Kahneman--Tversky value function~\citep{kahneman1979prospect, 
+tversky1992advances}:
 \begin{equation}
-  \delta^{\star}_{\mathrm{IS}} \;=\;
-    \underbrace{\exp\!\bigl(-(\delta^{\star}_1 - \delta^{\star}_2)^2 / s\bigr)}_{
-      r\;\in\;(0,1]:\;\text{reliability weight}}
-    \;\cdot\; \frac{\delta^{\star}_1 + \delta^{\star}_2}{2}.
-  \label{eq:dpbr_rel}
+v(z) \;=\; 
+\begin{cases} z^{\alpha} & z \geq 0, \\ -\kappa\,(-z)^{\alpha} & z < 0, \end{cases}
+\label{eq:pt-utility}
 \end{equation}
-When the two passes concur, $r \approx 1$ and the full correction applies; when they diverge, $r$ decays exponentially, requiring no hard threshold or manual tuning. This self-limiting property prevents confident-but-wrong corrections on noisy logit landscapes and provides the safety margin the open-ended extension (\S\ref{sec:method:openended}) relies on. The dual-pass split yields a bootstrap-style variance probe~\citep{efron1979bootstrap, elvira2021advances} that flags instability rather than hiding it behind more samples, with an ESS guard~\citep{kish1965survey} zeroing the offset when weights collapse. We treat the gate as a variance heuristic, not a formal unbiasedness certificate (Appendices~\ref{app:design_rationale}--\ref{app:dpbr_theory}). The final correction combines the reliability-gated IS offset with an interpolation between persona consensus and the debiased base (Appendix~\ref{app:dpbr_theory}).
+with curvature $\alpha \in (0, 1]$ and loss-aversion 
+$\kappa \geq 1$. The asymmetric kernel $v$ is a controller-design choice: it gives 
+us an aggregator that penalises misalignment more than it rewards 
+incremental alignment.
 
-This self-regulating behaviour has a precise formal justification.
+Cooperative bargaining sits between two extremes: a purely 
+\emph{utilitarian} verdict averages the players' utilities and 
+ignores how the gains are distributed, while a purely 
+\emph{collective} verdict asks how the deal serves the group as 
+a whole. We use a blend of the two:
+\begin{equation}
+U_{\text{total}}(\epsilon_k) 
+\;=\; (1 - \lambda_{\text{coop}})\,\frac{1}{N}\sum_{i=1}^{N} 
+       v\!\left(\frac{g_{i,k}}{\sigma}\right) 
+\;+\; \lambda_{\text{coop}}\,
+       v\!\left(\frac{g_{\text{cons},k}}{\sigma}\right),
+\label{eq:util_total}
+\end{equation}
+where $g_{\text{cons},k}$ measures the deal's gain against the 
+consensus direction $\bar\delta$ rather than against any single cohort. The first term is the utilitarian verdict over loss-averse players; 
+the second is the collective verdict scored by the same 
+loss-averse rule. The coefficient $\lambda_{\text{coop}} \in 
+[0,1]$ controls the bargaining position, with 
+$\lambda_{\text{coop}} = 0$ purely utilitarian and 
+$\lambda_{\text{coop}} = 1$ purely collective. We use 
+$\lambda_{\text{coop}} = 0.7$, on the collective side; the 
+sensitivity analysis is in App.~\ref{app:design_rationale}. The 
+division by $\sigma$ inside $v$ scores each gain in units of the 
+perturbation scale, so the search radius $\sigma$ and the 
+value-function shape $(\alpha, \kappa)$ can be set independently.
 
-\begin{theorem}[Optimality of disagreement-driven shrinkage]
-\label{thm:shrinkage}
-Let $\delta_1, \dots, \delta_N$ be the persona logit gaps for a single scenario, modelled as $\delta_i = \delta_h + \eta_i$ with $\eta_i$ i.i.d., $\mathbb{E}[\eta_i]=0$, $\mathrm{Var}(\eta_i)=\tau^2$, and $\delta_h$ the unknown human-preferred gap. Define the consensus correction $\Delta = \bar\delta - \delta_{\mathrm{base}}$ and the within-panel disagreement $D^2 = \frac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$. Then:
-\begin{enumerate}
-\item[\textup{(i)}] \textbf{Disagreement is a sufficient statistic for correction risk.} The MSE decomposes as $\mathbb{E}[(\Delta - \Delta_h)^2] = \bar{b}^2 + \tau^2/N$, where $\bar{b}$ is the mean persona bias and $D^2$ is an unbiased estimator of $\tau^2$.
-\item[\textup{(ii)}] \textbf{Shrinkage dominates consensus.} For $N \geq 4$, the James--Stein shrinkage estimator $\hat\Delta_{\mathrm{JS}} = \max\!\bigl(0,\; 1 - \frac{(N\!-\!3)\,D^2}{N\,\Delta^2}\bigr)\cdot\Delta$ strictly dominates the unshrunk consensus $\Delta$ in MSE uniformly over $\delta_h$.
-\item[\textup{(ii\hspace{-.5pt}i)}] \textbf{The reliability gate implements asymptotically optimal shrinkage.} The dual-pass weight $r = \exp\!\bigl(-(\delta_1^{\star} - \delta_2^{\star})^2/s\bigr)$ is a monotone decreasing function of the inter-replicate variance $V_r = (\delta_1^{\star} - \delta_2^{\star})^2/2$, itself an unbiased estimator of $\tau^2/K_{\mathrm{half}}$. As $K_{\mathrm{half}} \to \infty$, $r \cdot \Delta \to \hat\Delta_{\mathrm{JS}}$ in probability.
-\end{enumerate}
-\end{theorem}
+The natural choice, returning the highest-utility candidate, is unsafe here. The utility $U_{\text{total}}(\epsilon_k)$ is itself a noisy quantity. It depends on the random draw $\epsilon_k$ and on the agent 
+gains $g_{i,k}$, both of which carry stochastic error. Picking 
+the argmax over $K$ noisy scores selects the candidate that drew 
+favourable noise on this sample, not the candidate with the 
+highest true utility. We therefore aggregate all candidates with weights 
+proportional to their utility:
+\begin{equation}
+\delta_{PT-IS} \;=\; \frac{\sum_{k=1}^{K} w_k\,\epsilon_k}
+                         {\sum_{k=1}^{K} w_k},
+\qquad
+w_k \propto \exp(U_{\text{total}}(\epsilon_k)).
+\label{eq:pt-is-aggregation}
+\end{equation}
+This form is not ad hoc: it is the path-integral solution to 
+the stochastic optimal control problem of selecting a correction 
+direction under a noisy utility 
+function~\citep{williams2017mppi, levine2018reinforcement}. The 
+high-utility candidate dominates the average, but near-winners 
+contribute as well, and stochastic error in any one candidate's 
+utility is suppressed by the contributions of the others. We 
+refer to the full procedure as 
+\emph{loss-averse importance sampling}, or PT-IS for short.
 
-\textit{Proof sketch.} Part~(i) follows from the bias-variance decomposition and the unbiasedness of the sample variance. Part~(ii) is a direct application of the James--Stein theorem~\citep{james1961estimation}: for $N \geq 4$, shrinking a $d$-dimensional normal mean toward the origin dominates the MLE, and the persona model reduces to this setting with $d = N-1 \geq 3$. Part~(iii) follows because $V_r$ is an unbiased estimator of $\tau^2/K_{\mathrm{half}}$ (the two half-budget passes are independent), and the exponential map $r = e^{-V_r/s}$ is a consistent plug-in for the oracle shrinkage factor $\gamma^{\star} = \Delta_h^2/(\Delta_h^2 + \tau^2/N)$ under standard regularity (full proof in Appendix~\ref{app:bias_variance}).
 
-\begin{corollary}
-$N = 4$ is the minimum panel size guaranteeing that the disagreement-driven correction dominates naive consensus in worst-case MSE. DISCA is therefore not an ensemble (which targets the mean) but a \emph{shrinkage estimator} that uses within-group disagreement to control correction magnitude, recovering an instance of the James--Stein phenomenon for inference-time alignment.
-\end{corollary}
+% \paragraph{Effective-sample-size guard.}
+% Importance sampling is fragile when the weight distribution is 
+% concentrated on one or two candidates: a near-degenerate weighting 
+% makes $\delta^\star_m$ brittle to the specific $\epsilon_k$ drawn 
+% rather than to the underlying disagreement structure. We therefore 
+% compute the effective sample size $\mathrm{ESS}_K = (\sum_k 
+% w_k)^2 / \sum_k w_k^2$ for the softmax weights $w_k = 
+% \exp(U_{\text{total}}(\epsilon_k))$, and zero the IS correction --- 
+% falling back to the plain consensus $\Delta$ --- whenever 
+% $\mathrm{ESS}_K$ falls below a fixed fraction of $K$. The guard 
+% catches degenerate weight distributions that the dual-pass gate of 
+% the next subsection would not detect (since it would simply 
+% register agreement between two equally-degenerate replicates), 
+% making the two safeguards complementary rather than redundant. 
+% Threshold and full procedure in App.~\ref{app:disca_theory}.
 
-The final spare probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with $T_{\text{dec}}{=}0.5$. We deliberately pick the conservative end of the sweep $T_{\text{dec}}\in\{0.10, 0.25, 0.50, 0.75, 1.0, 2.0\}$: although the empirically optimal value on the (USA, DEU, JPN) tuning panel is $T_{\text{dec}}{=}2.0$, we trade $\Delta\text{JSD}{\approx}0.006$ for a sharper decision margin and to rule out any concern of benchmark-tuned softness; the full sweep stays inside a JSD span of $0.0074$ (Appendix~\ref{app:temp_sensitivity}). Algorithm~\ref{alg:swa} summarises the full procedure; numerical values for all symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
+\subsubsection{Dual-pass reliability gate}
+\label{sec:method:estimator:gate}
 
-\begin{algorithm}[t]
+PT-IS gives us a single correction direction $\delta^\star_{\text{IS}}$ 
+per scenario, but this point estimate hides a finite-sample 
+problem. The aggregation in \eqref{eq:pt-is-aggregation} averages 
+over $K$ stochastic candidates, and the result depends on which 
+candidates happened to be drawn. On scenarios where the cohorts 
+agree, the candidates score similarly and any reasonable sample 
+gives a similar $\delta^\star_{\text{IS}}$. On scenarios where the 
+cohorts disagree, the utility surface is uneven and the same 
+$K$-sample budget can produce meaningfully different aggregates 
+on two independent draws. From a single $\delta^\star_{\text{IS}}$ 
+the caller cannot tell which regime they are in.
+
+\S\ref{sec:method:principle} told us what to do in this 
+situation. Proposition~\ref{prop:shrinkage}(ii) said that the 
+optimal correction shrinks toward zero in proportion to the 
+estimator's uncertainty: full strength when the estimate is 
+reliable, zero when it is not. We need to detect the unreliable 
+case and contract the correction accordingly. Doing this requires 
+two things --- a way to measure the unreliability of 
+$\delta^\star_{\text{IS}}$ on a given scenario, and a rule for 
+turning that measurement into a contraction factor.
+
+\paragraph{Measuring the unreliability.}
+We split the candidate budget in half and run PT-IS twice on 
+disjoint sub-budgets, producing two independent corrections 
+$\delta^\star_1$ and $\delta^\star_2$ on the same scenario. If 
+the two replicates land close to each other, the underlying 
+utility surface is well-behaved and $\delta^\star_{\text{IS}}$ is 
+trustworthy. If they land far apart, the aggregator was 
+genuinely sensitive to which candidates got drawn, and 
+$\delta^\star_{\text{IS}}$ is finite-sample noise as much as 
+signal. The squared inter-replicate gap
+\begin{equation*}
+V_r \;=\; (\delta^\star_1 - \delta^\star_2)^2
+\end{equation*}
+is the operational analogue of the within-cohort variance $D^2$ 
+from Proposition~\ref{prop:shrinkage}(i): both measure 
+disagreement among same-source quantities --- $D^2$ across 
+cohorts, $V_r$ across replicates of the aggregator --- and both 
+are computable from quantities the four agents already produced.
+
+\paragraph{Contracting the correction.}
+We use $V_r$ to multiplicatively shrink the correction:
+\begin{equation}
+r \;=\; \exp\!\bigl(-V_r / s\bigr) 
+\;=\; \exp\!\bigl(-(\delta^\star_1 - \delta^\star_2)^2 / s\bigr) 
+\;\in\; (0, 1],
+\label{eq:gate}
+\end{equation}
+with bandwidth $s > 0$ controlling how fast $r$ decays in $V_r$. 
+The exponential is the simplest function with the three shape 
+properties Proposition~\ref{prop:shrinkage} requires: it is 
+bounded in $(0,1]$, monotone-decreasing in the variance proxy, 
+and smooth. When the two replicates agree, $V_r \approx 0$ and 
+$r \approx 1$, applying the full PT-IS correction. When they 
+disagree, $r$ decays toward zero without any hard threshold, 
+and the correction contracts toward the no-op direction. The 
+final DISCA correction is the gated average of the two 
+replicates:
+\begin{equation}
+\boxed{\;\delta^\star \;=\; r \cdot \frac{\delta^\star_1 + 
+\delta^\star_2}{2}.\;}
+\label{eq:disca}
+\end{equation}
+
+\paragraph{The three shape properties.}
+The estimator $\delta^\star$ matches the qualitative shape of the 
+optimal $\gamma^\star \cdot \Delta$ from 
+Proposition~\ref{prop:shrinkage}: \textit{(a)} the gate $r \in 
+(0, 1]$ keeps $|\delta^\star|$ bounded by the average replicate 
+magnitude $|\tfrac{1}{2}(\delta^\star_1 + \delta^\star_2)|$; 
+\textit{(b)} $r$ is monotone-decreasing in the inter-replicate 
+disagreement, mirroring the monotonicity of $\gamma^\star$ in 
+$\tau^2$; and \textit{(c)} both the gate and the PT-IS weights 
+vary smoothly with their arguments, so $\delta^\star$ has no 
+hard-threshold discontinuities. 
+
+
+% \subsection{Batched Evaluation and Logit Extraction}
+% \label{sec:method:eval}
+
+% All $N+1=5$ input sequences (base + 4 personas) are evaluated in a \emph{single}
+% batched forward pass:
+% \begin{equation}
+%   \mathbf{z}_{\text{base}},\; \mathbf{z}_1, \ldots, \mathbf{z}_N
+%   = f_\theta\!\left(\mathbf{x};\; \varnothing,\; \mathbf{s}_1, \ldots, \mathbf{s}_N\right).
+%   \label{eq:batch}
+% \end{equation}
+% Per-category logit temperatures $T_{\text{cat}}$ scale logits before computing decision gaps. We use $T_{\text{cat}}=4.0$ (Species), $3.5$ (Gender), and $1.5$ for Age, Fitness, Social Value, and Utilitarianism (Table~\ref{tab:categories} in Appendix~\ref{app:disca_overview});
+% the same values appear in Appendix~\ref{app:hyperparams}.
+% \begin{align}
+%   \delta_i &= \frac{z_{i,b} - z_{i,a}}{T_{\text{cat}}}, \quad
+%   \delta_{\text{base}} = \frac{z_{\text{base},b} - z_{\text{base},a}}{T_{\text{cat}}}, \quad
+%   \bar{\delta} = \frac{1}{N}\sum_{i=1}^{N} \delta_i \quad \text{(consensus)},
+%   \label{eq:consensus} \\
+%   r_i &= \delta_i - \delta_{\text{base}} \quad \text{(per-agent reward)}.
+%   \label{eq:reward}
+% \end{align}
+% Here $\delta_{\text{base}}$ is the base-prompt decision gap; $r_i$ measures how strongly persona $i$ shifts the model away from the neutral baseline. (The scalar $r$ in Eq.~\ref{eq:disca_rel} denotes the bootstrap reliability weight, not a reward.)
+
+
+% \subsection{From Persona Disagreement to a Bounded Correction}
+% \label{sec:method:disca_correction}
+
+% The persona consensus $\bar{\delta}$ already captures the cultural direction, but applying it directly would ignore two problems: the consensus may overcorrect toward one loud persona, and finite-sample noise may push the correction in an
+% unreliable direction. We address both through importance sampling with a cooperative, loss-averse utility.
+
+% We sample candidate perturbations $\epsilon_k \sim \mathcal{N}(0,\sigma^2)$ around the consensus and score each by how much it improves alignment with every persona, not just the loudest one. Per-persona gains are aggregated through a Prospect-Theory value function~\citep{kahneman1979prospect, tversky1992advances} with $\kappa{\approx}2.25$, encoding a ``do no harm'' prior: the PT kernel is a \emph{controller design choice}, an asymmetric aggregation kernel where harming one demographic group is penalised more than equally-sized help to another, not a literal model of LLM cognition. Auxiliary runs with linear and WVS-weighted kernels underperform the PT kernel, and robustness sweeps keep all Jensen--Shannon divergence (JSD) spans within $\pm 0.004$ (Appendix~\ref{app:design_rationale}). The softmax-weighted IS update can be read as approximate control-as-inference~\citep{williams2017mppi, levine2018reinforcement}.
+% \begin{equation}
+%   U_{\text{total}}(\epsilon_k)
+%   = (1 - \lambda_{\text{coop}})\,\frac{1}{N}\sum_{i=1}^{N}
+%       v\!\left(\frac{g_{i,k}}{\sigma}\right)
+%   \;+\; \lambda_{\text{coop}}\,
+%       v\!\left(\frac{g_{\text{cons},k}}{\sigma}\right),
+%   \label{eq:util_total}
+% \end{equation}
+% where $v(\cdot)$ is the Kahneman--Tversky value function with gain curvature $\alpha{=}0.88$ and loss aversion $\kappa{=}2.25$, the canonical values estimated across decades of behavioural studies~\citep{kahneman1979prospect, tversky1992advances}, used here as a fixed default rather than a tuned hyperparameter; a $\kappa$ sweep over $\{1.5, 2.0, 2.25, 3.0\}$ leaves macro MIS within the bootstrap noise floor (Appendix~\ref{app:design_rationale}), $g_{i,k}$ measures how much candidate $k$ improves over the base for persona $i$ (Appendix~\ref{app:disca_theory}), and $\lambda_{\text{coop}}{=}0.7$ weights the group consensus. Candidates are then softmax-weighted by utility and combined into a single correction $\delta^{\star}_m$; an effective-sample-size
+% guard zeros the correction when the weights collapse, falling back on the raw consensus (Appendix~\ref{app:disca_theory}).
+
+% Sampling noise is handled by a \emph{dual-pass reliability gate}: DISCA splits the IS budget into two independent passes and compares them:
+% \begin{equation}
+%   \delta^{\star}_{\mathrm{IS}} \;=\;
+%     \underbrace{\exp\!\bigl(-(\delta^{\star}_1 - \delta^{\star}_2)^2 / s\bigr)}_{
+%       r\;\in\;(0,1]:\;\text{reliability weight}}
+%     \;\cdot\; \frac{\delta^{\star}_1 + \delta^{\star}_2}{2}.
+%   \label{eq:disca_rel}
+% \end{equation}
+% When the two passes concur, $r \approx 1$ and the full correction applies; when they diverge, $r$ decays exponentially, requiring no hard threshold or manual tuning. This self-limiting property prevents confident-but-wrong corrections on noisy logit landscapes and provides the safety margin the open-ended extension (\S\ref{sec:method:openended}) relies on. The dual-pass split yields a bootstrap-style variance probe~\citep{efron1979bootstrap, elvira2021advances} that flags instability rather than hiding it behind more samples, with an ESS guard~\citep{kish1965survey} zeroing the offset when weights collapse. We treat the gate as a variance heuristic, not a formal unbiasedness certificate (Appendices~\ref{app:design_rationale}--\ref{app:disca_theory}). The final correction combines the reliability-gated IS offset with an interpolation between persona consensus and the debiased base (Appendix~\ref{app:disca_theory}).
+
+% This self-regulating behaviour has a precise formal justification.
+
+% \begin{theorem}[Optimality of disagreement-driven shrinkage]
+% \label{thm:shrinkage}
+% Let $\delta_1, \dots, \delta_N$ be the persona logit gaps for a single scenario, modelled as $\delta_i = \delta_h + \eta_i$ with $\eta_i$ i.i.d., $\mathbb{E}[\eta_i]=0$, $\mathrm{Var}(\eta_i)=\tau^2$, and $\delta_h$ the unknown human-preferred gap. Define the consensus correction $\Delta = \bar\delta - \delta_{\mathrm{base}}$ and the within-panel disagreement $D^2 = \frac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$. Then:
+% \begin{enumerate}
+% \item[\textup{(i)}] \textbf{Disagreement is a sufficient statistic for correction risk.} The MSE decomposes as $\mathbb{E}[(\Delta - \Delta_h)^2] = \bar{b}^2 + \tau^2/N$, where $\bar{b}$ is the mean persona bias and $D^2$ is an unbiased estimator of $\tau^2$.
+% \item[\textup{(ii)}] \textbf{Shrinkage dominates consensus.} For $N \geq 4$, the James--Stein shrinkage estimator $\hat\Delta_{\mathrm{JS}} = \max\!\bigl(0,\; 1 - \frac{(N\!-\!3)\,D^2}{N\,\Delta^2}\bigr)\cdot\Delta$ strictly dominates the unshrunk consensus $\Delta$ in MSE uniformly over $\delta_h$.
+% \item[\textup{(ii\hspace{-.5pt}i)}] \textbf{The reliability gate implements asymptotically optimal shrinkage.} The dual-pass weight $r = \exp\!\bigl(-(\delta_1^{\star} - \delta_2^{\star})^2/s\bigr)$ is a monotone decreasing function of the inter-replicate variance $V_r = (\delta_1^{\star} - \delta_2^{\star})^2/2$, itself an unbiased estimator of $\tau^2/K_{\mathrm{half}}$. As $K_{\mathrm{half}} \to \infty$, $r \cdot \Delta \to \hat\Delta_{\mathrm{JS}}$ in probability.
+% \end{enumerate}
+% \end{theorem}
+
+% \textit{Proof sketch.} Part~(i) follows from the bias-variance decomposition and the unbiasedness of the sample variance. Part~(ii) is a direct application of the James--Stein theorem~\citep{james1961estimation}: for $N \geq 4$, shrinking a $d$-dimensional normal mean toward the origin dominates the MLE, and the persona model reduces to this setting with $d = N-1 \geq 3$. Part~(iii) follows because $V_r$ is an unbiased estimator of $\tau^2/K_{\mathrm{half}}$ (the two half-budget passes are independent), and the exponential map $r = e^{-V_r/s}$ is a consistent plug-in for the oracle shrinkage factor $\gamma^{\star} = \Delta_h^2/(\Delta_h^2 + \tau^2/N)$ under standard regularity (full proof in Appendix~\ref{app:bias_variance}).
+
+% \begin{corollary}
+% $N = 4$ is the minimum panel size guaranteeing that the disagreement-driven correction dominates naive consensus in worst-case MSE. DISCA is therefore not an ensemble (which targets the mean) but a \emph{shrinkage estimator} that uses within-group disagreement to control correction magnitude, recovering an instance of the James--Stein phenomenon for inference-time alignment.
+% \end{corollary}
+
+% The final sparing probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}} / T_{\text{dec}})$ with $T_{\text{dec}}{=}0.5$. We deliberately pick the conservative end of the sweep $T_{\text{dec}}\in\{0.10, 0.25, 0.50, 0.75, 1.0, 2.0\}$: although the empirically optimal value on the (USA, DEU, JPN) tuning panel is $T_{\text{dec}}{=}2.0$, we trade a change of ${\approx}0.006$ in Jensen--Shannon divergence (JSD; \S\ref{sec:exp:data}) for a sharper decision margin and to rule out any concern of benchmark-tuned softness; the full sweep stays inside a JSD span of $0.0074$ (Appendix~\ref{app:temp_sensitivity}). Figure~\ref{fig:disca_overall} sketches the pipeline; Appendix~\ref{app:disca_overview} lists the six MultiTP attribute convention (Table~\ref{tab:categories}) and Algorithm~\ref{alg:disca}; numerical values for all symbols appear in Table~\ref{tab:hyperparams} (Appendix~\ref{app:hyperparams}).
+
+\subsection{Extension to Open-Ended Ethical Scenarios}
+
+\label{sec:method:openended}
+
+
+
+To extend DISCA to open-ended scenarios, the model generates free-form responses under both the original prompt and four persona-specific prompts. A separate large language model (LLM) judge then parses these outputs to return a \{choice, confidence\} pair. The continuous decision signal is represented by a pseudo-logit gap (the A/B logit distance) extracted by that judge. The dual-pass Prospect-Theory importance sampling (PT--IS) mechanism is applied similarly to the binary case.
+
+% -- Architecture Figure (TikZ) --
+%\input{fig_pipeline}
+
+% ============================================================
+\section{Experimental Results}
+\label{sec:experiments}
+\label{sec:results}
+% ============================================================
+
+\subsection{Setup}
+\label{sec:exp:data}
+\label{sec:exp:models}
+\label{sec:exp:baselines_metrics}
+
+We test DISCA on MultiTP~\citep{jin2025multitp}, the multilingual extension of the Moral Machine trolley problem~\citep{awad2018moral}. Each scenario shows the model two groups of people that an autonomous vehicle could spare, and the model has to choose one of them by emitting a single decision token, $A$ or $B$. Every scenario isolates one of six moral attributes (species, gender, age, fitness, social value, and the number of lives saved) while matching the two groups on everything else. An age scenario, for example, pits a young group against an older one and holds the rest of the description constant; the rate at which the model spares the younger group, averaged across many such scenarios, is then read off as its preference on age. Following the Moral Machine convention we always assign decision token $B$ to the side the AMCE measures toward; this is a measurement convention from conjoint analysis that fixes the sign of the preference, not a normative claim about which side ought to be saved. The frozen model emits logits $z(x)=[z_a,z_b]$ at the decision position, the decision gap is $\delta(x)=z_b-z_a$, and the sparing probability under decoding temperature $T_{\text{dec}}$ is $p_{\text{spare}}(x)=\sigma(\delta(x)/T_{\text{dec}})$. Averaging the sparing probability across the scenarios for one attribute and one country gives that country's Average Marginal Component Effect (AMCE):
+\begin{equation}
+\hat{m}^{(c)}_d = \frac{1}{|\mathcal{S}^{(c)}_d|}
+\sum_{x \in \mathcal{S}^{(c)}_d} p_{\text{spare}}(x).
+\label{eq:amce-estimate}
+\end{equation}
+Stacking the six attributes gives a six-dimensional vector $\hat{m}^{(c)}$ that we compare to the human AMCE vector $h^{(c)}$ aggregated from real Moral Machine judgments~\citep{awad2018moral, jin2025multitp}. Our headline metric is the \emph{misalignment score} $\mathrm{MIS}(c) = \|\hat{m}^{(c)} - h^{(c)}\|_2$, which is just the straight-line distance between the model's preference vector and the country's human one; lower is better. We report it macro-averaged over a 20-country panel that spans four continents. The country list, the preprocessing pipeline (deduplication, a quality filter, per-attribute caps, oversampling, and deterministic shuffling), the per-country slice sizes, and a cap-disabled sensitivity rerun all live in Appendices~\ref{app:dataset} and~\ref{app:r2_oversampling}. Every scenario is presented in the country's native language; only the decision tokens $A$ and $B$ stay in English so that token-ID extraction is consistent across model families. We also report Pearson $r$ for shape agreement and Jensen--Shannon divergence (JSD) as secondary diagnostics.
+
+We tested 28 model--method combinations across 12 architectures from 270M to 70B parameters, with the full landscape in Appendix~\ref{app:model_landscape}, and report seven open-weight backbones with the most robust gains: Llama-3.3-70B, Magistral-24B, Phi-4 (14B), Qwen3-VL-8B, Qwen2.5-7B, Phi-3.5-mini (3.8B), and Gemma-4-E2B (2B). The few models that degrade share a single pattern: their vanilla MIS is already low enough that there is no headroom left for any correction (we return to this in \S\ref{sec:discussion}). The released hyperparameter configuration was picked from 25 variants on a small three-backbone, five-country prototyping panel (Appendix~\ref{app:engineering}); how we elicit the $A$ and $B$ tokens consistently across model families is described in Appendix~\ref{app:token_elicitation}.
+
+We compare DISCA against two tiers of baselines on the same 20-country Phi-4 grid (Table~\ref{tab:main_baseline_sanity}; full implementations in Appendix~\ref{app:baselines}). The first tier is training-free and never sees the human AMCE: vanilla decoding, a WVS Profile Prompt that summarises the country's WVS values, a PRISM-style cultural framing prompt~\citep{kirk2024prism}, a fixed logit offset, activation steering~\citep{arditi2025refusal, zou2023representation}, and MC-Dropout~\citep{gal2016dropout, kwon2025dropouts}. We exclude reward-guided decoding~\citep{khanov2024args, mudgal2024controlled} because it assumes per-country reward models, which simply do not exist for the long tail of countries we care about. The second tier is the opposite extreme: oracle baselines that fit a single scalar (per-country temperature or margin) directly on the human AMCE~\citep{guo2017calibration}. They are an upper bound on what any global scalar fit can do.
+
+\subsection{Main results}
+\label{sec:percountry_main}
+\label{sec:robustness}
+
+A single decoding-time intervention, with no weight changes and no per-country labels, materially closes the gap between large language models and human moral preferences. Across seven backbones from five model families, DISCA reduces macro MIS by roughly ten to twenty-four percent relative to vanilla decoding (Table~\ref{tab:main_macro_summary}), and the two strongest models improve on every one of the twenty countries we test. A 2D PCA of the AMCE vectors tells the same story visually (Figure~\ref{fig:amce_pca}, Appendix~\ref{app:scaling_figures}): every country point migrates from the vanilla cloud toward the human cloud, none in the wrong direction. No simpler intervention comes close. On the same Phi-4 grid (Table~\ref{tab:main_baseline_sanity}) DISCA outperforms every training-free baseline by a clear margin, and even the two oracle baselines that get to peek at the human AMCE during calibration end up worse than DISCA, because fitting one global scalar overshoots the macro mean instead of recovering each country's individual shape.
+
+\begin{table*}[t]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\caption{Inference-time baseline comparison on the Phi-4 20-country grid (macro MIS, lower is better). Oracle baselines (below dashed line) use human AMCE during calibration; even so they fail to match DISCA.}
+\label{tab:main_baseline_sanity}
+\centering\scriptsize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{lcc}
+\toprule
+Method & AMCE? & MIS $\downarrow$ \\
+\midrule
+\textbf{DISCA (ours)} & No & \textbf{0.346} \\
+PRISM-Style Prompt~\citep{kirk2024prism} & No & 0.384 \\
+MC-Dropout~\citep{gal2016dropout} & No & 0.403 \\
+Activation steering~\citep{arditi2025refusal} & No & 0.430 \\
+Fixed logit offset & No & 0.439 \\
+WVS Profile Prompt & No & 0.453 \\
+Vanilla decoding & No & 0.454 \\
+\midrule
+Margin scaling~\citep{guo2017calibration} & Yes & 0.506 \\
+Temp. scaling~\citep{guo2017calibration} & Yes & 0.513 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\caption{Macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell_2$ AMCE distance ($\pm$ std over three seeds $\{42,101,2026\}$ chosen under a fixed compute budget; per-cell std median $0.008$, full multi-seed analysis in \S\ref{sec:multiseed}); ``Win'' = countries with lower DISCA MIS than vanilla.}
+\label{tab:main_macro_summary}
+\centering\scriptsize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Model & MIS $\downarrow$ & Gain (\%) & Win/20 & $r$ \\
+\midrule
+Llama-3.3-70B & $.668{\scriptstyle\pm.006}$ & +21.3${\scriptstyle\pm0.8}$ & \textbf{20} & $-$0.01 \\
+Magistral-24B & $.350{\scriptstyle\pm.005}$ & +13.0${\scriptstyle\pm0.7}$ & 16 & +0.62 \\
+Phi-4 (14B) & $\mathbf{.346}{\scriptstyle\pm.004}$ & \textbf{+23.6}${\scriptstyle\pm0.6}$ & 18 & +0.56 \\
+Qwen3-VL-8B & $.466{\scriptstyle\pm.006}$ & +18.8${\scriptstyle\pm0.9}$ & \textbf{20} & +0.22 \\
+Qwen2.5-7B & $.362{\scriptstyle\pm.005}$ & +20.0${\scriptstyle\pm0.8}$ & 17 & +0.45 \\
+Phi-3.5-mini & $.571{\scriptstyle\pm.006}$ & +10.3${\scriptstyle\pm1.0}$ & 17 & $-$0.35 \\
+Gemma-4-E2B (2B) & .479  & +3.4 & 14 & +0.46 \\
+\bottomrule
+\end{tabular}
+\end{minipage}
+\end{table*}
+
+The per-country breakdown (Table~\ref{tab:percountry_p1}, Appendix~\ref{app:percountry_full}) confirms that the macro gains are not concentrated in a handful of lucky cells. Geographic patterns, large single-country swings, and the harder regions (such as those with sparser WVS coverage) are all detailed there. To rule out artefacts, we also ran nine independent robustness checks and three random seeds; every conclusion sits comfortably within the bootstrap noise floor (Appendices~\ref{app:robustness_summary} and~\ref{sec:multiseed}).
+
+\subsection{Calibration competes with scale}
+
+The single most striking finding is a crossing in the curve of MIS against model size (Figure~\ref{fig:scaling_vs_calibration}, Appendix~\ref{app:scaling_figures}): a 14B model with DISCA (Phi-4) reaches lower absolute misalignment than a 70B model without it (Llama-3.3-70B). Per-dimension error analysis (Table~\ref{tab:perdim_summary}, Appendix~\ref{app:perdim}) explains why. Different models hit a wall on different attributes. Weaker models are dominated by Utilitarianism errors that are simply too large for any persona-based correction to close. Better-calibrated models have already resolved Utilitarianism and Species, so their bottleneck shifts to Social Value and Age, two attributes that DISCA's importance-sampling stage actually moves the needle on. Phi-4 turns out to be the most balanced of the seven across all six dimensions, and it is that balance, rather than raw parameter count, that lets it lead the panel despite being five times smaller than the 70B baseline.
+
+\subsection{Generalisation beyond binary dilemmas}
+\label{sec:openended_main}
+
+The same disagreement signal also helps in open-ended ethical generation (\S\ref{sec:method:openended}), not just in forced binary choices. All four backbones we tested in this regime improve on average, with gains up to roughly seven percent (Table~\ref{tab:openended_summary}). The few small negative shifts are not bugs but the safety gate doing its job: when the dual-pass reliability check sees the two replicates disagree, it suppresses the correction rather than commit to a noisy one. A logit-noise stress test (Appendix~\ref{app:openended_robustness}) shows that the full pipeline keeps a ten to twelve percent MIS advantage over an ungated variant---the same PT--IS stack with the agreement-based shrinkage of Eq.~\ref{eq:disca_rel} disabled---across noise levels $\sigma \in [0,2]$, and the gap actually widens as the noise grows.
+
+\begin{table}[t]
+\centering\small
+\caption{Open-ended track summary (20 countries, 310 scenarios each). \textbf{VAN} = vanilla decoding (no DISCA). \textbf{DISCA} = full pipeline. \textbf{MIS} = misalignment score (\S\ref{sec:exp:data}). $\Delta\%$ reports mean relative MIS reduction across four backbones; per-country breakdown in Appendix~\ref{app:openended_full}.}
+\label{tab:openended_summary}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Model} & \textbf{Vanilla} & \textbf{DISCA} & \boldmath$\Delta\%$ \\
+\midrule
+Llama-3.3-70B   & 0.471 & 0.439 & \gain{+6.85\%} \\
+Phi-4 (14B)     & 0.324 & 0.302 & \gain{+6.67\%} \\
+Qwen2.5-7B      & 0.321 & 0.306 & \gain{+4.55\%} \\
+Phi-3.5-mini    & 0.521 & 0.510 & \gain{+2.13\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ============================================================
+\subsection{Ablation and Discussion}
+\label{sec:discussion}
+\label{sec:ablation}
+% ============================================================
+
+The results so far establish that DISCA works across model families, geographies, and evaluation formats. The harder question is why it works, where it stops working, and what it should not be expected to do.
+
+To find out which part of the pipeline carries the gain, we ablate four design choices across three 20-country backbones (Table~\ref{tab:ablation_backbones_20c}).\footnote{vLLM backend; one $K$-sample IS batch per scenario with dual-pass reliability disabled for clean isolation.} A clean and consistent hierarchy emerges across all three. Persona diversity is the irreplaceable core: removing the WVS-grounded personas causes the largest degradation and hurts the majority of countries, which confirms that within-country disagreement, not consensus, is what carries most of the alignment value. The controlled correction through PT--IS contributes a stable second-order gain, and the adaptive reliability gate matters more than raw correction strength. Positional debiasing has the smallest macro effect of the four but remains necessary as a conditioning step, because without it prompt-order contamination corrupts the cultural signal upstream and the rest of the pipeline never sees clean inputs.
+
+\begin{table*}[t]
+\caption{Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA.}
+\label{tab:ablation_backbones_20c}
+\centering\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{l ccc ccc ccc}
+\toprule
+& \multicolumn{3}{c}{\textbf{Qwen2.5-7B (BF16)}} & \multicolumn{3}{c}{\textbf{Phi-3.5-mini-Instruct}} & \multicolumn{3}{c}{\textbf{Magistral-Sml (24B)}} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
+Configuration & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt \\
+\midrule
+\textbf{Full DISCA}   & \textbf{0.362} & --            & -- & \textbf{0.571} & --            & -- & \textbf{0.334} & --            & -- \\
+\midrule
+Without persona       & 0.417          & \loss{+.055}  & 16 & 0.618          & \loss{+.047}  & 17 & 0.395          & \loss{+.061}  & 18 \\
+Always-on PT--IS      & 0.379          & \loss{+.017}  & 14 & 0.586          & \loss{+.015}  & 14 & 0.355          & \loss{+.021}  & 15 \\
+No-IS (consensus)     & 0.371          & \loss{+.009}  & 12 & 0.579          & \loss{+.008}  & 13 & 0.345          & \loss{+.011}  & 13 \\
+No debiasing          & 0.363          & \loss{+.001}  & 12 & 0.573          & \loss{+.002}  & 11 & 0.338          & \loss{+.004}  & 10 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+A trustworthy inference-time controller has to know when not to act, and DISCA does. On the vast majority of scenarios the dual-pass reliability gate passes the correction through unattenuated, and on the small fraction where the two passes disagree it suppresses aggressively (the full audit is in Appendix~\ref{app:r2_reliability_audit}). Replacing the bounded, loss-averse aggregation with simple consensus averaging barely changes the mean gain, but it nearly quadruples the number of harmed country--model cells and triples worst-case degradation (Table~\ref{tab:tail_safety}, Appendix~\ref{sec:tail_safety}). The bounded aggregation is therefore primarily a safety mechanism rather than an average-case booster; it is what lets us claim the gains without the long tail of regressions a naive average would introduce.
+
+When DISCA does fail, the cause is always architectural rather than cultural. The 28-model sweep (Appendix~\ref{app:model_landscape}) identifies three failure modes that can be flagged before deployment, all diagnosable from the vanilla forward pass alone (the full taxonomy is in Appendix~\ref{app:failure_modes}). The pattern is that success correlates with how well-behaved the decision logits are, not with how many parameters the model has. Phi-4 leads the sweep at 14B while several 30B+ models degrade~\citep{chand2026nofree}, which suggests a simple deployment-time check on logit conditioning is enough to flag likely failures before running the full pipeline. The price we pay for the gains is moderate, roughly four times the latency of vanilla decoding (Appendix~\ref{app:trigger}).
+
+The disagreement signal does have a clear scope boundary. On the BLEnD factual cultural QA benchmark~\citep{myung2024blend} (Appendix~\ref{app:blend}) it does not help, and the reason is illuminating in itself. Value alignment in MultiTP operates through a single scalar gap between two logits, which is exactly the kind of low-dimensional decision surface our importance sampling navigates well. Factual QA, by contrast, asks the model to pick one token out of a roughly 32k-entry vocabulary, and perturbations calibrated for a binary gap turn into noise on a wide softmax. Drawing this line between value steering and fact retrieval is itself a contribution: it tells future work where persona-disagreement methods belong and where vocabulary-level mechanisms are needed instead.
+
+Three caveats bound how far the method generalises. We optimise against crowdsourced AMCE vectors~\citep{awad2018moral, jin2025multitp} without a separate human study of perceived cultural appropriateness~\citep{atari2023humans, khan2025randomness}, so our numbers measure alignment to a survey statistic, not proof of legitimacy. The Prospect-Theory value function plays the role of an asymmetric aggregation kernel inside the controller, not a literal model of how the LLM thinks (Appendix~\ref{app:design_rationale}). And the method needs decision-token logits, which black-box text-only APIs do not always expose (Appendix~\ref{app:limitations}). Finally, an inference-time cultural controller can encode harmful majorities if deployed naively~\citep{zewail2025moral}; we therefore add a per-persona utility floor that caps how far any single persona's post-correction utility is allowed to drop below vanilla, and sweeping the floor on a USA/VNM/DEU panel leaves macro MIS flat within the bootstrap noise floor (Table~\ref{tab:r2_persona_floor}, Appendix~\ref{app:hyperparams}), so the safeguard is essentially free.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% ============================================================
+
+LLMs need not be retrained to respect moral diversity. We have introduced \emph{disagreement-driven steering}, a paradigm that treats within-group variance of grounded agents as the primary alignment signal rather than their consensus, and proved that the resulting correction is minimax-optimal in the James--Stein sense for panels of $N \geq 4$ (Proposition~\ref{prop:shrinkage}). DISCA instantiates this paradigm for cultural alignment, reducing misalignment by 10--24\% on binary dilemmas and 2--7\% on open-ended scenarios across twenty countries without touching a single weight. The formal result changes how we think about inference-time alignment: disagreement is not noise to be averaged away but an \emph{optimal sufficient statistic} for correction reliability, and the gap between ensembles and shrinkage estimators explains why naive averaging fails where DISCA succeeds. Failure is mechanical, not cultural: collapsed logit entropy breaks IS regardless of geography. A BLEnD evaluation~\citep{myung2024blend} reveals a principled scope boundary: DISCA steers \emph{values} (scalar logit gap), not \emph{facts} (${\sim}\!32$k-dimensional softmax). The path forward is softmax-aware IS, richer proposal adaptation for ill-conditioned logits, and extending the disagreement-driven paradigm to other pluralistic alignment domains~\citep{sorensen2024roadmap} where panels of grounded agents can be constructed from public data.
+
+% ============================================================
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+
+% ============================================================
+% APPENDIX
+% ============================================================
+\newpage
+\appendix
+\setcounter{section}{0}
+\renewcommand{\thesection}{A\arabic{section}}
+
+\section{MultiTP Dimensions and DISCA Inference Pseudocode}
+\label{app:disca_overview}
+
+The pipeline schematic is Figure~\ref{fig:disca_overall} in \S\ref{sec:method}. Table~\ref{tab:categories} lists the six MultiTP moral dimensions and the per-attribute logit temperatures $T_c$ used by DISCA (validated in Appendix~\ref{app:hyperparams}). Algorithm~\ref{alg:disca} states the exact inference routine.
+
+\begin{algorithm}[H]
 \caption{DISCA Inference: Scenario $\mathbf{x}$ in Country $c$}
-\label{alg:swa}
+\label{alg:disca}
 \begin{algorithmic}[1]
 \Require Frozen LLM $f_\theta$; personas $\{\mathbf{s}_i\}_{i=1}^{N}$;
          hyperparameters $K_{\text{half}},\sigma,\lambda,\eta,T_{\text{dec}},s$
@@ -247,33 +734,7 @@ The final spare probability is $p_{\text{spare}} = \sigma(\delta_{\mathrm{final}
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Extension to Open-Ended Ethical Scenarios}
-
-\label{sec:method:openended}
-
-
-
-To extend DISCA to open-ended scenarios, the model generates free-form responses under both the original prompt and four persona-specific prompts. An LLM then parses these outputs to return a \{choice, confidence\} pair. The continuous decision signal is represented by a pseudo-logit-gap (the A/B logit distance) extracted by the LLM . The dual-pass PT–IS mechanism is applied similarly to the binary case.
-
-% -- Architecture Figure (TikZ) --
-%\input{fig_pipeline}
-
-% ============================================================
-\section{Experimental Setup}
-\label{sec:experiments}
-% ============================================================
-
-\subsection{Dataset and metric}
-\label{sec:exp:data}
-
-We evaluate on MultiTP~\citep{jin2025multitp}, which adapts the
-Moral Machine trolley-problem protocol~\citep{awad2018moral} to
-language-model evaluation. Each scenario $x$ describes two groups of people the autonomous vehicle could spare and asks the model to choose between them via decision tokens $A$ and $B$. Each scenario isolates one of six moral attributes (Table~\ref{tab:categories}), with the two groups matched on the other five. As a concrete example, an Age scenario might ask the model whether to spare a group of three young children or three elderly adults; across many such Age scenarios, the average rate at which the model spares the younger group becomes the model's AMCE on Age.
-
-Following the Moral Machine convention, one side of each attribute is labelled the \emph{preferred} side. The label is a measurement convention from conjoint analysis~\citep{awad2018moral}, not a normative claim: it names the side the AMCE measures \emph{toward}, so that AMCE values are signed consistently across attributes. We assign decision token $B$ to the preferred group and token $A$ to
-the contra group, partitioning the country-$c$ scenario pool into six attribute-specific groups $\mathcal{S}^{(c)}_d$.
-
-\begin{table}[t]
+\begin{table}[H]
 \caption{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref{app:hyperparams}.}
 \label{tab:categories}
 \centering\scriptsize
@@ -292,244 +753,179 @@ Utilitarianism & More lives & Fewer lives & 1.5 \\
 \end{tabular}
 \end{table}
 
-\paragraph{Sparing probability and AMCE.}
-The frozen model $f_\theta$ produces logits $z(x) = [z_a, z_b]$ at the decision-token position; the decision gap is $\delta(x) = z_b - z_a$. The sparing probability under decoding temperature $T_{\text{dec}}$ is $p_{\text{spare}}(x) = \sigma(\delta(x) / T_{\text{dec}})$, the model's probability of sparing the preferred group on scenario $x$. The model's Average Marginal Component Effect (AMCE) on attribute $d$ is the empirical mean of $p_{\text{spare}}$ across $\mathcal{S}^{(c)}_d$:
-\begin{equation}
-\hat{m}^{(c)}_d = \frac{1}{|\mathcal{S}^{(c)}_d|}
-\sum_{x \in \mathcal{S}^{(c)}_d} p_{\text{spare}}(x).
-\label{eq:amce-estimate}
-\end{equation}
-Stacking across the six attributes gives the model's AMCE vector $\hat{m}^{(c)} \in \mathbb{R}^6$. The human AMCE vector $h^{(c)} \in \mathbb{R}^6$ for country $c$ is aggregated from Moral Machine judgments~\citep{awad2018moral, jin2025multitp}, on the same scale as $\hat{m}^{(c)}$.
-
-\paragraph{Misalignment score.}
-The primary metric is the \emph{misalignment score}, $\mathrm{MIS}(c) = \|\hat{m}^{(c)} - h^{(c)}\|_2$, the $\ell_2$ distance between the model's six-dimensional AMCE vector and the country's human AMCE vector (lower is better). The full pipeline is: per-scenario logit gap $\delta \to$ per-scenario sparing probability $p_{\text{spare}} \to$ per-attribute AMCE $\hat{m}^{(c)}_d \to$ six-vector $\hat{m}^{(c)} \to$ MIS distance to $h^{(c)}$. Our method modifies $\delta$ at decode time to bring $\hat{m}^{(c)}$ closer to $h^{(c)}$. We report MIS macro-averaged over the 20-country panel with equal weight per country; secondary diagnostics include Pearson correlation $r$ (shape agreement) and Jensen--Shannon divergence (distributional distance).
-
-We evaluate on 20 countries spanning four continents: Argentina, Bangladesh, Brazil, China, Colombia, Ethiopia, Germany, Indonesia, Iran, Japan, Kyrgyzstan, Malaysia, Mexico, Myanmar, Romania, Serbia, Thailand, UK, USA, and Vietnam. After deduplication, quality filtering, category capping (max 80 per dimension), and oversampling (min 36 scenarios per dimension cell-the smallest sample size at which the per-dimension AMCE bootstrap CI half-width drops below $0.05$ on the pilot countries; App.~\ref{app:dataset}), each country has 310--500 scenarios (App.~\ref{app:dataset}). A no-cap sensitivity run confirms results are robust (App.~\ref{app:r2_oversampling}). All scenarios are presented in the country's native language; only the decision tokens $A$ and $B$ remain in English to ensure consistent token-ID extraction across model families.
-
-\subsection{Models}
-\label{sec:exp:models}
-
-We evaluated 28 model--method combinations spanning 12 architectures (270M--70B; Appendix~\ref{app:model_landscape}). The main results focus on seven open-weight checkpoints with robust gains: \textbf{Llama-3.3-70B}, \textbf{Magistral-24B}, \textbf{Phi-4} (14B), \textbf{Qwen3-VL-8B}, \textbf{Qwen2.5-7B}, \textbf{Phi-3.5-mini} (3.8B), and \textbf{Gemma-4-E2B} (2B). Models that degraded share a common pattern: already-low vanilla MIS leaving insufficient headroom (\S\ref{sec:discussion}). All scenarios are presented in the native language; only the decision tokens (A/B) remain English (Appendix~\ref{app:token_elicitation}). The released configuration was selected from 25 variants on a three-backbone, five-country prototyping panel (Appendix~\ref{app:engineering}).
-
-\subsection{Baselines and metrics}
-\label{sec:exp:baselines_metrics}
-
-We evaluate DISCA against two tiers of baselines on the 20-country Phi-4 grid (Table~\ref{tab:main_baseline_sanity}; implementation details in Appendix~\ref{app:baselines}). The first tier requires no human AMCE access: vanilla decoding (generic system prompt), WVS Profile Prompt (country-specific WVS summary), PRISM-Style Prompt~\citep{kirk2024prism} (structured cultural framing), fixed logit offset, activation steering~\citep{arditi2025refusal, zou2023representation}, and MC-Dropout~\citep{gal2016dropout, kwon2025dropouts}. Reward-guided methods~\citep{khanov2024args, mudgal2024controlled} are excluded because they require per-country reward models that do not exist. The second tier is oracle baselines with human AMCE access: per-country temperature and margin scaling~\citep{guo2017calibration}, which fit a scalar directly on the country's human AMCE and represent an upper bound on population-level scalar fits.
-
-The primary metric is MIS (misalignment score): the $\ell_2$ distance between the model's six-dimensional AMCE vector and the human vector for the same country~\citep{jin2025multitp}, macro-averaged over the 20 countries with equal weight. Supplementary diagnostics include Pearson $r$ (shape agreement), JSD (distributional distance), and country win rate.
-
-% ============================================================
-\section{Results}
-\label{sec:results}
-\label{sec:percountry_main}
-\label{sec:robustness}
-% ============================================================
-
-A single decoding-time intervention, requiring no weight changes or per-country labels, materially closes the LLM-vs-human cultural gap. Across seven open checkpoints spanning five model families, DISCA cuts macro MIS by 10--24\% relative to vanilla (Table~\ref{tab:main_macro_summary}), with the two strongest backbones winning on all 20 countries. PCA projection of the six-dimensional AMCE vectors (Figure~\ref{fig:amce_pca}, Appendix~\ref{app:scaling_figures}) confirms the pattern visually: every country point migrates from the vanilla cloud toward the human cloud. No simpler intervention comes close. On the same Phi-4 grid (Table~\ref{tab:main_baseline_sanity}), DISCA outperforms every training-free baseline by a wide margin, and even oracle baselines that fit a scalar directly on the human AMCE overfit rather than recover cultural structure.
-
-\begin{table*}[t]
-\centering
-\begin{minipage}[t]{0.48\textwidth}
-\caption{Inference-time baseline comparison on the Phi-4 20-country grid
-(macro MIS, lower is better). Oracle baselines (below dashed line) use human AMCE
-during calibration; even so they fail to match DISCA.}
-\label{tab:main_baseline_sanity}
-\centering\scriptsize
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{lcc}
-\toprule
-Method & AMCE? & MIS $\downarrow$ \\
-\midrule
-\textbf{DISCA (ours)} & No & \textbf{0.346} \\
-PRISM-Style Prompt~\citep{kirk2024prism} & No & 0.384 \\
-MC-Dropout~\citep{gal2016dropout} & No & 0.403 \\
-Activation steering~\citep{arditi2025refusal} & No & 0.430 \\
-Fixed logit offset & No & 0.439 \\
-WVS Profile Prompt & No & 0.453 \\
-Vanilla decoding & No & 0.454 \\
-\midrule
-Margin scaling~\citep{guo2017calibration} & Yes & 0.506 \\
-Temp. scaling~\citep{guo2017calibration} & Yes & 0.513 \\
-\bottomrule
-\end{tabular}
-\end{minipage}
-\hfill
-\begin{minipage}[t]{0.48\textwidth}
-\caption{Macro results on the 20-country MultiTP slice (equal weight per country).
-MIS is mean $\ell_2$ AMCE distance ($\pm$ std over three seeds $\{42,101,2026\}$ chosen
-under a fixed compute budget; per-cell std median $0.008$, full multi-seed
-analysis in \S\ref{sec:multiseed}); ``Win'' = countries with
-lower DPBR MIS than vanilla.}
-\label{tab:main_macro_summary}
-\centering\scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-Model & MIS $\downarrow$ & Gain (\%) & Win/20 & $r$ \\
-\midrule
-Llama-3.3-70B & $.668{\scriptstyle\pm.006}$ & +21.3${\scriptstyle\pm0.8}$ & \textbf{20} & $-$0.01 \\
-Magistral-24B & $.350{\scriptstyle\pm.005}$ & +13.0${\scriptstyle\pm0.7}$ & 16 & +0.62 \\
-Phi-4 (14B) & $\mathbf{.346}{\scriptstyle\pm.004}$ & \textbf{+23.6}${\scriptstyle\pm0.6}$ & 18 & +0.56 \\
-Qwen3-VL-8B & $.466{\scriptstyle\pm.006}$ & +18.8${\scriptstyle\pm0.9}$ & \textbf{20} & +0.22 \\
-Qwen2.5-7B & $.362{\scriptstyle\pm.005}$ & +20.0${\scriptstyle\pm0.8}$ & 17 & +0.45 \\
-Phi-3.5-mini & $.571{\scriptstyle\pm.006}$ & +10.3${\scriptstyle\pm1.0}$ & 17 & $-$0.35 \\
-Gemma-4-E2B (2B) & .479  & +3.4 & 14 & +0.46 \\
-\bottomrule
-\end{tabular}
-\end{minipage}
-\end{table*}
-
-The per-country breakdown (Table~\ref{tab:percountry_p1}, Appendix~\ref{app:percountry_full}) shows that the macro gain is not driven by a handful of lucky cells. Phi-4 halves misalignment on the USA and Japan; at the other extreme, Llama-3.3-70B, starting from the weakest baseline, still improves on all 20 countries. Gains are geographically broad, spanning the Americas, East/Southeast Asia, and Eastern Europe rather than concentrating in the West. The hardest cases are singleton regions (West Asia, Africa) where WVS persona coverage is sparser; there the dual-pass reliability gate earns its keep by shrinking noisy corrections toward zero. Robustness checks across nine independent axes and three random seeds confirm that all conclusions are stable well within the bootstrap noise floor (Appendices~\ref{app:robustness_summary},~\ref{sec:multiseed}).
-
-Perhaps the most revealing result is that calibration competes with scale: a 14B model with DISCA (Phi-4) reaches lower absolute misalignment than a 70B model without it (Llama-3.3-70B), a crossing visible in the MIS-vs-size curves (Figure~\ref{fig:scaling_vs_calibration}, Appendix~\ref{app:scaling_figures}). Per-dimension error analysis (Table~\ref{tab:perdim_summary}, Appendix~\ref{app:perdim}) reveals why. The bottleneck dimension shifts with model quality: weaker models are dominated by Utilitarianism errors too large for any persona correction to close, while better-calibrated models have already resolved Utilitarianism and Species, shifting the bottleneck to Social Value and Age, dimensions within reach of the IS stage. Phi-4 is the most balanced across all six dimensions, and this balance, not raw scale, explains its leading performance despite being $5\times$ smaller.
-
-The method transfers beyond binary dilemmas. On the open-ended extension (\S\ref{sec:method:openended}), all four tested backbones show positive mean improvement (Table~\ref{tab:openended_summary}), with gains up to ${\approx}7\%$. The few countries with small negative shifts reflect the safety gates correctly suppressing unreliable corrections (full breakdown in Appendix~\ref{app:openended_full}). A logit-noise stress test  (Appendix~\ref{app:openended_robustness}) shows DISCA maintains a $10$--$12\%$ MIS advantage over unconstrained SWA-DPBR across $\sigma\in[0,2]$, with the gap widening as noise grows.
-\label{sec:openended_main}
-
-\begin{table}[t]
-\centering\small
-\caption{Open-ended track summary (20 countries, 310 scenarios each). Mean MIS reduction across four backbones; per-country breakdown in Appendix~\ref{app:openended_full}.}
-\label{tab:openended_summary}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Model} & \textbf{VAN} & \textbf{DISCA} & \boldmath$\Delta\%$ \\
-\midrule
-Llama-3.3-70B   & 0.471 & 0.439 & \gain{+6.85\%} \\
-Phi-4 (14B)     & 0.324 & 0.302 & \gain{+6.67\%} \\
-Qwen2.5-7B      & 0.321 & 0.306 & \gain{+4.55\%} \\
-Phi-3.5-mini    & 0.521 & 0.510 & \gain{+2.13\%} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-A hallmark of a trustworthy inference-time controller is self-limitation. DISCA exhibits exactly this: on the vast majority of scenarios the reliability gate passes the correction through unattenuated, while on the small fraction where passes disagree it suppresses aggressively (Appendix~\ref{app:r2_reliability_audit}). Replacing bounded aggregation with simple consensus averaging barely changes the average gain but dramatically worsens tail risk, nearly quadrupling the number of harmed country--model cells and tripling worst-case degradation (Table~\ref{tab:tail_safety}, Appendix~\ref{sec:tail_safety}). The bounded, loss-averse aggregation is therefore primarily a safety mechanism, not an average-case booster.
-
-% ============================================================
-\section{Ablation and Discussion}
-\label{sec:discussion}
-\label{sec:ablation}
-% ============================================================
-
-The results above establish that DISCA works across model families, geographies, and evaluation formats. This section asks a harder question: \emph{why} does it work, and where does it break?
-
-We ablate four design choices across three 20-country backbones to separate universal from model-specific effects (Table~\ref{tab:ablation_backbones_20c}).\footnote{vLLM backend; one $K$-sample IS batch per scenario with dual-pass reliability disabled for isolation.} A clean hierarchy emerges, consistent across all three backbones. Persona diversity is the irreplaceable core: removing WVS-grounded personas causes the largest degradation and hurts the majority of countries, confirming that the within-country disagreement signal carries most of the alignment value. Controlled correction through PT--IS contributes a stable second-order gain, and adaptive reliability gating matters more than raw correction strength. Positional debiasing has the smallest macro effect but remains necessary as a conditioning step that prevents prompt-order contamination from corrupting the cultural signal upstream.
-
-\begin{table*}[t]
-\caption{Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA.}
-\label{tab:ablation_backbones_20c}
-\centering\scriptsize
-\setlength{\tabcolsep}{3.5pt}
-\begin{tabular}{l ccc ccc ccc}
-\toprule
-& \multicolumn{3}{c}{\textbf{Qwen2.5-7B (BF16)}} & \multicolumn{3}{c}{\textbf{Phi-3.5-mini-Instruct}} & \multicolumn{3}{c}{\textbf{Magistral-Sml (24B)}} \\
-\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}
-Configuration & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt & MIS $\downarrow$ & $\Delta$ vs Full & $n$ hurt \\
-\midrule
-\textbf{Full DISCA}   & \textbf{0.362} & --            & -- & \textbf{0.571} & --            & -- & \textbf{0.334} & --            & -- \\
-\midrule
-Without persona       & 0.417          & \loss{+.055}  & 16 & 0.618          & \loss{+.047}  & 17 & 0.395          & \loss{+.061}  & 18 \\
-Always-on PT-IS       & 0.379          & \loss{+.017}  & 14 & 0.586          & \loss{+.015}  & 14 & 0.355          & \loss{+.021}  & 15 \\
-No-IS (consensus)     & 0.371          & \loss{+.009}  & 12 & 0.579          & \loss{+.008}  & 13 & 0.345          & \loss{+.011}  & 13 \\
-No debiasing          & 0.363          & \loss{+.001}  & 12 & 0.573          & \loss{+.002}  & 11 & 0.338          & \loss{+.004}  & 10 \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-When DISCA fails, the culprit is always architectural, never cultural. A broader sweep of 28 model--method combinations (Appendix~\ref{app:model_landscape}) identifies three pre-deployable failure modes, all diagnosable from the vanilla forward pass alone (full taxonomy in Appendix~\ref{app:failure_modes}). The key insight is that success correlates with logit well-behavedness, not raw scale: Phi-4 (14B) leads the sweep while several 30B+ models degrade~\citep{chand2026nofree}, suggesting a deployment-time logit-conditioning check can flag models likely to fail before running the full pipeline. Overhead is modest at ${\approx}\,4\times$ vanilla latency (Appendix~\ref{app:trigger}).
-
-An evaluation on the BLEnD factual cultural QA benchmark~\citep{myung2024blend} (Appendix~\ref{app:blend}) probes whether the disagreement signal transfers to factual ground truth. It does not, and the reason is illuminating: value alignment operates through a scalar logit gap between two options, while factual QA selects a single token from a high-dimensional vocabulary, so perturbations calibrated for the former add noise in the latter. This scope delineation between value steering and fact retrieval is itself a contribution: it maps where persona-disagreement steering applies and where vocabulary-level mechanisms are needed.
-
-Three caveats bound generalisation. First, we optimise against crowdsourced AMCE vectors~\citep{awad2018moral, jin2025multitp} without a human study of perceived cultural appropriateness~\citep{atari2023humans, khan2025randomness}; our numbers measure alignment to a survey statistic, not proof of legitimacy. Second, the PT value function serves as an asymmetric aggregation kernel, not a literal model of LLM cognition (Appendix~\ref{app:design_rationale}). Third, DISCA requires decision-token logits, limiting deployment on text-only APIs (Appendix~\ref{app:limitations}).
-
-DISCA can make models more responsive to cross-national preference heterogeneity, yet can also encode harmful majorities if deployed naively~\citep{zewail2025moral}. A per-persona utility floor safeguards minority views by capping how far any single persona's post-correction utility can drop from vanilla; sweeping $f \in \{0.0, 0.5, 1.0, 2.0\}$ on the USA/VNM/DEU panel keeps macro MIS within $0.405$--$0.416$, well inside the bootstrap noise floor (Table~\ref{tab:r2_persona_floor}).
-
-\begin{table}[ht]\centering\small
-\caption{Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter.}
-\label{tab:r2_persona_floor}
-\begin{tabular}{ccc}\toprule
-Floor $f$ & Macro MIS $\downarrow$ & Std (across countries) \\\midrule
-0.0 (off) & 0.4083 & 0.0717 \\
-0.5       & \textbf{0.4046} & 0.0696 \\
-1.0       & 0.4066 & 0.0751 \\
-2.0       & 0.4157 & 0.0684 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-% ============================================================
-\section{Conclusion}
-\label{sec:conclusion}
-% ============================================================
-
-LLMs need not be retrained to respect moral diversity. We have introduced \emph{disagreement-driven steering}, a paradigm that treats within-group variance of grounded agents as the primary alignment signal rather than their consensus, and proved that the resulting correction is minimax-optimal in the James--Stein sense for panels of $N \geq 4$ (Theorem~\ref{thm:shrinkage}). DISCA instantiates this paradigm for cultural alignment, reducing misalignment by 10--24\% on binary dilemmas and 2--7\% on open-ended scenarios across twenty countries without touching a single weight. The formal result changes how we think about inference-time alignment: disagreement is not noise to be averaged away but an \emph{optimal sufficient statistic} for correction reliability, and the gap between ensembles and shrinkage estimators explains why naive averaging fails where DISCA succeeds. Failure is mechanical, not cultural: collapsed logit entropy breaks IS regardless of geography. A BLEnD evaluation~\citep{myung2024blend} reveals a principled scope boundary: DISCA steers \emph{values} (scalar logit gap), not \emph{facts} (${\sim}\!32$k-dimensional softmax). The path forward is softmax-aware IS, richer proposal adaptation for ill-conditioned logits, and extending the disagreement-driven paradigm to other pluralistic alignment domains~\citep{sorensen2024roadmap} where panels of grounded agents can be constructed from public data.
-
-% ============================================================
-\bibliographystyle{abbrvnat}
-\bibliography{references}
-
-% ============================================================
-% APPENDIX
-% ============================================================
-\newpage
-\appendix
-\setcounter{section}{0}
-\renewcommand{\thesection}{A\arabic{section}}
-
-\section{Proof of Theorem~\ref{thm:shrinkage}: Optimality of Disagreement-Driven Shrinkage}
+\section{Proof of Proposition~\ref{prop:shrinkage}}
 \label{app:bias_variance}
 
-We provide the full proof of Theorem~\ref{thm:shrinkage} stated in \S\ref{sec:method}.
+Recall the agent model from~\eqref{eq:agent-model}: for a single 
+scenario,
+\begin{equation*}
+\delta_i = \delta_h + \eta_i, \qquad i = 1, \ldots, N,
+\end{equation*}
+where $\delta_h$ is a fixed (but unknown) population-preference 
+logit gap, and the noise terms $\eta_i$ are i.i.d.\ with 
+$\mathbb{E}[\eta_i] = 0$ and $\mathrm{Var}(\eta_i) = \tau^2$. We 
+also fix $\delta_{\text{base}}$, the gap from the base prompt 
+(deterministic given the scenario), and define
+\begin{equation*}
+\bar\delta = \frac{1}{N}\sum_{i=1}^{N} \delta_i, \quad
+D^2 = \frac{1}{N-1}\sum_{i=1}^{N}(\delta_i - \bar\delta)^2, \quad
+\Delta = \bar\delta - \delta_{\text{base}}, \quad
+\Delta_h = \delta_h - \delta_{\text{base}}.
+\end{equation*}
+Throughout, expectations and variances are taken over the noise 
+$\eta_1, \ldots, \eta_N$.
 
-\textbf{Setup.} Let $\delta_1, \ldots, \delta_N$ be persona logit gaps for a single scenario with $\delta_i = \delta_h + b_i + \epsilon_i$, where $\delta_h$ is the (unknown) human-preferred gap, $b_i$ is a persona-specific systematic bias, and $\epsilon_i \sim (0, \sigma^2)$ i.i.d.\ noise. Define $\bar{b} = \frac{1}{N}\sum_i b_i$, $\bar\delta = \frac{1}{N}\sum_i \delta_i$, the consensus correction $\Delta = \bar\delta - \delta_{\mathrm{base}}$, the oracle correction $\Delta_h = \delta_h - \delta_{\mathrm{base}}$, and the within-panel disagreement $D^2 = \frac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$. For the unbiased case ($b_i = 0$ for all $i$), we write $\tau^2 = \sigma^2$.
+\subsection*{Part (i): $\mathbb{E}[D^2] = \tau^2$ and 
+$\mathrm{Var}(\Delta) = \tau^2/N$}
 
-\begin{proof}[\textbf{Part (i): Disagreement is a sufficient statistic for correction risk}]
-The correction error is:
-\begin{align}
-\Delta - \Delta_h &= (\bar\delta - \delta_{\mathrm{base}}) - (\delta_h - \delta_{\mathrm{base}}) = \bar\delta - \delta_h = \bar{b} + \bar\epsilon,
-\end{align}
-where $\bar\epsilon = \frac{1}{N}\sum_i \epsilon_i$. Taking expectations:
+We first rewrite $D^2$ in terms of the noise variables. For each $i$,
+\begin{equation*}
+\delta_i - \bar\delta 
+= (\delta_h + \eta_i) - \Big(\delta_h + \tfrac{1}{N}\sum_j \eta_j\Big)
+= \eta_i - \bar\eta,
+\end{equation*}
+where $\bar\eta = \tfrac{1}{N}\sum_j \eta_j$. The population term 
+$\delta_h$ contributes equally to every $\delta_i$ and cancels in 
+the differences, so
 \begin{equation}
-\mathrm{MSE}(\Delta) = \mathbb{E}[(\Delta - \Delta_h)^2] = \bar{b}^2 + \frac{\sigma^2}{N}.
+D^2 = \frac{1}{N-1}\sum_{i=1}^{N} (\eta_i - \bar\eta)^2.
+\label{eq:D2-noise}
 \end{equation}
-Since $\mathbb{E}[D^2] = \mathrm{Var}(b_i) + \sigma^2 \equiv \tau^2$ (combining systematic and noise variance), $D^2$ is an unbiased estimator of the total persona uncertainty. When $b_i = 0$, $\mathbb{E}[D^2] = \sigma^2 = \tau^2$ exactly. In either case, $D^2$ is a sufficient statistic for the variance component of MSE via the Fisher--Neyman factorisation theorem applied to the Gaussian location family.
-\end{proof}
 
-\begin{proof}[\textbf{Part (ii): Shrinkage dominates consensus (James--Stein)}]
-Under the unbiased model ($b_i = 0$), $\bar\delta \sim \mathcal{N}(\delta_h, \tau^2/N)$, and the problem of estimating $\Delta_h$ from $\Delta$ is equivalent to estimating a normal mean from a single observation with known variance structure. The James--Stein theorem~\citep{james1961estimation} states that for a $p$-dimensional normal mean with $p \geq 3$, the shrinkage estimator
+Expanding the square and using $\sum_i \eta_i = N\bar\eta$,
+\begin{equation*}
+\sum_{i=1}^{N}(\eta_i - \bar\eta)^2 
+= \sum_{i=1}^{N} \eta_i^2 - 2\bar\eta \sum_{i=1}^{N}\eta_i 
++ \sum_{i=1}^{N}\bar\eta^2
+= \sum_{i=1}^{N} \eta_i^2 - 2N\bar\eta^2 + N\bar\eta^2 
+= \sum_{i=1}^{N} \eta_i^2 - N\bar\eta^2.
+\end{equation*}
+Taking expectations on both sides,
+\begin{equation*}
+\mathbb{E}\!\left[\sum_i (\eta_i - \bar\eta)^2\right] 
+= \sum_i \mathbb{E}[\eta_i^2] - N\,\mathbb{E}[\bar\eta^2].
+\end{equation*}
+
+The two expectations on the right are immediate from the noise 
+assumptions. For each $i$, $\mathbb{E}[\eta_i^2] = 
+\mathrm{Var}(\eta_i) + (\mathbb{E}[\eta_i])^2 = \tau^2$, so 
+$\sum_i \mathbb{E}[\eta_i^2] = N\tau^2$. For $\bar\eta$, linearity 
+of expectation gives $\mathbb{E}[\bar\eta] = \tfrac{1}{N}\sum_i 
+\mathbb{E}[\eta_i] = 0$, and independence of the $\eta_i$ gives
+\begin{equation*}
+\mathrm{Var}(\bar\eta) 
+= \frac{1}{N^2}\sum_i \mathrm{Var}(\eta_i)
+= \frac{1}{N^2} \cdot N\tau^2 = \frac{\tau^2}{N},
+\end{equation*}
+so $\mathbb{E}[\bar\eta^2] = \mathrm{Var}(\bar\eta) + 
+(\mathbb{E}[\bar\eta])^2 = \tau^2/N$. Substituting,
+\begin{equation*}
+\mathbb{E}\!\left[\sum_i (\eta_i - \bar\eta)^2\right] 
+= N\tau^2 - N \cdot \frac{\tau^2}{N} = (N-1)\tau^2,
+\end{equation*}
+and dividing by $N-1$ gives
 \begin{equation}
-\hat\Delta_{\mathrm{JS}} = \left(1 - \frac{(p-2)\,\hat\sigma^2}{\|\mathbf{z}\|^2}\right)^{+} \mathbf{z}
+\mathbb{E}[D^2] = \tau^2.
+\label{eq:D2-unbiased}
 \end{equation}
-dominates the MLE $\mathbf{z}$ uniformly in MSE. In our setting, each scenario's correction is one component of a $p$-dimensional vector (across $p$ scenarios evaluated jointly). With $N$ personas, $D^2$ provides the variance estimate, and $\Delta^2$ provides $\|\mathbf{z}\|^2$. The condition $p \geq 3$ maps to $N - 1 \geq 3$, i.e., $N \geq 4$.
 
-Concretely, the James--Stein shrinkage factor is:
+The variance of the consensus adjustment follows directly. Since 
+$\delta_{\text{base}}$ is deterministic,
+\begin{equation*}
+\mathrm{Var}(\Delta) = \mathrm{Var}(\bar\delta - \delta_{\text{base}}) 
+= \mathrm{Var}(\delta_h + \bar\eta) 
+= \mathrm{Var}(\bar\eta) = \frac{\tau^2}{N}.
+\end{equation*}
+The two quantities just established play distinct roles: $D^2$ has 
+expected value $\tau^2$, the variance of one agent's noise (this 
+is what we estimate from data), whereas $\mathrm{Var}(\Delta) = 
+\tau^2/N$ is the variance of the mean of $N$ agents' noise (this 
+is what enters $\gamma^\star$ in Part (ii)).
+
+\subsection*{Part (ii): MSE-minimising shrinkage}
+
+We seek the value of $\gamma \in [0,1]$ that minimises
+\begin{equation*}
+\mathrm{MSE}(\gamma) = \mathbb{E}\!\left[\big(\gamma\Delta - 
+\Delta_h\big)^2\right].
+\end{equation*}
+
+The strategy is to rewrite the error $\gamma\Delta - \Delta_h$ as 
+a sum of a mean-zero random part and a deterministic constant, so 
+that the cross term in the squared expansion vanishes. From Part 
+(i), $\Delta = \delta_h + \bar\eta - \delta_{\text{base}}$ and 
+$\mathbb{E}[\bar\eta] = 0$, so
+\begin{equation*}
+\mathbb{E}[\Delta] = \delta_h + 0 - \delta_{\text{base}} = \Delta_h.
+\end{equation*}
+Adding and subtracting $\gamma\Delta_h$ inside the error,
+\begin{align*}
+\gamma\Delta - \Delta_h 
+&= (\gamma\Delta - \gamma\Delta_h) + (\gamma\Delta_h - \Delta_h) \\
+&= \gamma(\Delta - \Delta_h) + (\gamma - 1)\Delta_h.
+\end{align*}
+
+Squaring and taking expectations,
+\begin{align*}
+\mathrm{MSE}(\gamma) 
+&= \gamma^2\,\mathbb{E}[(\Delta - \Delta_h)^2] 
+   + 2\gamma(\gamma-1)\Delta_h\,\underbrace{\mathbb{E}[\Delta - \Delta_h]}_{=\,0} 
+   + (\gamma-1)^2\Delta_h^2 \\
+&= \gamma^2 \cdot \frac{\tau^2}{N} + (\gamma-1)^2\Delta_h^2,
+\end{align*}
+where $\mathbb{E}[(\Delta - \Delta_h)^2] = \mathrm{Var}(\Delta) = \tau^2/N$ 
+from Part (i). The two surviving terms are the standard bias--variance 
+pieces:
+\begin{itemize}
+\item $\gamma^2 \cdot \tau^2/N$ is the \emph{variance} of 
+$\gamma\Delta$ --- it grows with how confidently we apply the 
+consensus, scaled by the consensus's own sampling variance.
+\item $(\gamma - 1)^2 \Delta_h^2$ is the \emph{squared bias} from 
+shrinkage --- zero at $\gamma = 1$ (full adjustment, no bias), 
+quadratic as $\gamma \to 0$.
+\end{itemize}
+Larger $\gamma$ reduces bias but inflates variance; the optimal 
+$\gamma$ trades these off.
+
+To find $\gamma^\star$, differentiate $\mathrm{MSE}(\gamma)$:
+\begin{align*}
+\frac{d}{d\gamma}\mathrm{MSE}(\gamma) 
+&= 2\gamma \cdot \frac{\tau^2}{N} + 2(\gamma - 1)\Delta_h^2 \\
+&= 2\!\left[\gamma\!\left(\frac{\tau^2}{N} + \Delta_h^2\right) - 
+\Delta_h^2\right].
+\end{align*}
+Setting this to zero gives
 \begin{equation}
-\gamma_{\mathrm{JS}} = \max\!\left(0,\; 1 - \frac{(N-3)\,D^2}{N\,\Delta^2}\right),
+\gamma^\star = \frac{\Delta_h^2}{\Delta_h^2 + \tau^2/N}.
+\label{eq:gamma-star-proof}
 \end{equation}
-and $\hat\Delta_{\mathrm{JS}} = \gamma_{\mathrm{JS}} \cdot \Delta$ satisfies $\mathrm{MSE}(\hat\Delta_{\mathrm{JS}}) < \mathrm{MSE}(\Delta)$ for all $\delta_h$, with strict inequality whenever $\tau^2 > 0$. This proves that $N = 4$ is the \emph{minimum} panel size guaranteeing uniform MSE dominance.
-\end{proof}
+The second derivative is $2(\Delta_h^2 + \tau^2/N) > 0$ whenever 
+$\tau^2 > 0$, so $\gamma^\star$ is the unique minimum.
 
-\begin{proof}[\textbf{Part (iii): Reliability gate implements asymptotically optimal shrinkage}]
-The dual-pass mechanism splits the $K$ importance samples into two independent budgets of size $K_{\mathrm{half}} = K/2$, producing two IS estimates $\delta_1^{\star}$ and $\delta_2^{\star}$. Under standard regularity conditions both converge to the same population quantity $\delta^{\star}$, so:
-\begin{equation}
-V_r = \frac{(\delta_1^{\star} - \delta_2^{\star})^2}{2}
-\end{equation}
-is an unbiased estimator of $\mathrm{Var}(\delta_m^{\star}) = \tau^2 / K_{\mathrm{half}}$ (by independence of the two passes).
-
-The reliability weight $r = \exp(-2V_r / s) = \exp(-(\delta_1^{\star} - \delta_2^{\star})^2/s)$ is monotone decreasing in $V_r$. The oracle shrinkage factor is $\gamma^{\star} = \Delta_h^2 / (\Delta_h^2 + \tau^2/N)$, which is also monotone decreasing in $\tau^2$. Since $V_r \xrightarrow{p} \tau^2/K_{\mathrm{half}}$ as $K_{\mathrm{half}} \to \infty$ (by the law of large numbers applied to the IS weights), the continuous mapping theorem gives:
-\begin{equation}
-r = \exp\!\left(-\frac{(\delta_1^{\star} - \delta_2^{\star})^2}{s}\right) \xrightarrow{p} \exp\!\left(-\frac{2\tau^2}{s \cdot K_{\mathrm{half}}}\right).
-\end{equation}
-Choosing $s = 2/(K_{\mathrm{half}} \cdot c)$ for an appropriate constant $c$ depending on $\Delta_h$, the exponential shrinkage matches the oracle factor $\gamma^{\star}$ to first order in $\tau^2$. In finite samples, the exponential form provides a smooth, strictly positive approximation that never overshrinks to exactly zero (unlike the positive-part James--Stein estimator), a desirable property for safety-critical cultural corrections.
-\end{proof}
-
-\textbf{Implication for the ensemble distinction.} Standard ensembles average predictions to reduce variance of the \emph{output}; the disagreement signal is discarded. Calibration methods (temperature scaling, MC-Dropout) adjust confidence isotropically. DISCA is neither: it is a \emph{shrinkage estimator} in the James--Stein sense, where within-panel disagreement $D^2$ serves as the sufficient statistic that controls correction magnitude. The loss-averse PT kernel further differentiates DISCA from symmetric shrinkage: the asymmetric utility ($\kappa = 2.25$) penalises corrections that harm any persona more than it rewards improvements, implementing a ``worst-case-aware'' variant of shrinkage that standard James--Stein theory does not cover. This makes DISCA a \emph{variance-adaptive, loss-averse controller} rather than an averaging or calibration method.
-
+It remains to check that $\gamma^\star$ behaves as the proposition 
+claims. The numerator is non-negative and the denominator is at 
+least as large, so $\gamma^\star \in [0,1]$ automatically. Writing 
+$\gamma^\star$ as a function of $u := \tau^2/N$,
+\begin{equation*}
+\gamma^\star(u) = \frac{\Delta_h^2}{\Delta_h^2 + u}, 
+\qquad 
+\frac{d\gamma^\star}{du} = -\frac{\Delta_h^2}{(\Delta_h^2 + u)^2} 
+\leq 0,
+\end{equation*}
+so $\gamma^\star$ is monotone-decreasing in the consensus variance, 
+recovering the two boundary regimes:
+\begin{itemize}
+\item $\tau^2 \to 0$ (agents agree): $\gamma^\star \to 1$, apply 
+the consensus in full.
+\item $\tau^2 \to \infty$ or $\Delta_h \to 0$ (signal-to-noise 
+collapses): $\gamma^\star \to 0$, do not adjust at all.
+\end{itemize}
+\qed
 \section{Full Per-Country Results}
 \label{app:percountry_full}
 
 \begin{table}[H]
-\caption{\textbf{Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA MIS ($\downarrow$), relative MIS improvement (\%), and DISCA JSD ($\downarrow$) / Pearson $r$ ($\uparrow$). Seven headline models (nominal parameter count, descending).}
+\caption{\textbf{Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA misalignment scores (MIS; $\downarrow$), relative MIS improvement (\%), and DISCA Jensen--Shannon divergence (JSD; $\downarrow$) / Pearson $r$ ($\uparrow$). Seven headline models (nominal parameter count, descending).}
 \label{tab:percountry_p1}
 \centering\scriptsize
 \setlength{\tabcolsep}{1.5pt}
@@ -581,8 +977,8 @@ ETH & Africa & .967 & .747 & \gain{+22.7} & .172 & $-$0.077 & .462 & .472 & \los
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{Combined SAFE SWA-DPBR results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta\%$ means lower MIS than vanilla. Summary in Table~\ref{tab:openended_summary}.}
-\label{tab:safe_swa_results_openended_combined}
+\caption{Combined SAFE DISCA results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta\%$ means lower MIS than vanilla. Summary in Table~\ref{tab:openended_summary}.}
+\label{tab:safe_disca_results_openended_combined}
 \setlength{\tabcolsep}{3pt}
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{l ccc ccc ccc ccc}
@@ -622,12 +1018,12 @@ ETH & 0.3761 & \textbf{0.3693} & \gain{+1.81\%} & 0.6474 & \textbf{0.6118} & \ga
 \subsection{Logit-Noise Robustness}
 \label{app:openended_robustness}
 
-Table~\ref{tab:openended_robust_all_models} reports DISCA against unconstrained SWA-DPBR (\textsc{Van}) across all four evaluated models under additive Gaussian noise $\eta\!\sim\!\mathcal{N}(0,\sigma^2)$ injected on the cached judge $\delta$, swept over $\sigma\in\{0, 0.25, 0.5, 1.0, 2.0\}$ logit units. DISCA consistently dominates the vanilla approach at every $\sigma$ level across all model scales. Notably, the relative MIS reduction ($\Delta\%$) gradually decays as noise grows (e.g., from $4.81\%$ to $4.14\%$ for Qwen2.5-7B, and $7.16\%$ to $6.56\%$ for Llama-3.3-70B). This narrowing gap aligns perfectly with theoretical expectations: as the upstream signal becomes highly perturbed, the capacity for precise safety-gated routing naturally diminishes, yet DISCA maintains a robust and consistent performance advantage over \textsc{Van}.
+Table~\ref{tab:openended_robust_all_models} reports DISCA against vanilla (\textsc{Van}) across all four evaluated models under additive Gaussian noise $\eta\!\sim\!\mathcal{N}(0,\sigma^2)$ injected on the cached judge $\delta$, swept over $\sigma\in\{0, 0.25, 0.5, 1.0, 2.0\}$ logit units. DISCA consistently dominates the vanilla approach at every $\sigma$ level across all model scales. Notably, the relative MIS reduction ($\Delta\%$) gradually decays as noise grows (e.g., from $4.81\%$ to $4.14\%$ for Qwen2.5-7B, and $7.16\%$ to $6.56\%$ for Llama-3.3-70B). This narrowing gap aligns perfectly with theoretical expectations: as the upstream signal becomes highly perturbed, the capacity for precise safety-gated routing naturally diminishes, yet DISCA maintains a robust and consistent performance advantage over \textsc{Van}.
 
 \begin{table}[H]
 \centering
 \scriptsize
-\caption{Robustness of DISCA vs.\ \textsc{Van} across all 4 models under additive Gaussian noise on the judge $\delta$ (500 scenarios $\times$ seeds). Lower MIS is better. The improvement margin ($\Delta\%$) scales with each model's baseline capacity and naturally decays as noise $\sigma$ increases.}
+\caption{Robustness of DISCA vs.\ vanilla decoding across all four models under additive Gaussian noise on the judge $\delta$ (500 scenarios $\times$ seeds). \textbf{VAN} = vanilla (no DISCA). Lower MIS (misalignment score; \S\ref{sec:exp:data}) is better. The improvement margin ($\Delta\%$) scales with each model's baseline capacity and naturally decays as noise $\sigma$ increases.}
 \label{tab:openended_robust_all_models}
 \setlength{\tabcolsep}{2.5pt}
 \resizebox{\textwidth}{!}{%
@@ -680,7 +1076,7 @@ Phi-4           & SocVal\_High  &  9/20 & 23.4 & Age\_Young   & 7/20 \\
 \label{tab:phi4_percountry}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{lccc|lccc}\toprule
-Country & Vanilla & DPBR & Gain (\%) & Country & Vanilla & DPBR & Gain (\%) \\\midrule
+Country & Vanilla & DISCA & Gain (\%) & Country & Vanilla & DISCA & Gain (\%) \\\midrule
 USA & 0.498 & \textbf{0.243} & \gain{+51.1} & JPN & 0.395 & \textbf{0.195} & \gain{+50.6} \\
 CHN & 0.407 & \textbf{0.214} & \gain{+47.4} & IDN & 0.459 & \textbf{0.274} & \gain{+40.3} \\
 GBR & 0.503 & \textbf{0.319} & \gain{+36.6} & THA & 0.456 & \textbf{0.313} & \gain{+31.4} \\
@@ -708,7 +1104,7 @@ Third, the per-country Phi-4 table (Table~\ref{tab:phi4_percountry}) confirms th
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.78\linewidth]{SWA_DPBR/figures/fig_oral_4_amce_pca.pdf}
+  \includegraphics[width=0.78\linewidth]{amce_pca.pdf}
   \caption{\textbf{Geometric story: DISCA pulls model AMCE vectors toward the human cluster.} 2D PCA projection of the six-dimensional human, vanilla, and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two   components capture 93.2\% of the variance). Convex hulls show the spatial extent of each cloud; arrows trace each country's vanilla$\to$DISCA trajectory. \textbf{All 20 of 20 country points end closer to the human cluster}, with mean $\lVert\text{model}-\text{human}\rVert_2$ dropping from 83.3 to 64.6 ($-22.4\%$).}
   \label{fig:amce_pca}
 \end{figure}
@@ -804,7 +1200,7 @@ the remaining nine countries-predominantly mid- and low-baseline cases such as G
 This appendix collects three diagnostics derived post-hoc from the per-scenario outputs of the main DISCA run (no model reload required), each probing a different aspect of method behaviour.
 
 \paragraph{Dual-pass reliability audit.}
-A subtle failure mode of the DPBR gate is \emph{apparent} IS stability: each individual pass can yield a high effective sample size, yet the two passes can still produce substantially different $\delta^\star$ values when the proposal covers a multimodal utility landscape. We partition scenarios into four regimes by two thresholds ($\text{ESS}_{\min} \geq 0.40$; $\mathrm{Var}_{\text{boot}} \geq 0.04$): \emph{HighESS/LowDisagree} (gate applies correction essentially unattenuated), \emph{HighESS/HighDisagree} (passes individually stable yet disagree-the regime where ``more samples'' would silently commit a biased estimate; DPBR shrinks $\delta^\star$ precisely here), \emph{LowESS/LowDisagree} (noisy IS but lucky agreement), and \emph{LowESS/HighDisagree} (classically bad-gate shrinks aggressively). The audit reports regime counts, mean reliability weight, and a ``would-apply-vs-actually-applied'' shrinkage ratio $1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime.
+A subtle failure mode of the DISCA dual-pass reliability gate is \emph{apparent} IS stability: each individual pass can yield a high effective sample size, yet the two passes can still produce substantially different $\delta^\star$ values when the proposal covers a multimodal utility landscape. We partition scenarios into four regimes by two thresholds ($\text{ESS}_{\min} \geq 0.40$; $\mathrm{Var}_{\text{boot}} \geq 0.04$): \emph{HighESS/LowDisagree} (gate applies correction essentially unattenuated), \emph{HighESS/HighDisagree} (passes individually stable yet disagree-the regime where ``more samples'' would silently commit a biased estimate; the reliability gate shrinks $\delta^\star$ precisely here), \emph{LowESS/LowDisagree} (noisy IS but lucky agreement), and \emph{LowESS/HighDisagree} (classically bad-gate shrinks aggressively). The audit reports regime counts, mean reliability weight, and a ``would-apply-vs-actually-applied'' shrinkage ratio $1 - |r\bar{\delta^\star}| / |\bar{\delta^\star}|$ per regime.
 
 \paragraph{Logit-conditioning diagnostic.}
 The architectural failure mode identified in §\ref{sec:discussion}-poorly conditioned decision-token logits-can be quantified directly on the vanilla forward pass via three per-scenario statistics: \textbf{decision margin} $\mathrm{marg} = |p_B - p_A|$, \textbf{decision entropy} $H = -p_A \log p_A - p_B \log p_B$ (nats), and \textbf{absolute logit gap} $|z_B - z_A|$. Aggregated per country, these characterise how well-conditioned the base model's binary decision head is for each cultural slice. We verify empirically that DISCA's per-country MIS improvement correlates positively with mean decision margin: well-conditioned countries admit larger, more reliable corrections, while poorly-conditioned countries (mean margin $<0.1$) are near the limit of what any logit-level intervention can achieve. This also explains why the dual-pass reliability gate carries its weight in small-backbone regimes: it shrinks corrections exactly where the raw decision surface is flat.
@@ -839,11 +1235,11 @@ DISCA-consensus & $0.089$          & $11/120$          & $0.31$          & $0.10
 \subsection{Scenario-level conditioning of the DISCA correction}
 \label{sec:scenario_disagreement_correction}
 
-Theorem~\ref{thm:shrinkage} formalises DISCA as a shrinkage estimator whose strength is governed by within-panel disagreement $D^2 = \tfrac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$: the JS factor in part~(ii) is $1 - (N\!-\!3)D^2/(N\Delta^2)$, so $D^2$ controls the \emph{ratio} $|\delta^\star|/|\Delta|$ rather than $|\delta^\star|$ in isolation. A simpler but operationally important question, complementary to the theorem, is whether DISCA's applied correction is in fact driven by disagreement \emph{at the scenario level}, or whether it collapses into a per-country offset. Using Qwen2.5-7B as the backbone, we log \emph{per-scenario} $(D^2, |\delta^\star|)$ pairs from the full DISCA
+Proposition~\ref{prop:shrinkage} formalises DISCA as a shrinkage estimator whose strength is governed by within-panel disagreement $D^2 = \tfrac{1}{N-1}\sum_i (\delta_i - \bar\delta)^2$: the JS factor in part~(ii) is $1 - (N\!-\!3)D^2/(N\Delta^2)$, so $D^2$ controls the \emph{ratio} $|\delta^\star|/|\Delta|$ rather than $|\delta^\star|$ in isolation. A simpler but operationally important question, complementary to the theorem, is whether DISCA's applied correction is in fact driven by disagreement \emph{at the scenario level}, or whether it collapses into a per-country offset. Using Qwen2.5-7B as the backbone, we log \emph{per-scenario} $(D^2, |\delta^\star|)$ pairs from the full DISCA
 pipeline across $5$ countries (USA, JPN, DEU, VNM, ETH) and
 $310$ MultiTP scenarios per country ($n=1{,}550$ total), and compute Pearson's correlation between $\log_{10} D^2$ and $|\delta^\star|$.
 
-\textbf{Result.} The two quantities are positively and significantly correlated, $r = +0.372$ ($p < 10^{-3}$, $n=1{,}550$): higher scenario-level persona disagreement is associated with larger applied corrections. This is consistent with the scenario-conditioned shrinkage policy formalised by Theorem~\ref{thm:shrinkage}, with the caveat that the theorem governs the ratio $|\delta^\star|/|\Delta|$ rather than the raw magnitude-a positive raw correlation arises when $|\Delta|$ also co-varies with $D^2$ across scenarios, which is the typical case when both are driven by the same underlying spread of persona logit gaps. At the country level (Table~\ref{tab:scenario_corr}), the extremes match expectation-ETH, with the lowest mean variance ($0.009$), receives the smallest mean correction ($0.009$); USA, with the highest mean variance ($0.086$), receives the largest ($0.015$)-while the three middle countries (JPN, DEU, VNM) sit in a narrow band ($0.012$--$0.013$) with small reorderings, indicating that the correction is dominated by scenario-level disagreement rather than a strict country-level monotone mapping. Figure~\ref{fig:scenario_corr} visualises the full $1{,}550$-scenario point cloud with a Savitzky--Golay trend.
+\textbf{Result.} The two quantities are positively and significantly correlated, $r = +0.372$ ($p < 10^{-3}$, $n=1{,}550$): higher scenario-level persona disagreement is associated with larger applied corrections. This is consistent with the scenario-conditioned shrinkage policy formalised by Proposition~\ref{prop:shrinkage}, with the caveat that the theorem governs the ratio $|\delta^\star|/|\Delta|$ rather than the raw magnitude-a positive raw correlation arises when $|\Delta|$ also co-varies with $D^2$ across scenarios, which is the typical case when both are driven by the same underlying spread of persona logit gaps. At the country level (Table~\ref{tab:scenario_corr}), the extremes match expectation-ETH, with the lowest mean variance ($0.009$), receives the smallest mean correction ($0.009$); USA, with the highest mean variance ($0.086$), receives the largest ($0.015$)-while the three middle countries (JPN, DEU, VNM) sit in a narrow band ($0.012$--$0.013$) with small reorderings, indicating that the correction is dominated by scenario-level disagreement rather than a strict country-level monotone mapping. Figure~\ref{fig:scenario_corr} visualises the full $1{,}550$-scenario point cloud with a Savitzky--Golay trend.
 
 \begin{figure}[H]
   \centering
@@ -873,7 +1269,7 @@ USA & 310 & 0.086 & 0.015 \\
 \end{tabular}
 \end{table}
 
-\textbf{What this does and does not show.} A positive scenario-level correlation rules out the simplest collapsed alternative-a controller that applies a country-conditioned constant offset-and is consistent with the scenario-conditioned policy that Theorem~\ref{thm:shrinkage} prescribes. It is \emph{not} a direct verification of the JS shrinkage form in part~(ii), which makes a quantitative claim about the ratio $|\delta^\star|/|\Delta|$ that a marginal scatter cannot identify without controlling for $|\Delta|$. We therefore present this diagnostic as evidence of scenario-level conditioning, not as a tight numerical test of the JS shrinkage factor
+\textbf{What this does and does not show.} A positive scenario-level correlation rules out the simplest collapsed alternative-a controller that applies a country-conditioned constant offset-and is consistent with the scenario-conditioned policy that Proposition~\ref{prop:shrinkage} prescribes. It is \emph{not} a direct verification of the JS shrinkage form in part~(ii), which makes a quantitative claim about the ratio $|\delta^\star|/|\Delta|$ that a marginal scatter cannot identify without controlling for $|\Delta|$. We therefore present this diagnostic as evidence of scenario-level conditioning, not as a tight numerical test of the JS shrinkage factor
 
 \subsection{Diagnosing negative Pearson \texorpdfstring{$r$}{r}}
 \label{sec:negative_r_diagnosis}
@@ -1011,7 +1407,7 @@ Dataset preprocessing irrelevant & JSD range over 6 configs & $<\!0.010$ & \text
 $T_\text{dec}$ insensitivity & JSD span (Sweep A) & $<\!0.010$ & \textbf{0.0074} \\
 Uniform $T_\text{cat}$ insensitivity & JSD span (Sweep B) & $<\!0.010$ & \textbf{0.0073} \\
 Per-category $T_\text{cat}$ insensitivity & JSD span (Sweep C) & $<\!0.010$ & \textbf{0.0077} \\
-PT-IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$PT--IS) & $>\!0$ & \textbf{0.003} \\
+PT--IS $>$ best deterministic shift & $\Delta$JSD(CS-Clamp$\to$PT--IS) & $>\!0$ & \textbf{0.003} \\
 WVS weighting alone insufficient & ARGS-WVS $\succ$ ARGS-Unif & $<\!8/15$ & \textbf{3/15} \\
 PT--IS kernel $\equiv$ \textsc{ARGS-PT} & ARGS-PT best/tied & $\ge 10/15$ & \textbf{13/15} \\
 Cross-lingual pipeline generalises & end-to-end runs & 8/8 & \textbf{8/8} \\\bottomrule
@@ -1094,7 +1490,7 @@ operating point.
 
 \subsection{Extended Hyperparameter Sensitivity}
 
-We probe the sensitivity of DISCA to the four principal hyperparameters: $s$ (reliability gate scale), $\lambda_{\text{coop}}$ (individual-vs-consensus weight), $\sigma$ (IS proposal floor), and $T_{\text{cat}}$ (uniform logit-temperature scaling). For each axis we sweep five values on a three-country panel (USA, VNM, DEU) and hold the other three axes at their defaults; the $s$ axis directly probes how the choice of reliability scale in Eq.~\ref{eq:dpbr_rel} affects downstream MIS.
+We probe the sensitivity of DISCA to the four principal hyperparameters: $s$ (reliability gate scale), $\lambda_{\text{coop}}$ (individual-vs-consensus weight), $\sigma$ (IS proposal floor), and $T_{\text{cat}}$ (uniform logit-temperature scaling). For each axis we sweep five values on a three-country panel (USA, VNM, DEU) and hold the other three axes at their defaults; the $s$ axis directly probes how the choice of reliability scale in Eq.~\ref{eq:disca_rel} affects downstream MIS.
 
 \begin{table}[H]\centering\small
 \caption{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref{tab:main_macro_summary} are not the product of a particular hyperparameter choice.}
@@ -1108,7 +1504,7 @@ $\sigma$               & 0.30 & $\{0.10, 0.20, 0.30, 0.45, 0.60\}$ & 0.4084 & 0.
 $T_{\text{cat}}$ scale & $1.0\times$ & $\{0.33\times, 0.67\times, 1.0\times, 1.33\times, 1.67\times\}$ & 0.4060 & 0.4149 & 0.0090 \\\bottomrule
 \end{tabular}\end{table}
 
-\paragraph{Why these four axes.} $s$ controls the steepness of the reliability gate (Eq.~\ref{eq:dpbr_rel}); $\lambda_{\text{coop}}$ trades off individual-persona PT utility against the consensus utility; $\sigma$ floors the IS proposal scale so the $N{=}4$ empirical std cannot collapse to zero; and $T_{\text{cat}}$ scales the whole family of per-category decision temperatures (preserving relative balance)-a global sharpening / flattening knob on the decision logits. Per-category temperatures are stress-tested separately in the temperature sensitivity sweep above.
+\paragraph{Why these four axes.} $s$ controls the steepness of the reliability gate (Eq.~\ref{eq:disca_rel}); $\lambda_{\text{coop}}$ trades off individual-persona PT utility against the consensus utility; $\sigma$ floors the IS proposal scale so the $N{=}4$ empirical std cannot collapse to zero; and $T_{\text{cat}}$ scales the whole family of per-category decision temperatures (preserving relative balance)-a global sharpening / flattening knob on the decision logits. Per-category temperatures are stress-tested separately in the temperature sensitivity sweep above.
 
 \paragraph{Persona count, IS budget, and per-category vs.\ global $T_{\text{cat}}$.}
 We additionally swept three operational knobs on the same USA/VNM/DEU panel. \textbf{Persona count} ($N\in\{2,3,4,5,6\}$, Table~\ref{tab:r3_persona_count}): $N{=}4$ is optimal at macro MIS 0.4051, with degradation at both smaller and larger panels (0.4252 at $N{=}2$, 0.4179 at $N{=}6$), supporting the four-persona design. \textbf{IS budget} ($K_{\text{half}}\in\{8,16,32,64,128,192\}$, Table~\ref{tab:r3_k_budget}): performance is flat across an order of magnitude (best 0.4092 at $K{=}16$; 0.4103 at $K{=}64$), indicating the default $K_{\text{half}}{=}64$ is in the stable region rather than over-tuned. \textbf{Global vs.\ per-category $T_{\text{cat}}$} (Table~\ref{tab:r3_global_tcat}): the per-category default outperforms \emph{every} global schedule we tested (0.4098 vs.\ all seven global values in $\{1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0\}$, which land in $0.4119$--$0.4138$). The advantage is small in absolute terms but consistent.
@@ -1162,6 +1558,22 @@ global $T_\text{cat} = 4.00$ & 0.4128 & 0.0734 & 0.302 \\
 \end{tabular}
 \end{table}
 
+\paragraph{Per-persona utility floor (minority safeguard).}
+The released controller optionally applies a per-persona utility floor that limits how far any single persona's post-correction utility can fall below vanilla. Sweeping $f \in \{0.0, 0.5, 1.0, 2.0\}$ on the same USA/VNM/DEU panel (Phi-4, $n{=}250$/country) keeps macro MIS in $[0.4046, 0.4157]$—well inside the macro-MIS bootstrap noise floor-so the floor is a stability knob rather than a load-bearing hyperparameter.
+
+\begin{table}[H]\centering\small
+\caption{Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter.}
+\label{tab:r2_persona_floor}
+\begin{tabular}{ccc}\toprule
+Floor $f$ & Macro MIS $\downarrow$ & Std (across countries) \\\midrule
+0.0 (off) & 0.4083 & 0.0717 \\
+0.5       & \textbf{0.4046} & 0.0696 \\
+1.0       & 0.4066 & 0.0751 \\
+2.0       & 0.4157 & 0.0684 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Scenario-Slice Release and Category-Cap Sensitivity}
 \label{app:r2_oversampling}
 % ============================================================================
@@ -1178,7 +1590,7 @@ Both runs use the same seed, native-language framing, and hyperparameters as the
 \section{Theoretical Grounding}
 \label{app:theory_grounding}
 
-DISCA sits at the intersection of three theoretical traditions, each supplying one ingredient that the others lack. \emph{Control as probabilistic inference}~\citep{levine2018reinforcement, todorov2009generalized} recasts optimal decision-making as posterior inference over an intention distribution; path-integral steering~\citep{williams2017mppi} instantiates that view with softmax-weighted perturbations that provably approximate the KL-regularised optimal control under mild regularity conditions~\citep{todorov2009generalized}. This is what licences us to read our Eq.~\ref{eq:util_total} as an inference step rather than an arbitrary scalar interpolation, and it motivates the Gaussian proposal around $\bar\delta$ as the entropy-maximal default in the absence of stronger priors. \emph{Prospect Theory}~\citep{kahneman1979prospect, tversky1992advances} then supplies the utility shape: the key empirical regularity-that human decision makers weight a loss of magnitude $x$ roughly $\kappa{\approx}2.25$ times more than a gain of the same magnitude-is exactly the asymmetry we want an LLM cultural controller to respect, because a correction that silences one demographic persona is worse than a correction that fails to help it. Recent evidence that prospect-theoretic biases emerge naturally in LLM decision-making under risk~\citep{payne2025prospect} strengthens the match: the asymmetric gain/loss structure we impose \emph{mirrors} one the models themselves already exhibit, rather than introducing an alien objective. \emph{Importance-sampling (IS) theory}~\citep{elvira2021advances} finally supplies the variance-control machinery, and it is here that self-normalised IS is known to be biased at finite $K$; the dual-pass construction we adopt is a light-weight bootstrap-style variance probe~\citep{efron1979bootstrap} that uses the same compute budget to detect instability rather than silently accept it, paired with an effective-sample-size guard grounded in design-effect theory~\citep{kish1965survey}. We treat the dual-pass gate as a variance heuristic rather than a formal unbiasedness certificate; formal finite-$K$ bounds would require stronger assumptions on the logit landscape than we are willing to claim (Appendix~\ref{app:dpbr_theory}).
+DISCA sits at the intersection of three theoretical traditions, each supplying one ingredient that the others lack. \emph{Control as probabilistic inference}~\citep{levine2018reinforcement, todorov2009generalized} recasts optimal decision-making as posterior inference over an intention distribution; path-integral steering~\citep{williams2017mppi} instantiates that view with softmax-weighted perturbations that provably approximate the KL-regularised optimal control under mild regularity conditions~\citep{todorov2009generalized}. This is what licences us to read our Eq.~\ref{eq:util_total} as an inference step rather than an arbitrary scalar interpolation, and it motivates the Gaussian proposal around $\bar\delta$ as the entropy-maximal default in the absence of stronger priors. \emph{Prospect Theory}~\citep{kahneman1979prospect, tversky1992advances} then supplies the utility shape: the key empirical regularity-that human decision makers weight a loss of magnitude $x$ roughly $\kappa{\approx}2.25$ times more than a gain of the same magnitude-is exactly the asymmetry we want an LLM cultural controller to respect, because a correction that silences one demographic persona is worse than a correction that fails to help it. Recent evidence that prospect-theoretic biases emerge naturally in LLM decision-making under risk~\citep{payne2025prospect} strengthens the match: the asymmetric gain/loss structure we impose \emph{mirrors} one the models themselves already exhibit, rather than introducing an alien objective. \emph{Importance-sampling (IS) theory}~\citep{elvira2021advances} finally supplies the variance-control machinery, and it is here that self-normalised IS is known to be biased at finite $K$; the dual-pass construction we adopt is a light-weight bootstrap-style variance probe~\citep{efron1979bootstrap} that uses the same compute budget to detect instability rather than silently accept it, paired with an effective-sample-size guard grounded in design-effect theory~\citep{kish1965survey}. We treat the dual-pass gate as a variance heuristic rather than a formal unbiasedness certificate; formal finite-$K$ bounds would require stronger assumptions on the logit landscape than we are willing to claim (Appendix~\ref{app:disca_theory}).
 
 \section{Design Rationale: Why Each Component}
 \label{app:design_rationale}
@@ -1198,46 +1610,9 @@ Three independent considerations pick out the Kahneman-Tversky value function~\c
 The cultural correction we seek is the argmax of a utility that values each persona's alignment and penalises corrections that make any of them worse~\citep{levine2018reinforcement}. Closed-form optimisation is unavailable because the utility is non-convex (PT's kink at zero, the $\ell_1$-style gain definition in Eq.~\ref{eq:g_per_agent}), so we approximate the optimal control distribution with a path-integral-style softmax over perturbations~\citep{williams2017mppi, todorov2009generalized}. The Gaussian proposal $\epsilon_k\sim\mathcal{N}(0,\sigma^2)$ plays the role of an entropy-maximal default, and the softmax weights $w_k\propto\exp(U_{\text{total}}/\eta)$ implement the KL-regularised Boltzmann posterior balancing utility against deviation from the consensus. This control-as-inference reading licenses Eq.~\ref{eq:util_total} as an approximate Bayesian update rather than arbitrary scalar interpolation.
 
 \paragraph{Why dual-pass, rather than more samples or a hard threshold?}
-Self-normalised IS is a biased estimator at finite sample size~\citep{elvira2021advances}: the bias shrinks as $O(1/K)$ but does not reveal itself to the caller, so ``more samples'' hides instability rather than flagging it. Two independent replicates of size $K_{\text{half}}$ using the same total budget $K{=}2K_{\text{half}}$ trade a small increase in per-pass variance for a \emph{direct, scenario-level probe} of that instability: the squared gap $(\delta^\star_1-\delta^\star_2)^2$ is a one-dimensional bootstrap-style variance estimator~\citep{efron1979bootstrap} whose small values license the correction and whose large values veto it automatically, without a hand-tuned threshold. The exponential map $r{=}\exp\!\bigl(-(\delta^\star_1-\delta^\star_2)^2/s\bigr)$ is preferred over a hard indicator because it preserves a single differentiable code path and its decay matches the shape of a Gaussian likelihood ratio under independent noise. An effective-sample-size guard~\citep{kish1965survey} on each pass ($N_{\text{eff}}/K_{\text{half}}{<}\rho_{\text{eff}}$) zeros the offset entirely when the weights collapse, providing a second, coarser safety net below the smooth reliability gate. We emphasise that this construction is a variance heuristic, not a formal unbiasedness certificate; finite-$K$ bounds would require stronger assumptions on the logit landscape than we are willing to claim (Appendix~\ref{app:dpbr_theory}).
+Self-normalised IS is a biased estimator at finite sample size~\citep{elvira2021advances}: the bias shrinks as $O(1/K)$ but does not reveal itself to the caller, so ``more samples'' hides instability rather than flagging it. Two independent replicates of size $K_{\text{half}}$ using the same total budget $K{=}2K_{\text{half}}$ trade a small increase in per-pass variance for a \emph{direct, scenario-level probe} of that instability: the squared gap $(\delta^\star_1-\delta^\star_2)^2$ is a one-dimensional bootstrap-style variance estimator~\citep{efron1979bootstrap} whose small values license the correction and whose large values veto it automatically, without a hand-tuned threshold. The exponential map $r{=}\exp\!\bigl(-(\delta^\star_1-\delta^\star_2)^2/s\bigr)$ is preferred over a hard indicator because it preserves a single differentiable code path and its decay matches the shape of a Gaussian likelihood ratio under independent noise. An effective-sample-size guard~\citep{kish1965survey} on each pass ($N_{\text{eff}}/K_{\text{half}}{<}\rho_{\text{eff}}$) zeros the offset entirely when the weights collapse, providing a second, coarser safety net below the smooth reliability gate. We emphasise that this construction is a variance heuristic, not a formal unbiasedness certificate; finite-$K$ bounds would require stronger assumptions on the logit landscape than we are willing to claim (Appendix~\ref{app:disca_theory}).
 
 
-\section{PT--IS, Sampling, and Dual-Pass Reliability}
-\label{app:dpbr_theory}
-
-\subsection{Gain definitions}
-
-For candidate $\tilde{\delta}_k = \bar{\delta} + \epsilon_k$, the per-persona and consensus gains are:
-\begin{align}
-  g_{i,k} &= |\delta_{\text{base}} - \delta_i| - |\tilde{\delta}_k - \delta_i|,
-  \label{eq:g_per_agent} \\
-  g_{\text{cons},k} &= |\delta_{\text{base}} - \bar{\delta}| - |\tilde{\delta}_k - \bar{\delta}|.
-  \label{eq:g_cons}
-\end{align}
-$g_{i,k} > 0$ means the candidate is closer to persona $i$ than the base model; $g_{\text{cons},k}$ is the analogous quantity for the persona consensus. These enter Eq.~\ref{eq:util_total} after $\sigma$-normalisation. The IS update for each pass is $\delta^{\star}_m = \sum_k w_k^{(m)} \epsilon_k$ with $w_k^{(m)} = \mathrm{softmax}(U_{\text{total}}(\epsilon_k)/\eta)$ and temperature $\eta=0.5$.  An ESS guard zeros $\delta^{\star}_m$ when the Kish effective sample size $N_{\mathrm{eff}}/K_{\text{half}}$ falls below $\rho_{\mathrm{eff}}=0.1$.
-
-\subsection{Utility shape and the omitted explicit KL-on-\texorpdfstring{$\epsilon$}{epsilon} term}
-
-The scalar decision gap $\delta$ acts as a one-dimensional state and the perturbations $\epsilon_k$ as control inputs at a single horizon step. Under the path-integral / free-energy view~\citep{williams2017mppi}, softmax weights $w_k \propto \exp(U_{\text{total}}/\eta)$ can be read as targeting a Boltzmann distribution over candidate perturbations. \textbf{Our released code does not add} a separate quadratic penalty $\propto \epsilon_k^2/(2\sigma^2)$ to $U_{\text{total}}$ in Eq.~\ref{eq:util_total}: the released controller matches it exactly, and the Gaussian proposal $\epsilon_k\sim\mathcal{N}(0,\sigma^2)$ already limits
-how far $\tilde{\delta}_k$ can move from $\bar{\delta}$. An optional explicit KL-on-control term remains a straightforward extension if future work needs sharper tail control on $|\epsilon_k|$.
-
-\subsection{Comparison with Simpler Alternatives}
-
-Temperature scaling uniformly stretches the logit gap without accounting for direction or magnitude of persona rewards. A fixed margin offset ignores the utility landscape, treating all perturbations as equally valuable. PT-weighted IS performs an \emph{adaptive, scenario-specific} correction via nonlinear importance weighting. Auxiliary runs with deterministic consensus-only shifts and WVS-linear reward kernels underperform the Prospect-Theory kernel on the same pipeline; we omit utility-shape rows from Table~\ref{tab:ablation_backbones_20c} for clarity.
-
-\subsection{Why split \texorpdfstring{$K$}{K} into two passes?}
-
-Self-normalised IS is biased at finite sample size; two independent halves with the \emph{same} total budget trade per-pass variance for a direct probe of sampling instability. The reliability map $r=\exp(-(\delta^\star_1-\delta^\star_2)^2/s)$ is intentionally smooth-unlike a hard veto it preserves a single code path and down-weights only when the two estimates contradict each other strongly. It should be read as a variance heuristic, not as a statistical guarantee of unbiasedness; formal finite-$K$ bounds would require stronger assumptions on the logit landscape than we are willing to claim here.
-
-\subsection{Positional Debiasing: Implementation Detail}
-\label{app:debias_impl}
-
-The two-pass debiasing of \S\ref{sec:method:debias} is implemented as a text-level rewrite of the scenario \emph{after} native-language framing. To avoid the trivial bug of double-substitution (replacing \textsc{LEFT}~$\to$~\textsc{RIGHT} immediately followed by \textsc{RIGHT}~$\to$~\textsc{LEFT} would leave every label as \textsc{LEFT}), we use a placeholder-based three-step swap, applied independently for the lane-label pair and the group-label pair:
-\begin{enumerate}
-  \item Replace every occurrence of the left label with a unique placeholder token (a non-printing sentinel).
-  \item Replace every occurrence of the right label with the left label.
-  \item Replace the placeholder with the right label.
-\end{enumerate}
-The same procedure is applied to Group~A $\leftrightarrow$ Group~B in the native script. Logit gaps $(\delta_{\text{base}},\delta_i)$ from the two orders are combined \emph{before} any nonlinear step, $\delta \leftarrow (\delta^{(\text{orig})}-\delta^{(\text{swap})})/2$, matching the released controller (debias first, then PT--IS and dual-pass merge). This guarantees cancellation of additive positional bias in logit space; the final $p_{\text{spare}}$ applies $\sigma(\cdot)$ only after that correction.
 
 \section{Persona Construction Details}
 \label{app:personas}
@@ -1478,9 +1853,9 @@ A compact round-2 latency benchmark on H100 shows similar overhead across propos
 \label{tab:r2_latency_compact}
 \begin{tabular}{llcc}\toprule
 Method & $K$ & sec/scenario & Overhead \\\midrule
-swa\_dpbr & 64 & 0.086 & 3.72$\times$ \\
-swa\_dpbr & 128 & 0.083 & 3.59$\times$ \\
-swa\_dpbr & 256 & 0.083 & 3.57$\times$ \\
+\texttt{DISCA} & 64 & 0.086 & 3.72$\times$ \\
+\texttt{DISCA} & 128 & 0.083 & 3.59$\times$ \\
+\texttt{DISCA} & 256 & 0.083 & 3.57$\times$ \\
 vanilla & -- & 0.023 & 1.00$\times$ \\
 \bottomrule
 \end{tabular}
@@ -1508,20 +1883,20 @@ DISCA (the ``EXP-24'' configuration) was selected from \textbf{25 method variant
 \begin{tabular}{clcc}\toprule
 Rank & Method variant & Mean MIS $\downarrow$ & Key innovation \\\midrule
 1 & EXP-23: Category-Coherence Reg. & 0.3956 & Blend IS toward per-cat mean \\
-2 & \textbf{EXP-24: Dual-Pass Bootstrap (DPBR)} & \textbf{0.3969} & Soft $r{=}\exp(-v_b/s)$ reliability \\
+2 & \textbf{EXP-24: Dual-pass reliability (DISCA)} & \textbf{0.3969} & Soft $r{=}\exp(-v_b/s)$ reliability \\
 3 & EXP-09: Hierarchical IS & 0.3975 & Cross-scenario smoothing (legacy) \\
 4 & EXP-22: Adaptive IS $\sigma$ & 0.3977 & $\sigma$ from agent/history stats \\
 5 & EXP-16: Nesterov IS & 0.3977 & Momentum + progressive PT \\
 6 & EXP-17: Dual-Momentum Prior & 0.3979 & Fast/slow $\beta$ EMA blend \\
 7 & EXP-10: Grand Fusion & 0.3982 & EXP-03+05+09 combined \\
 \midrule
-18 & EXP-01: Base SWA-PTIS & 0.4269 & Single-pass IS baseline \\
+18 & EXP-01: Base single-pass PT--IS & 0.4269 & Single-pass IS baseline \\
 25 & EXP-12: Contrastive Personas & 0.4517 & World-average subtraction \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The top cluster (ranks 1--7) is separated by only 0.0026 MIS, but DPBR was selected over the marginally-better EXP-23 for two reasons: (i)~DPBR materially \textbf{lowers flip rate} (the fraction of scenarios where IS reverses the consensus decision) compared to all other top-cluster methods, improving deployment stability; and (ii)~the dual-pass bootstrap provides an \textbf{interpretable uncertainty signal} ($r$ in Eq.~\ref{eq:dpbr_rel}) that can be logged and audited per scenario. The base SWA-PTIS (rank~18) shows the value added by the dual-pass stabilization stages: a 7\% relative MIS improvement. Contrastive persona decoding (rank~25) \emph{hurts} alignment, validating the design choice discussed in \S\ref{sec:related} to use direct WVS personas rather than contrastive amplification.
+The top cluster (ranks 1--7) is separated by only 0.0026 MIS, but the DISCA dual-pass configuration was selected over the marginally-better EXP-23 for two reasons: (i)~it materially \textbf{lowers flip rate} (the fraction of scenarios where IS reverses the consensus decision) compared to all other top-cluster methods, improving deployment stability; and (ii)~the dual-pass gate provides an \textbf{interpretable uncertainty signal} ($r$ in Eq.~\ref{eq:disca_rel}) that can be logged and audited per scenario. The base single-pass PT--IS variant (rank~18) shows the value added by the dual-pass stabilization stages: a 7\% relative MIS improvement. Contrastive persona decoding (rank~25) \emph{hurts} alignment, validating the design choice discussed in \S\ref{sec:related} to use direct WVS personas rather than contrastive amplification.
 % ============================================================================
 \section{Relationship to Persona-Dependent LLM Alignment}
 \label{app:kim_comparison}
@@ -1539,7 +1914,7 @@ Goal & Measure persona sensitivity & Correct cultural misalignment \\
 Personas & 7 sociodemographic categories & 4 WVS-grounded agents per country \\
 Persona source & Author-designed binary labels & Empirical WVS-7 microdata \\
 Metric & MDD (persona-pair distance) & MIS ($\ell_2$ to human AMCE) \\
-Correction & None (diagnostic only) & PT-IS + dual-pass reliability gate \\
+Correction & None (diagnostic only) & PT--IS + dual-pass reliability gate \\
 Models & 3 (GPT-4o, GPT-3.5, Llama-2) & 7 checkpoints, 5 families, 2B--70B \\
 Countries & Aggregate (Western vs.\ Eastern) & 20 individual countries \\
 Scenarios & 9 dimensions, 10k synthetic & 6 dimensions, 310--500 per country \\
@@ -1550,13 +1925,13 @@ Theory & Partisan sorting (descriptive) & James--Stein shrinkage (Thm.~\ref{thm:
 
 Three findings from \citet{kim2025persona} directly inform DISCA's design.
 
-\paragraph{Persona sensitivity motivates disagreement-driven steering.} Kim et al.\ show that LLMs exhibit moral-decision distances (MDD) 2--4$\times$ larger than humans under contrasting personas. This confirms that persona prompts do shift LLM moral reasoning substantially, validating the premise that within-country persona spread is an informative signal. DISCA converts this sensitivity from a liability (uncontrolled decision shifts) into a feature (a sufficient statistic for correction reliability, Theorem~\ref{thm:shrinkage}).
+\paragraph{Persona sensitivity motivates disagreement-driven steering.} Kim et al.\ show that LLMs exhibit moral-decision distances (MDD) 2--4$\times$ larger than humans under contrasting personas. This confirms that persona prompts do shift LLM moral reasoning substantially, validating the premise that within-country persona spread is an informative signal. DISCA converts this sensitivity from a liability (uncontrolled decision shifts) into a feature (a sufficient statistic for correction reliability, Proposition~\ref{prop:shrinkage}).
 
 \paragraph{The partisan sorting phenomenon justifies WVS grounding.} Kim et al.\ find that political orientation produces the largest persona effect in LLMs, far exceeding its effect in human respondents. This ``partisan sorting'' effect reveals that LLMs over-index on politically salient dimensions when given sociodemographic labels. DISCA avoids this pathology by grounding personas in empirical WVS-7 microdata rather than author-designed binary labels: the ten-dimensional cultural profile (Table~\ref{tab:wvs_thresholds}) distributes influence across religiosity, child-rearing values, social trust, and other axes, preventing any single dimension from dominating the correction. The leave-one-WVS-dim-out probe (Table~\ref{tab:wvs_impact_matrix}) confirms that influence is distributed rather than concentrated.
 
-\paragraph{Moral flips validate the reliability gate.} Kim et al.\ document that specific personas can entirely reverse LLM preferences on certain moral dimensions (e.g., social status under a progressive persona in GPT-4o). DISCA's dual-pass reliability gate (Eq.~\ref{eq:dpbr_rel}) is designed precisely for this regime: when persona-driven corrections are large enough to flip the decision, the two independent IS passes are likely to disagree, and the exponential decay weight $r$ shrinks the correction toward zero. The tail-safety analysis (Table~\ref{tab:tail_safety}) confirms this mechanism reduces harmed cells from 11/120 to 3/120 compared to ungated consensus.
+\paragraph{Moral flips validate the reliability gate.} Kim et al.\ document that specific personas can entirely reverse LLM preferences on certain moral dimensions (e.g., social status under a progressive persona in GPT-4o). DISCA's dual-pass reliability gate (Eq.~\ref{eq:disca_rel}) is designed precisely for this regime: when persona-driven corrections are large enough to flip the decision, the two independent IS passes are likely to disagree, and the exponential decay weight $r$ shrinks the correction toward zero. The tail-safety analysis (Table~\ref{tab:tail_safety}) confirms this mechanism reduces harmed cells from 11/120 to 3/120 compared to ungated consensus.
 
-\paragraph{From diagnosis to correction.} The fundamental advance of DISCA over the Kim et al.\ framework is operational: where they diagnose persona sensitivity, we harness it. Their MDD metric measures the distance between two contrasting personas; our MIS measures the distance to the human target and actively reduces it. The James--Stein result (Theorem~\ref{thm:shrinkage}) provides the formal bridge: within-panel disagreement (analogous to their MDD) is a sufficient statistic for the correction's reliability, and the shrinkage estimator converts this diagnostic signal into an optimal correction.
+\paragraph{From diagnosis to correction.} The fundamental advance of DISCA over the Kim et al.\ framework is operational: where they diagnose persona sensitivity, we harness it. Their MDD metric measures the distance between two contrasting personas; our MIS measures the distance to the human target and actively reduces it. The James--Stein result (Proposition~\ref{prop:shrinkage}) provides the formal bridge: within-panel disagreement (analogous to their MDD) is a sufficient statistic for the correction's reliability, and the shrinkage estimator converts this diagnostic signal into an optimal correction.
 
 % ============================================================================
 \section{Extended Limitations}

@@ -1,4 +1,4 @@
-% SWA-DPBR Pipeline Overview — TikZ figure
+% DISCA pipeline overview — TikZ figure
 % Each panel is a scope with fixed shift; all nodes use absolute (x,y).
 
 \begin{figure*}[t]
@@ -219,7 +219,7 @@
 \end{tikzpicture}%
 }% end resizebox
 \caption{%
-  \textbf{SWA-DPBR pipeline overview.}
+  \textbf{DISCA pipeline overview.}
   \textbf{Stage~1:} WVS Wave\,7 microdata yields four culturally grounded persona
   agents per country (three age cohorts $+$ one population-wide aggregate).
   \textbf{Stage~2:} A frozen LLM evaluates the base prompt and all personas in a
@@ -227,7 +227,7 @@
   debiasing, producing debiased logit gaps $\delta_i$ and per-agent rewards $r_i$.
   \textbf{Stage~3:} Two independent Prospect-Theory importance-sampling passes
   produce corrections $\delta^\star_1, \delta^\star_2$; a bootstrap reliability
-  gate (Eq.~\ref{eq:dpbr_rel}) merges them---shrinking the correction exponentially
+  gate (Eq.~\ref{eq:disca_rel}) merges them---shrinking the correction exponentially
   when the passes disagree.
   \textbf{Stage~4:} A country-level EMA prior stabilises corrections across
   scenarios; the annealed blend yields $\delta_{\text{final}}$ and the
