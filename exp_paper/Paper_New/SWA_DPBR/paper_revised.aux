@@ -43,16 +43,16 @@
 \@writefile{toc}{\contentsline {paragraph}{Distinction from superficially similar paradigms.}{3}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {3}Disagreement-Informed Steering for Cultural Alignment}{3}{section.3}\protected@file@percent }
 \newlabel{sec:method}{{3}{3}{Disagreement-Informed Steering for Cultural Alignment}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Setup}{3}{subsection.3.1}\protected@file@percent }
-\newlabel{sec:method:setup}{{3.1}{3}{Setup}{subsection.3.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}The disagreement principle}{3}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:method:principle}{{3.2}{3}{The disagreement principle}{subsection.3.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {DISCA overview.} Stage~1 builds WVS-grounded persona prompts for a trolley scenario in country~$c$; Stage~2 runs a frozen large language model (LLM) on the base prompt and each persona, aggregates persona-level signals in logit space, and applies \emph  {Prospect-Theory importance sampling} (PT--IS) together with a dual-pass reliability gate to obtain the final sparing probability. Pseudocode and the six MultiTP attribute--temperature pairs provided in App.~\ref {app:disca_overview}.}}{3}{figure.caption.5}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:disca_overall}{{1}{3}{\textbf {DISCA overview.} Stage~1 builds WVS-grounded persona prompts for a trolley scenario in country~$c$; Stage~2 runs a frozen large language model (LLM) on the base prompt and each persona, aggregates persona-level signals in logit space, and applies \emph {Prospect-Theory importance sampling} (PT--IS) together with a dual-pass reliability gate to obtain the final sparing probability. Pseudocode and the six MultiTP attribute--temperature pairs provided in App.~\ref {app:disca_overview}}{figure.caption.5}{}}
 \citation{greco2026personas}
 \citation{inglehart2005modernization}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces \textbf  {DISCA overview.} Stage~1 builds WVS-grounded persona prompts for a trolley scenario in country~$c$; Stage~2 runs a frozen large language model (LLM) on the base prompt and each persona, aggregates persona-level signals in logit space, and applies \emph  {Prospect-Theory importance sampling} (PT--IS; \S  \ref {sec:method:estimator:gate}) together with a dual-pass reliability gate to obtain the final sparing probability. Pseudocode and the six MultiTP attribute--temperature pairs provided in Appendix~\ref {app:disca_overview}.}}{4}{figure.caption.5}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{fig:disca_overall}{{1}{4}{\textbf {DISCA overview.} Stage~1 builds WVS-grounded persona prompts for a trolley scenario in country~$c$; Stage~2 runs a frozen large language model (LLM) on the base prompt and each persona, aggregates persona-level signals in logit space, and applies \emph {Prospect-Theory importance sampling} (PT--IS; \S \ref {sec:method:estimator:gate}) together with a dual-pass reliability gate to obtain the final sparing probability. Pseudocode and the six MultiTP attribute--temperature pairs provided in Appendix~\ref {app:disca_overview}}{figure.caption.5}{}}
 \def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Setup}{4}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:method:setup}{{3.1}{4}{Setup}{subsection.3.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}The disagreement principle}{4}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:method:principle}{{3.2}{4}{The disagreement principle}{subsection.3.2}{}}
 \newlabel{prop:shrinkage}{{1}{4}{Variance-aware shrinkage - Proof in App.~\ref {app:bias_variance}}{proposition.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}The DISCA estimator}{4}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:method:estimator}{{3.3}{4}{The DISCA estimator}{subsection.3.3}{}}
@@ -73,6 +73,8 @@
 \newlabel{sec:method:estimator:gate}{{3.3.2}{6}{Dual-pass reliability gate}{subsubsection.3.3.2}{}}
 \newlabel{eq:gate}{{5}{6}{Dual-pass reliability gate}{equation.5}{}}
 \newlabel{eq:disca}{{6}{6}{Dual-pass reliability gate}{equation.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Extension to Open-Ended Ethical Scenarios}{6}{subsection.3.4}\protected@file@percent }
+\newlabel{sec:method:openended}{{3.4}{6}{Extension to Open-Ended Ethical Scenarios}{subsection.3.4}{}}
 \citation{jin2025multitp}
 \citation{awad2018moral}
 \citation{awad2018moral,jin2025multitp}
@@ -82,8 +84,6 @@
 \citation{khanov2024args,mudgal2024controlled}
 \citation{guo2017calibration}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Extension to Open-Ended Ethical Scenarios}{7}{subsection.3.4}\protected@file@percent }
-\newlabel{sec:method:openended}{{3.4}{7}{Extension to Open-Ended Ethical Scenarios}{subsection.3.4}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Experimental Results}{7}{section.4}\protected@file@percent }
 \newlabel{sec:experiments}{{4}{7}{Experimental Results}{section.4}{}}
 \newlabel{sec:results}{{4}{7}{Experimental Results}{section.4}{}}
@@ -98,29 +98,31 @@
 \citation{guo2017calibration}
 \@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Inference-time baseline comparison on the Phi-4 20-country grid (macro MIS, lower is better). Oracle baselines (below dashed line) use human AMCE during calibration; even so they fail to match DISCA.}}{8}{table.caption.6}\protected@file@percent }
 \newlabel{tab:main_baseline_sanity}{{1}{8}{Inference-time baseline comparison on the Phi-4 20-country grid (macro MIS, lower is better). Oracle baselines (below dashed line) use human AMCE during calibration; even so they fail to match DISCA}{table.caption.6}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\pm $ std over three seeds $\{42,101,2026\}$ chosen under a fixed compute budget; per-cell std median $0.008$, full multi-seed analysis in \S  \ref {sec:multiseed}); ``Win'' = countries with lower DISCA MIS than vanilla.}}{8}{table.caption.6}\protected@file@percent }
-\newlabel{tab:main_macro_summary}{{2}{8}{Macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\pm $ std over three seeds $\{42,101,2026\}$ chosen under a fixed compute budget; per-cell std median $0.008$, full multi-seed analysis in \S \ref {sec:multiseed}); ``Win'' = countries with lower DISCA MIS than vanilla}{table.caption.6}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Open-ended track summary (20 countries, 310 scenarios each). \textbf  {VAN} = vanilla decoding (no DISCA). \textbf  {DISCA} = full pipeline. \textbf  {MIS} = misalignment score (\S  \ref {sec:experiments}). $\Delta \%$ reports mean relative MIS reduction across four backbones; per-country breakdown in Appendix~\ref {app:openended_full}.}}{8}{table.caption.9}\protected@file@percent }
-\newlabel{tab:openended_summary}{{3}{8}{Open-ended track summary (20 countries, 310 scenarios each). \textbf {VAN} = vanilla decoding (no DISCA). \textbf {DISCA} = full pipeline. \textbf {MIS} = misalignment score (\S \ref {sec:experiments}). $\Delta \%$ reports mean relative MIS reduction across four backbones; per-country breakdown in Appendix~\ref {app:openended_full}}{table.caption.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces Macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\pm $ std over three seeds $\{42,101,2026\}$ chosen under a fixed compute budget; per-cell std median $0.008$, full multi-seed analysis in \S  \ref {sec:multiseed}); ``Win'' = number of countries with lower DISCA MIS than vanilla.}}{8}{table.caption.6}\protected@file@percent }
+\newlabel{tab:main_macro_summary}{{2}{8}{Macro results on the 20-country MultiTP slice (equal weight per country). MIS is mean $\ell _2$ AMCE distance ($\pm $ std over three seeds $\{42,101,2026\}$ chosen under a fixed compute budget; per-cell std median $0.008$, full multi-seed analysis in \S \ref {sec:multiseed}); ``Win'' = number of countries with lower DISCA MIS than vanilla}{table.caption.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Open-ended track summary (20 countries, 310 scenarios each). \textbf  {VAN} = vanilla decoding (no DISCA). \textbf  {DISCA} = full pipeline. \textbf  {MIS} = misalignment score (\S  \ref {sec:experiments}); \textbf  {lower MIS is better}. $\Delta \%$ reports mean relative MIS reduction across four backbones, so \textbf  {higher $\Delta \%$ is better} (positive = improvement); per-country breakdown in App.~\ref {app:openended_full}.}}{8}{table.caption.9}\protected@file@percent }
+\newlabel{tab:openended_summary}{{3}{8}{Open-ended track summary (20 countries, 310 scenarios each). \textbf {VAN} = vanilla decoding (no DISCA). \textbf {DISCA} = full pipeline. \textbf {MIS} = misalignment score (\S \ref {sec:experiments}); \textbf {lower MIS is better}. $\Delta \%$ reports mean relative MIS reduction across four backbones, so \textbf {higher $\Delta \%$ is better} (positive = improvement); per-country breakdown in App.~\ref {app:openended_full}}{table.caption.9}{}}
 \def\@LN@column{1}
 \@writefile{toc}{\contentsline {paragraph}{Calibration competes with scale}{8}{section*.7}\protected@file@percent }
 \newlabel{sec:openended_main}{{4.1}{8}{Generalisation beyond binary dilemmas}{section*.8}{}}
 \@writefile{toc}{\contentsline {paragraph}{Generalisation beyond binary dilemmas}{8}{section*.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Ablation and Discussion}{8}{subsection.4.2}\protected@file@percent }
+\newlabel{sec:discussion}{{4.2}{8}{Ablation and Discussion}{subsection.4.2}{}}
+\newlabel{sec:ablation}{{4.2}{8}{Ablation and Discussion}{subsection.4.2}{}}
 \citation{chand2026nofree}
 \citation{myung2024blend}
 \citation{awad2018moral,jin2025multitp}
 \citation{atari2023humans,khan2025randomness}
 \citation{zewail2025moral}
-\def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Ablation and Discussion}{9}{subsection.4.2}\protected@file@percent }
-\newlabel{sec:discussion}{{4.2}{9}{Ablation and Discussion}{subsection.4.2}{}}
-\newlabel{sec:ablation}{{4.2}{9}{Ablation and Discussion}{subsection.4.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA.}}{9}{table.caption.10}\protected@file@percent }
-\newlabel{tab:ablation_backbones_20c}{{4}{9}{Cross-backbone ablation on all 20 paper countries. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA}{table.caption.10}{}}
 \bibstyle{abbrvnat}
 \bibdata{references}
 \bibcite{ahmad2025largescale}{{1}{2025}{{Ahmad and Takemoto}}{{}}}
 \bibcite{arditi2025refusal}{{2}{2025}{{Arditi et~al.}}{{Arditi, Obeso, Syed, Paleka, Panickssery, Gurnee, and Nanda}}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Cross-backbone ablation on all 20 paper countries. \textbf  {Lower MIS is better} ($\downarrow $ in column headers); $\Delta $ vs Full reports the change in MIS relative to Full DISCA, so positive values indicate \emph  {worse} alignment. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA.}}{9}{table.caption.10}\protected@file@percent }
+\newlabel{tab:ablation_backbones_20c}{{4}{9}{Cross-backbone ablation on all 20 paper countries. \textbf {Lower MIS is better} ($\downarrow $ in column headers); $\Delta $ vs Full reports the change in MIS relative to Full DISCA, so positive values indicate \emph {worse} alignment. ``$n$ hurt'' = number of countries with strictly higher MIS than Full DISCA}{table.caption.10}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{9}{section.5}\protected@file@percent }
+\newlabel{sec:conclusion}{{5}{9}{Conclusion}{section.5}{}}
 \bibcite{atari2023humans}{{3}{2023}{{Atari et~al.}}{{Atari, Xue, Park, Blasi, and Henrich}}}
 \bibcite{awad2018moral}{{4}{2018}{{Awad et~al.}}{{Awad, Dsouza, Kim, Schulz, Henrich, Shariff, Bonnefon, and Rahwan}}}
 \bibcite{chand2026nofree}{{5}{2026}{{Chand et~al.}}{{Chand, Baca, and Ferrara}}}
@@ -130,15 +132,13 @@
 \bibcite{efron1979bootstrap}{{9}{1979}{{Efron}}{{}}}
 \bibcite{elvira2021advances}{{10}{2021}{{Elvira and Martino}}{{}}}
 \bibcite{ethayarajh2024kto}{{11}{2024}{{Ethayarajh et~al.}}{{Ethayarajh, Xu, Muennighoff, Jurafsky, and Kiela}}}
-\def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusion}{10}{section.5}\protected@file@percent }
-\newlabel{sec:conclusion}{{5}{10}{Conclusion}{section.5}{}}
 \bibcite{gal2016dropout}{{12}{2016}{{Gal and Ghahramani}}{{}}}
 \bibcite{greco2026personas}{{13}{2026}{{Greco et~al.}}{{Greco, La~Cava, and Tagarelli}}}
 \bibcite{guo2017calibration}{{14}{2017}{{Guo et~al.}}{{Guo, Pleiss, Sun, and Weinberger}}}
 \bibcite{haerpfer2022wvs}{{15}{2020}{{Haerpfer et~al.}}{{Haerpfer, Inglehart, Moreno, Welzel, Kizilova, Diez-Medrano, Lagos, Norris, Ponarin, and Puranen}}}
 \bibcite{henrich2010weirdest}{{16}{2010}{{Henrich et~al.}}{{Henrich, Heine, and Norenzayan}}}
 \bibcite{inglehart2005modernization}{{17}{2005}{{Inglehart and Welzel}}{{}}}
+\def\@LN@column{1}
 \bibcite{jin2025multitp}{{18}{2025}{{Jin et~al.}}{{Jin, Kleiman-Weiner, Piatti, Levine, Liu, Adauto, Ortu, Strausz, Sachan, Mihalcea, Choi, and Sch{\"o}lkopf}}}
 \bibcite{kahneman1979prospect}{{19}{1979}{{Kahneman and Tversky}}{{}}}
 \bibcite{kalai1975other}{{20}{1975}{{Kalai and Smorodinsky}}{{}}}
@@ -148,12 +148,12 @@
 \bibcite{kirk2024prism}{{24}{2024}{{Kirk et~al.}}{{Kirk, Whitefield, R{\"o}ttger, Bean, Margatina, Ciro, Mosquera, Bartolo, Williams, He, Vidgen, and Hale}}}
 \bibcite{kish1965survey}{{25}{1965}{{Kish}}{{}}}
 \bibcite{kleiman2017learning}{{26}{2017}{{Kleiman-Weiner et~al.}}{{Kleiman-Weiner, Saxe, and Tenenbaum}}}
-\def\@LN@column{1}
 \bibcite{kwon2025dropouts}{{27}{2026}{{Kwon et~al.}}{{Kwon, Vecchietti, Park, and Cha}}}
 \bibcite{levine2018reinforcement}{{28}{2018}{{Levine}}{{}}}
 \bibcite{liang2024encouraging}{{29}{2024}{{Liang et~al.}}{{Liang, He, Jiao, Wang, Wang, Wang, Yang, Shi, and Tu}}}
 \bibcite{mudgal2024controlled}{{30}{2024}{{Mudgal et~al.}}{{Mudgal, Lee, Ganapathy, Li, Wang, Huang, Chen, Cheng, Collins, Strohman, Chen, Beutel, and Beirami}}}
 \bibcite{myung2024blend}{{31}{2024}{{Myung et~al.}}{{Myung, Lee, Zhou, Jin, Putri, Antypas, Borkakoty, Kim, Perez-Almendros, Ayele, et~al.}}}
+\def\@LN@column{1}
 \bibcite{nash1950bargaining}{{32}{1950}{{Nash}}{{}}}
 \bibcite{payne2025prospect}{{33}{2025}{{Payne}}{{}}}
 \bibcite{ryan2024unintended}{{34}{2024}{{Ryan et~al.}}{{Ryan, Held, and Yang}}}
@@ -164,7 +164,6 @@
 \bibcite{todorov2009generalized}{{39}{2009}{{Todorov}}{{}}}
 \bibcite{turner2023activation}{{40}{2024}{{Turner et~al.}}{{Turner, Thiergart, Leech, Udell, Vazquez, Mini, and MacDiarmid}}}
 \bibcite{tversky1992advances}{{41}{1992}{{Tversky and Kahneman}}{{}}}
-\def\@LN@column{1}
 \bibcite{wang2023selfconsistency}{{42}{2023}{{Wang et~al.}}{{Wang, Wei, Schuurmans, Le, Chi, Narang, Chowdhery, and Zhou}}}
 \bibcite{williams2017mppi}{{43}{2018}{{Williams et~al.}}{{Williams, Drews, Goldfain, Rehg, and Theodorou}}}
 \bibcite{yao2024caredio}{{44}{2025}{{Yao et~al.}}{{Yao, Yi, Wang, Dou, and Xie}}}
@@ -173,233 +172,274 @@
 \bibcite{zou2023representation}{{47}{2023}{{Zou et~al.}}{{Zou, Phan, Chen, Campbell, Guo, et~al.}}}
 \def\@LN@column{1}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A1}MultiTP Dimensions and DISCA Inference Pseudocode}{14}{appendix.A}\protected@file@percent }
-\newlabel{app:disca_overview}{{A1}{14}{MultiTP Dimensions and DISCA Inference Pseudocode}{appendix.A}{}}
-\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces DISCA Inference: Scenario $\mathbf  {x}$ in Country $c$}}{14}{algorithm.1}\protected@file@percent }
-\newlabel{alg:disca}{{1}{14}{DISCA Inference: Scenario $\mathbf {x}$ in Country $c$}{algorithm.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref {app:hyperparams}.}}{14}{table.caption.12}\protected@file@percent }
-\newlabel{tab:categories}{{5}{14}{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref {app:hyperparams}}{table.caption.12}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A2}Proof of Proposition~\ref {prop:shrinkage}}{14}{appendix.B}\protected@file@percent }
-\newlabel{app:bias_variance}{{A2}{14}{Proof of Proposition~\ref {prop:shrinkage}}{appendix.B}{}}
 \def\@LN@column{1}
-\newlabel{eq:D2-noise}{{8}{15}{Part (i): $\mathbb {E}[D^2] = \tau ^2$ and $\mathrm {Var}(\Delta ) = \tau ^2/N$}{equation.8}{}}
-\newlabel{eq:D2-unbiased}{{9}{15}{Part (i): $\mathbb {E}[D^2] = \tau ^2$ and $\mathrm {Var}(\Delta ) = \tau ^2/N$}{equation.9}{}}
+\ttl@writefile{ptc}{\ttl@starttoc{appendix@1}}
 \def\@LN@column{1}
-\newlabel{eq:gamma-star-proof}{{10}{16}{Part (ii): MSE-minimising shrinkage}{equation.10}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A3}Full Per-Country Results}{16}{appendix.C}\protected@file@percent }
-\newlabel{app:percountry_full}{{A3}{16}{Full Per-Country Results}{appendix.C}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces \textbf  {Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA misalignment scores (MIS; $\downarrow $), relative MIS improvement (\%), and DISCA Jensen--Shannon divergence (JSD; $\downarrow $) / Pearson $r$ ($\uparrow $). Seven headline models (nominal parameter count, descending).}}{16}{table.caption.15}\protected@file@percent }
-\newlabel{tab:percountry_p1}{{6}{16}{\textbf {Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA misalignment scores (MIS; $\downarrow $), relative MIS improvement (\%), and DISCA Jensen--Shannon divergence (JSD; $\downarrow $) / Pearson $r$ ($\uparrow $). Seven headline models (nominal parameter count, descending)}{table.caption.15}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A3.1}Full Open-Ended Per-Country Results}{16}{subsection.C.1}\protected@file@percent }
-\newlabel{app:openended_full}{{A3.1}{16}{Full Open-Ended Per-Country Results}{subsection.C.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Judge LLM and ``SAFE'' nomenclature.}{16}{section*.16}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Combined SAFE DISCA results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta \%$ means lower MIS than vanilla. Summary in Table~\ref {tab:openended_summary}.}}{17}{table.caption.17}\protected@file@percent }
-\newlabel{tab:safe_disca_results_openended_combined}{{7}{17}{Combined SAFE DISCA results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta \%$ means lower MIS than vanilla. Summary in Table~\ref {tab:openended_summary}}{table.caption.17}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A3.2}Logit-Noise Robustness}{17}{subsection.C.2}\protected@file@percent }
-\newlabel{app:openended_robustness}{{A3.2}{17}{Logit-Noise Robustness}{subsection.C.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Robustness of DISCA vs.\ vanilla decoding across all four models under additive Gaussian noise on the judge $\delta $ (500 scenarios $\times $ seeds). \textbf  {VAN} = vanilla (no DISCA). Lower MIS (misalignment score; \S  \ref {sec:experiments}) is better. The improvement margin ($\Delta \%$) scales with each model's baseline capacity and naturally decays as noise $\sigma $ increases.}}{17}{table.caption.18}\protected@file@percent }
-\newlabel{tab:openended_robust_all_models}{{8}{17}{Robustness of DISCA vs.\ vanilla decoding across all four models under additive Gaussian noise on the judge $\delta $ (500 scenarios $\times $ seeds). \textbf {VAN} = vanilla (no DISCA). Lower MIS (misalignment score; \S \ref {sec:experiments}) is better. The improvement margin ($\Delta \%$) scales with each model's baseline capacity and naturally decays as noise $\sigma $ increases}{table.caption.18}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A1}MultiTP Dimensions and DISCA Inference Pseudocode}{16}{appendix.A}\protected@file@percent }
+\newlabel{app:disca_overview}{{A1}{16}{MultiTP Dimensions and DISCA Inference Pseudocode}{appendix.A}{}}
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces DISCA Inference: Scenario $\mathbf  {x}$ in Country $c$}}{16}{algorithm.1}\protected@file@percent }
+\newlabel{alg:disca}{{1}{16}{DISCA Inference: Scenario $\mathbf {x}$ in Country $c$}{algorithm.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref {app:hyperparams}.}}{16}{table.caption.13}\protected@file@percent }
+\newlabel{tab:categories}{{5}{16}{The six moral dimensions in MultiTP. $T_c$ is the per-attribute logit temperature used by our method; values reflect empirical logit magnitudes and are validated in App.~\ref {app:hyperparams}}{table.caption.13}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A2}Proof of Proposition~\ref {prop:shrinkage}}{16}{appendix.B}\protected@file@percent }
+\newlabel{app:bias_variance}{{A2}{16}{Proof of Proposition~\ref {prop:shrinkage}}{appendix.B}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A4}Per-Dimension Error Analysis}{18}{appendix.D}\protected@file@percent }
-\newlabel{app:perdim}{{A4}{18}{Per-Dimension Error Analysis}{appendix.D}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Per-dimension DISCA improvement across the seven headline backbones.} Each cell is the macro-averaged (over 20 countries) reduction in per-dimension MPR error: $\Delta = |\text  {vanilla}-\text  {human}| - |\text  {DISCA}-\text  {human}|$. Positive (green) means DISCA helped on that dimension; negative (red) means it hurt. \textbf  {Utilitarianism}, \textbf  {Species}, and \textbf  {Social Value} are the dimensions where DISCA delivers the largest gains, consistent with these being the dimensions where vanilla error is highest. The companion worst-error analysis (Table~\ref {tab:perdim_summary}) reports the dominant bottleneck dimension for the six backbones for which a clean per-country worst-dim assignment was tractable; Gemma-4-E2B is omitted there because no single dimension dominates its per-country errors. Cells with $\Delta > 5$~pp shown in bold.}}{18}{figure.caption.19}\protected@file@percent }
-\newlabel{fig:per_dim_heatmap}{{2}{18}{\textbf {Per-dimension DISCA improvement across the seven headline backbones.} Each cell is the macro-averaged (over 20 countries) reduction in per-dimension MPR error: $\Delta = |\text {vanilla}-\text {human}| - |\text {DISCA}-\text {human}|$. Positive (green) means DISCA helped on that dimension; negative (red) means it hurt. \textbf {Utilitarianism}, \textbf {Species}, and \textbf {Social Value} are the dimensions where DISCA delivers the largest gains, consistent with these being the dimensions where vanilla error is highest. The companion worst-error analysis (Table~\ref {tab:perdim_summary}) reports the dominant bottleneck dimension for the six backbones for which a clean per-country worst-dim assignment was tractable; Gemma-4-E2B is omitted there because no single dimension dominates its per-country errors. Cells with $\Delta > 5$~pp shown in bold}{figure.caption.19}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Per-dimension worst-error analysis across the 20-country panel for the six headline backbones with a single dominant worst dimension; Gemma-4-E2B is omitted because its per-country worst-dim distribution is too dispersed to summarise meaningfully. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph  {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed.}}{18}{table.caption.20}\protected@file@percent }
-\newlabel{tab:perdim_summary}{{9}{18}{Per-dimension worst-error analysis across the 20-country panel for the six headline backbones with a single dominant worst dimension; Gemma-4-E2B is omitted because its per-country worst-dim distribution is too dispersed to summarise meaningfully. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed}{table.caption.20}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. DISCA wins \textbf  {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S  \ref {sec:discussion}.}}{18}{table.caption.21}\protected@file@percent }
-\newlabel{tab:phi4_percountry}{{10}{18}{Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. DISCA wins \textbf {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S \ref {sec:discussion}}{table.caption.21}{}}
+\newlabel{eq:D2-noise}{{8}{17}{Part (i): $\mathbb {E}[D^2] = \tau ^2$ and $\mathrm {Var}(\Delta ) = \tau ^2/N$}{equation.8}{}}
+\newlabel{eq:D2-unbiased}{{9}{17}{Part (i): $\mathbb {E}[D^2] = \tau ^2$ and $\mathrm {Var}(\Delta ) = \tau ^2/N$}{equation.9}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A4.1}Diagnosing negative Pearson $r$}{19}{subsection.D.1}\protected@file@percent }
-\newlabel{sec:negative_r_diagnosis}{{A4.1}{19}{Diagnosing negative Pearson \texorpdfstring {$r$}{r}}{subsection.D.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Summary of countries with negative Pearson $r$ after DISCA.}}{19}{table.caption.22}\protected@file@percent }
-\newlabel{tab:negative_r_summary}{{11}{19}{Summary of countries with negative Pearson $r$ after DISCA}{table.caption.22}{}}
+\newlabel{eq:gamma-star-proof}{{10}{18}{Part (ii): MSE-minimising shrinkage}{equation.10}{}}
+\newlabel{cor:persona-count}{{1}{18}{Marginal value of additional personas}{theorem.1}{}}
+\newlabel{eq:marginal-persona}{{11}{18}{Marginal value of additional personas}{equation.11}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Marginal reduction of $\mathrm  {Var}(\Delta )$ from adding one persona, expressed as a fraction of the noise variance $\tau ^2$. The drop from $N{=}4$ to $N{=}5$ already sits below 5\%, while compute scales linearly in $N$.}}{18}{table.caption.17}\protected@file@percent }
+\newlabel{tab:persona-marginal}{{6}{18}{Marginal reduction of $\mathrm {Var}(\Delta )$ from adding one persona, expressed as a fraction of the noise variance $\tau ^2$. The drop from $N{=}4$ to $N{=}5$ already sits below 5\%, while compute scales linearly in $N$}{table.caption.17}{}}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A5}Scaling and Geographic Visualizations}{20}{appendix.E}\protected@file@percent }
-\newlabel{app:scaling_figures}{{A5}{20}{Scaling and Geographic Visualizations}{appendix.E}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Geometric story: DISCA pulls model AMCE vectors toward the human cluster.} 2D PCA projection of the six-dimensional human, vanilla, and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two components capture 93.2\% of the variance). Convex hulls show the spatial extent of each cloud; arrows trace each country's vanilla$\to $DISCA trajectory. \textbf  {All 20 of 20 country points end closer to the human cluster}, with mean $\lVert \text  {model}-\text  {human}\rVert _2$ dropping from 83.3 to 64.6 ($-22.4\%$).}}{20}{figure.caption.23}\protected@file@percent }
-\newlabel{fig:amce_pca}{{3}{20}{\textbf {Geometric story: DISCA pulls model AMCE vectors toward the human cluster.} 2D PCA projection of the six-dimensional human, vanilla, and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two components capture 93.2\% of the variance). Convex hulls show the spatial extent of each cloud; arrows trace each country's vanilla$\to $DISCA trajectory. \textbf {All 20 of 20 country points end closer to the human cluster}, with mean $\lVert \text {model}-\text {human}\rVert _2$ dropping from 83.3 to 64.6 ($-22.4\%$)}{figure.caption.23}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Geographic distribution of DISCA gain.} Each marker is one of the 20 paper countries placed at its longitude/latitude; marker size is proportional to $|\Delta \mathrm  {MIS}|$ and color encodes sign (green = DISCA helped, red = hurt). Aggregated across the seven headline backbones, \textbf  {19 of 20 countries see a positive mean gain}, distributed across the Americas, East and Southeast Asia, and Eastern Europe; the largest single-country improvements include both Western (USA) and non-Western countries (CHN, JPN, IDN, MMR, MYS), so the gain is broadly geographic rather than Western-only.}}{20}{figure.caption.24}\protected@file@percent }
-\newlabel{fig:world_delta_mis}{{4}{20}{\textbf {Geographic distribution of DISCA gain.} Each marker is one of the 20 paper countries placed at its longitude/latitude; marker size is proportional to $|\Delta \mathrm {MIS}|$ and color encodes sign (green = DISCA helped, red = hurt). Aggregated across the seven headline backbones, \textbf {19 of 20 countries see a positive mean gain}, distributed across the Americas, East and Southeast Asia, and Eastern Europe; the largest single-country improvements include both Western (USA) and non-Western countries (CHN, JPN, IDN, MMR, MYS), so the gain is broadly geographic rather than Western-only}{figure.caption.24}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A3}Additional Theoretical Properties of DISCA}{19}{appendix.C}\protected@file@percent }
+\newlabel{app:theory-additional}{{A3}{19}{Additional Theoretical Properties of DISCA}{appendix.C}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A3.1}Bounded-correction safety guarantee}{19}{subsection.C.1}\protected@file@percent }
+\newlabel{app:theory:bounded}{{A3.1}{19}{Bounded-correction safety guarantee}{subsection.C.1}{}}
+\newlabel{thm:bounded}{{2}{19}{Bounded correction}{theorem.2}{}}
+\newlabel{eq:bounded-as}{{12}{19}{Bounded correction}{equation.12}{}}
+\newlabel{eq:bounded-hp}{{13}{19}{Bounded correction}{equation.13}{}}
+\@writefile{toc}{\contentsline {paragraph}{Deterministic bound.}{19}{section*.18}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{High-probability bound.}{19}{section*.19}\protected@file@percent }
+\def\@LN@column{1}
+\newlabel{eq:gaussian-tail}{{14}{20}{High-probability bound}{equation.14}{}}
+\@writefile{toc}{\contentsline {paragraph}{Relation to the empirical tail-safety result.}{20}{section*.20}\protected@file@percent }
+\citation{rudelson2013hanson}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A3.2}Finite-sample concentration of the within-panel variance estimator}{21}{subsection.C.2}\protected@file@percent }
+\newlabel{app:theory:concentration}{{A3.2}{21}{Finite-sample concentration of the within-panel variance estimator}{subsection.C.2}{}}
+\newlabel{thm:concentration}{{3}{21}{Concentration of $D^2$}{theorem.3}{}}
+\newlabel{eq:concentration-tail}{{15}{21}{Concentration of $D^2$}{equation.15}{}}
+\newlabel{eq:concentration-hp}{{16}{21}{Concentration of $D^2$}{equation.16}{}}
+\def\@LN@column{1}
+\newlabel{eq:hanson-wright}{{17}{22}{Finite-sample concentration of the within-panel variance estimator}{equation.17}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why this motivates the dual-pass gate.}{22}{section*.21}\protected@file@percent }
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A3.3}H\"older stability with respect to backbone perturbations}{23}{subsection.C.3}\protected@file@percent }
+\newlabel{app:theory:stability}{{A3.3}{23}{H\"older stability with respect to backbone perturbations}{subsection.C.3}{}}
+\newlabel{thm:stability}{{4}{23}{H\"older stability}{theorem.4}{}}
+\newlabel{eq:stability-bound}{{18}{23}{H\"older stability}{equation.18}{}}
+\newlabel{eq:stability-constant}{{19}{23}{H\"older stability}{equation.19}{}}
+\newlabel{eq:pt-holder}{{20}{23}{H\"older stability with respect to backbone perturbations}{equation.20}{}}
+\def\@LN@column{1}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A4}Full Per-Country Results}{25}{appendix.D}\protected@file@percent }
+\newlabel{app:percountry_full}{{A4}{25}{Full Per-Country Results}{appendix.D}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A4.1}Full Open-Ended Per-Country Results}{25}{subsection.D.1}\protected@file@percent }
+\newlabel{app:openended_full}{{A4.1}{25}{Full Open-Ended Per-Country Results}{subsection.D.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Judge LLM and ``SAFE'' nomenclature.}{25}{section*.23}\protected@file@percent }
+\newlabel{RF1}{26}
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces \textbf  {Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA misalignment scores (MIS; $\downarrow $), relative MIS improvement (\%), and DISCA Jensen--Shannon divergence (JSD; $\downarrow $) / Pearson $r$ ($\uparrow $). Seven headline models (nominal parameter count, descending).}}{26}{table.caption.22}\protected@file@percent }
+\newlabel{tab:percountry_p1}{{7}{26}{\textbf {Per-country DISCA results (20 countries).} Countries are grouped by geographic region. Vanilla and DISCA misalignment scores (MIS; $\downarrow $), relative MIS improvement (\%), and DISCA Jensen--Shannon divergence (JSD; $\downarrow $) / Pearson $r$ ($\uparrow $). Seven headline models (nominal parameter count, descending)}{table.caption.22}{}}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {8}{\ignorespaces Combined SAFE DISCA results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta \%$ means lower MIS than vanilla. Summary in Table~\ref {tab:openended_summary}.}}{27}{table.caption.24}\protected@file@percent }
+\newlabel{tab:safe_disca_results_openended_combined}{{8}{27}{Combined SAFE DISCA results on the open-ended track (20 countries, 310 scenarios each). Positive $\Delta \%$ means lower MIS than vanilla. Summary in Table~\ref {tab:openended_summary}}{table.caption.24}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A4.2}Logit-Noise Robustness}{27}{subsection.D.2}\protected@file@percent }
+\newlabel{app:openended_robustness}{{A4.2}{27}{Logit-Noise Robustness}{subsection.D.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9}{\ignorespaces Robustness of DISCA vs.\ vanilla decoding across all four models under additive Gaussian noise on the judge $\delta $ (500 scenarios $\times $ seeds). \textbf  {VAN} = vanilla (no DISCA). Lower MIS (misalignment score; \S  \ref {sec:experiments}) is better. The improvement margin ($\Delta \%$) scales with each model's baseline capacity and naturally decays as noise $\sigma $ increases.}}{27}{table.caption.25}\protected@file@percent }
+\newlabel{tab:openended_robust_all_models}{{9}{27}{Robustness of DISCA vs.\ vanilla decoding across all four models under additive Gaussian noise on the judge $\delta $ (500 scenarios $\times $ seeds). \textbf {VAN} = vanilla (no DISCA). Lower MIS (misalignment score; \S \ref {sec:experiments}) is better. The improvement margin ($\Delta \%$) scales with each model's baseline capacity and naturally decays as noise $\sigma $ increases}{table.caption.25}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A5}Per-Dimension Error Analysis}{28}{appendix.E}\protected@file@percent }
+\newlabel{app:perdim}{{A5}{28}{Per-Dimension Error Analysis}{appendix.E}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces \textbf  {Per-dimension DISCA improvement across the seven headline backbones.} Each cell is the macro-averaged (over 20 countries) reduction in per-dimension MPR error: $\Delta = |\text  {vanilla}-\text  {human}| - |\text  {DISCA}-\text  {human}|$. Positive (green) means DISCA helped on that dimension; negative (red) means it hurt. \textbf  {Utilitarianism}, \textbf  {Species}, and \textbf  {Social Value} are the dimensions where DISCA delivers the largest gains, consistent with these being the dimensions where vanilla error is highest. The companion worst-error analysis (Table~\ref {tab:perdim_summary}) reports the dominant bottleneck dimension for the six backbones for which a clean per-country worst-dim assignment was tractable; Gemma-4-E2B is omitted there because no single dimension dominates its per-country errors. Cells with $\Delta > 5$~pp shown in bold.}}{28}{figure.caption.26}\protected@file@percent }
+\newlabel{fig:per_dim_heatmap}{{2}{28}{\textbf {Per-dimension DISCA improvement across the seven headline backbones.} Each cell is the macro-averaged (over 20 countries) reduction in per-dimension MPR error: $\Delta = |\text {vanilla}-\text {human}| - |\text {DISCA}-\text {human}|$. Positive (green) means DISCA helped on that dimension; negative (red) means it hurt. \textbf {Utilitarianism}, \textbf {Species}, and \textbf {Social Value} are the dimensions where DISCA delivers the largest gains, consistent with these being the dimensions where vanilla error is highest. The companion worst-error analysis (Table~\ref {tab:perdim_summary}) reports the dominant bottleneck dimension for the six backbones for which a clean per-country worst-dim assignment was tractable; Gemma-4-E2B is omitted there because no single dimension dominates its per-country errors. Cells with $\Delta > 5$~pp shown in bold}{figure.caption.26}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {10}{\ignorespaces Per-dimension worst-error analysis across the 20-country panel for the six headline backbones with a single dominant worst dimension; Gemma-4-E2B is omitted because its per-country worst-dim distribution is too dispersed to summarise meaningfully. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph  {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed.}}{28}{table.caption.27}\protected@file@percent }
+\newlabel{tab:perdim_summary}{{10}{28}{Per-dimension worst-error analysis across the 20-country panel for the six headline backbones with a single dominant worst dimension; Gemma-4-E2B is omitted because its per-country worst-dim distribution is too dispersed to summarise meaningfully. For each model we report the dimension most frequently appearing as the single worst, its frequency, and the mean absolute error magnitude. The rightmost column shows the \emph {second}-most-frequent worst dimension to reveal whether errors are concentrated or distributed}{table.caption.27}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11}{\ignorespaces Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. DISCA wins \textbf  {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S  \ref {sec:discussion}.}}{28}{table.caption.28}\protected@file@percent }
+\newlabel{tab:phi4_percountry}{{11}{28}{Phi-4 per-country MIS ($\downarrow $): the best-performing model in absolute terms. DISCA wins \textbf {18/20} countries; the top 10 gains are shown, ordered by relative improvement. The two losses (BRA, IRN) illustrate the diminishing-returns pattern discussed in \S \ref {sec:discussion}}{table.caption.28}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A5.1}Diagnosing negative Pearson $r$}{29}{subsection.E.1}\protected@file@percent }
+\newlabel{sec:negative_r_diagnosis}{{A5.1}{29}{Diagnosing negative Pearson \texorpdfstring {$r$}{r}}{subsection.E.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Summary of countries with negative Pearson $r$ after DISCA.}}{29}{table.caption.29}\protected@file@percent }
+\newlabel{tab:negative_r_summary}{{12}{29}{Summary of countries with negative Pearson $r$ after DISCA}{table.caption.29}{}}
+\def\@LN@column{1}
+\@writefile{toc}{\contentsline {section}{\numberline {A6}Scaling and Geographic Visualizations}{30}{appendix.F}\protected@file@percent }
+\newlabel{app:scaling_figures}{{A6}{30}{Scaling and Geographic Visualizations}{appendix.F}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces \textbf  {Geometric story: DISCA pulls model AMCE vectors toward the human cluster.} 2D PCA projection of the six-dimensional human, vanilla, and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two components capture 93.2\% of the variance). Convex hulls show the spatial extent of each cloud; arrows trace each country's vanilla$\to $DISCA trajectory. \textbf  {All 20 of 20 country points end closer to the human cluster}, with mean $\lVert \text  {model}-\text  {human}\rVert _2$ dropping from 83.3 to 64.6 ($-22.4\%$).}}{30}{figure.caption.30}\protected@file@percent }
+\newlabel{fig:amce_pca}{{3}{30}{\textbf {Geometric story: DISCA pulls model AMCE vectors toward the human cluster.} 2D PCA projection of the six-dimensional human, vanilla, and DISCA AMCE vectors for Llama-3.3-70B across all 20 countries (joint fit, two components capture 93.2\% of the variance). Convex hulls show the spatial extent of each cloud; arrows trace each country's vanilla$\to $DISCA trajectory. \textbf {All 20 of 20 country points end closer to the human cluster}, with mean $\lVert \text {model}-\text {human}\rVert _2$ dropping from 83.3 to 64.6 ($-22.4\%$)}{figure.caption.30}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces \textbf  {Geographic distribution of DISCA gain.} Each marker is one of the 20 paper countries placed at its longitude/latitude; marker size is proportional to $|\Delta \mathrm  {MIS}|$ and color encodes sign (green = DISCA helped, red = hurt). Aggregated across the seven headline backbones, \textbf  {19 of 20 countries see a positive mean gain}, distributed across the Americas, East and Southeast Asia, and Eastern Europe; the largest single-country improvements include both Western (USA) and non-Western countries (CHN, JPN, IDN, MMR, MYS), so the gain is broadly geographic rather than Western-only.}}{30}{figure.caption.31}\protected@file@percent }
+\newlabel{fig:world_delta_mis}{{4}{30}{\textbf {Geographic distribution of DISCA gain.} Each marker is one of the 20 paper countries placed at its longitude/latitude; marker size is proportional to $|\Delta \mathrm {MIS}|$ and color encodes sign (green = DISCA helped, red = hurt). Aggregated across the seven headline backbones, \textbf {19 of 20 countries see a positive mean gain}, distributed across the Americas, East and Southeast Asia, and Eastern Europe; the largest single-country improvements include both Western (USA) and non-Western countries (CHN, JPN, IDN, MMR, MYS), so the gain is broadly geographic rather than Western-only}{figure.caption.31}{}}
 \citation{myung2024blend}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A6}Broader Model Landscape}{21}{appendix.F}\protected@file@percent }
-\newlabel{app:model_landscape}{{A6}{21}{Broader Model Landscape}{appendix.F}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {12}{\ignorespaces Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation.}}{21}{table.caption.25}\protected@file@percent }
-\newlabel{tab:model_landscape}{{12}{21}{Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation}{table.caption.25}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A7}Factual Cultural QA Evaluation (BLEnD)}{21}{appendix.G}\protected@file@percent }
-\newlabel{app:blend}{{A7}{21}{Factual Cultural QA Evaluation (BLEnD)}{appendix.G}{}}
-\@writefile{toc}{\contentsline {paragraph}{Where DISCA transfers.}{21}{section*.26}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A7}Broader Model Landscape}{31}{appendix.G}\protected@file@percent }
+\newlabel{app:model_landscape}{{A7}{31}{Broader Model Landscape}{appendix.G}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation.}}{31}{table.caption.32}\protected@file@percent }
+\newlabel{tab:model_landscape}{{13}{31}{Broader model sweep (5-country prototyping panel: BRA, CHN, DEU, JPN, USA). Models above the line show positive macro gains; those below show degradation. Bolded rows appear in the main paper's 20-country evaluation}{table.caption.32}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A8}Factual Cultural QA Evaluation (BLEnD)}{31}{appendix.H}\protected@file@percent }
+\newlabel{app:blend}{{A8}{31}{Factual Cultural QA Evaluation (BLEnD)}{appendix.H}{}}
+\@writefile{toc}{\contentsline {paragraph}{Where DISCA transfers.}{31}{section*.33}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {13}{\ignorespaces BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes.}}{22}{table.caption.27}\protected@file@percent }
-\newlabel{tab:blend_wins}{{13}{22}{BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes}{table.caption.27}{}}
-\@writefile{toc}{\contentsline {paragraph}{The value--fact boundary.}{22}{section*.28}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A8}Post-Hoc Diagnostics}{22}{appendix.H}\protected@file@percent }
-\newlabel{app:r2_reliability_audit}{{A8}{22}{Post-Hoc Diagnostics}{appendix.H}{}}
-\newlabel{app:r2_logit_conditioning}{{A8}{22}{Post-Hoc Diagnostics}{appendix.H}{}}
-\newlabel{app:rank_agreement}{{A8}{22}{Post-Hoc Diagnostics}{appendix.H}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A8.1}Multi-seed stability}{22}{subsection.H.1}\protected@file@percent }
-\newlabel{sec:multiseed}{{A8.1}{22}{Multi-seed stability}{subsection.H.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A8.2}Step 3 is a tail-safety mechanism}{22}{subsection.H.2}\protected@file@percent }
-\newlabel{sec:tail_safety}{{A8.2}{22}{Step 3 is a tail-safety mechanism}{subsection.H.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes.}}{32}{table.caption.34}\protected@file@percent }
+\newlabel{tab:blend_wins}{{14}{32}{BLEnD per-country gains (Phi-4 14B). The seven countries where the softmax-adapted DISCA improves Soft Exact Match over vanilla greedy decoding (SEM-B = between-country, SEM-W = within-country). The five high-baseline rows (top) are paired with two low-baseline outliers (bottom) where DISCA also delivers a positive shift, suggesting the disagreement signal is not strictly tied to high-baseline regimes}{table.caption.34}{}}
+\@writefile{toc}{\contentsline {paragraph}{The value--fact boundary.}{32}{section*.35}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A9}Post-Hoc Diagnostics}{32}{appendix.I}\protected@file@percent }
+\newlabel{app:r2_reliability_audit}{{A9}{32}{Post-Hoc Diagnostics}{appendix.I}{}}
+\newlabel{app:r2_logit_conditioning}{{A9}{32}{Post-Hoc Diagnostics}{appendix.I}{}}
+\newlabel{app:rank_agreement}{{A9}{32}{Post-Hoc Diagnostics}{appendix.I}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A9.1}Multi-seed stability}{32}{subsection.I.1}\protected@file@percent }
+\newlabel{sec:multiseed}{{A9.1}{32}{Multi-seed stability}{subsection.I.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A9.2}Step 3 is a tail-safety mechanism}{32}{subsection.I.2}\protected@file@percent }
+\newlabel{sec:tail_safety}{{A9.2}{32}{Step 3 is a tail-safety mechanism}{subsection.I.2}{}}
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {14}{\ignorespaces Tail-safety comparison across 120 country-model cells.}}{23}{table.caption.29}\protected@file@percent }
-\newlabel{tab:tail_safety}{{14}{23}{Tail-safety comparison across 120 country-model cells}{table.caption.29}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A8.3}Scenario-level conditioning of the DISCA correction}{23}{subsection.H.3}\protected@file@percent }
-\newlabel{sec:scenario_disagreement_correction}{{A8.3}{23}{Scenario-level conditioning of the DISCA correction}{subsection.H.3}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Per-country mean inter-persona variance $\overline  {D^2}$ and mean correction magnitude $\overline  {|\delta ^\star |}$ ($n=310$ each). Countries are ordered by mean variance. The two extremes (ETH, USA) match expectation; the three middle countries sit in a narrow band, showing the correction is set primarily at the scenario level rather than by a strict country-level monotone mapping.}}{23}{table.caption.30}\protected@file@percent }
-\newlabel{tab:scenario_corr}{{15}{23}{Per-country mean inter-persona variance $\overline {D^2}$ and mean correction magnitude $\overline {|\delta ^\star |}$ ($n=310$ each). Countries are ordered by mean variance. The two extremes (ETH, USA) match expectation; the three middle countries sit in a narrow band, showing the correction is set primarily at the scenario level rather than by a strict country-level monotone mapping}{table.caption.30}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A9}Baseline Implementation Details}{23}{appendix.I}\protected@file@percent }
-\newlabel{app:r2_baselines}{{A9}{23}{Baseline Implementation Details}{appendix.I}{}}
-\newlabel{app:baselines}{{A9}{23}{Baseline Implementation Details}{appendix.I}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {15}{\ignorespaces Tail-safety comparison across 120 country-model cells.}}{33}{table.caption.36}\protected@file@percent }
+\newlabel{tab:tail_safety}{{15}{33}{Tail-safety comparison across 120 country-model cells}{table.caption.36}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A9.3}Scenario-level conditioning of the DISCA correction}{33}{subsection.I.3}\protected@file@percent }
+\newlabel{sec:scenario_disagreement_correction}{{A9.3}{33}{Scenario-level conditioning of the DISCA correction}{subsection.I.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Per-country mean inter-persona variance $\overline  {D^2}$ and mean correction magnitude $\overline  {|\delta ^\star |}$ ($n=310$ each). Countries are ordered by mean variance. The two extremes (ETH, USA) match expectation; the three middle countries sit in a narrow band, showing the correction is set primarily at the scenario level rather than by a strict country-level monotone mapping.}}{33}{table.caption.37}\protected@file@percent }
+\newlabel{tab:scenario_corr}{{16}{33}{Per-country mean inter-persona variance $\overline {D^2}$ and mean correction magnitude $\overline {|\delta ^\star |}$ ($n=310$ each). Countries are ordered by mean variance. The two extremes (ETH, USA) match expectation; the three middle countries sit in a narrow band, showing the correction is set primarily at the scenario level rather than by a strict country-level monotone mapping}{table.caption.37}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A10}Baseline Implementation Details}{33}{appendix.J}\protected@file@percent }
+\newlabel{app:r2_baselines}{{A10}{33}{Baseline Implementation Details}{appendix.J}{}}
+\newlabel{app:baselines}{{A10}{33}{Baseline Implementation Details}{appendix.J}{}}
 \citation{kirk2024prism}
 \citation{arditi2025refusal}
 \citation{khanov2024args}
 \citation{mudgal2024controlled}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A9.1}Other training-free baselines (Table~\ref {tab:main_baseline_sanity})}{24}{subsection.I.1}\protected@file@percent }
-\newlabel{app:baselines:sanity}{{A9.1}{24}{Other training-free baselines (Table~\ref {tab:main_baseline_sanity})}{subsection.I.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Vanilla decoding.}{24}{section*.31}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{WVS Profile Prompt.}{24}{section*.32}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{PRISM-style prompt.}{24}{section*.33}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Fixed logit offset.}{24}{section*.34}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A9.2}Activation Steering}{24}{subsection.I.2}\protected@file@percent }
-\newlabel{app:baselines:activation}{{A9.2}{24}{Activation Steering}{subsection.I.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{24}{section*.35}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A9.3}ARGS and controlled decoding (relation to our work)}{24}{subsection.I.3}\protected@file@percent }
-\newlabel{app:baselines:args}{{A9.3}{24}{ARGS and controlled decoding (relation to our work)}{subsection.I.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A9.4}Additional inference-time baselines (twenty-country Phi-4 grid)}{24}{subsection.I.4}\protected@file@percent }
-\newlabel{app:baselines:additional}{{A9.4}{24}{Additional inference-time baselines (twenty-country Phi-4 grid)}{subsection.I.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A10.1}Other training-free baselines (Table~\ref {tab:main_baseline_sanity})}{34}{subsection.J.1}\protected@file@percent }
+\newlabel{app:baselines:sanity}{{A10.1}{34}{Other training-free baselines (Table~\ref {tab:main_baseline_sanity})}{subsection.J.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Vanilla decoding.}{34}{section*.38}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{WVS Profile Prompt.}{34}{section*.39}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{PRISM-style prompt.}{34}{section*.40}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Fixed logit offset.}{34}{section*.41}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A10.2}Activation Steering}{34}{subsection.J.2}\protected@file@percent }
+\newlabel{app:baselines:activation}{{A10.2}{34}{Activation Steering}{subsection.J.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{34}{section*.42}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A10.3}ARGS and controlled decoding (relation to our work)}{34}{subsection.J.3}\protected@file@percent }
+\newlabel{app:baselines:args}{{A10.3}{34}{ARGS and controlled decoding (relation to our work)}{subsection.J.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A10.4}Additional inference-time baselines (twenty-country Phi-4 grid)}{34}{subsection.J.4}\protected@file@percent }
+\newlabel{app:baselines:additional}{{A10.4}{34}{Additional inference-time baselines (twenty-country Phi-4 grid)}{subsection.J.4}{}}
 \citation{kwon2025dropouts}
 \citation{chen2025diffpo}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{(6) MC-Dropout calibration.}{25}{section*.36}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling (oracle).}{25}{section*.37}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(8) DiffPO-binary.}{25}{section*.38}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Takeaway.}{25}{section*.39}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {16}{\ignorespaces Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf  {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline.}}{25}{table.caption.40}\protected@file@percent }
-\newlabel{tab:r2_baselines_filled}{{16}{25}{Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline}{table.caption.40}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A10}Hyperparameters and Sensitivity Sweeps}{25}{appendix.J}\protected@file@percent }
-\newlabel{app:robustness_summary}{{A10}{25}{Hyperparameters and Sensitivity Sweeps}{appendix.J}{}}
-\newlabel{app:hyperparams}{{A10}{25}{Hyperparameters and Sensitivity Sweeps}{appendix.J}{}}
-\newlabel{app:temp_sensitivity}{{A10}{25}{Hyperparameters and Sensitivity Sweeps}{appendix.J}{}}
-\newlabel{app:r2_hparam_sensitivity}{{A10}{25}{Hyperparameters and Sensitivity Sweeps}{appendix.J}{}}
+\@writefile{toc}{\contentsline {paragraph}{(6) MC-Dropout calibration.}{35}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(7) Per-country temperature / margin scaling (oracle).}{35}{section*.44}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(8) DiffPO-binary.}{35}{section*.45}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Takeaway.}{35}{section*.46}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf  {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline.}}{35}{table.caption.47}\protected@file@percent }
+\newlabel{tab:r2_baselines_filled}{{17}{35}{Phi-4 (14B) per-country head-to-head: DISCA vs.\ three inference-time baselines on the same 20-country test split. Per-country held-out MIS ($\downarrow $, lower is better). \textbf {Bold} cells mark the best of \{DISCA, MC-Dropout, $T_c$, $m_c$\} per country. DiffPO-binary is omitted: as a population-target replay it scores $\approx 0$ MIS by construction (each country's prediction trivially copies the country's human AMCE) and is not a comparable inference-time baseline}{table.caption.47}{}}
 \citation{khanov2024args}
 \citation{khanov2024args}
 \citation{kahneman1979prospect}
 \citation{kahneman1979prospect}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A10.1}Robustness Summary}{26}{subsection.J.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {17}{\ignorespaces Robustness suite. Each test independently probes one assumption behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$. \textbf  {Acronyms:} \textit  {CS-Clamp} = consensus-clamp deterministic shift (apply $\bar  \delta $ directly, no IS); \textit  {ARGS-Unif} = ARGS-style controlled decoding~\citep  {khanov2024args} with uniform reward over personas; \textit  {ARGS-WVS} = same with WVS-weighted reward; \textit  {ARGS-PT} = same with the Prospect-Theory kernel of Eq.~\ref {eq:util_total}.}}{26}{table.caption.41}\protected@file@percent }
-\newlabel{tab:robustness_summary}{{17}{26}{Robustness suite. Each test independently probes one assumption behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$. \textbf {Acronyms:} \textit {CS-Clamp} = consensus-clamp deterministic shift (apply $\bar \delta $ directly, no IS); \textit {ARGS-Unif} = ARGS-style controlled decoding~\citep {khanov2024args} with uniform reward over personas; \textit {ARGS-WVS} = same with WVS-weighted reward; \textit {ARGS-PT} = same with the Prospect-Theory kernel of Eq.~\ref {eq:util_total}}{table.caption.41}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A10.2}Default Hyperparameters and Validation}{26}{subsection.J.2}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces DISCA hyperparameters. Prospect Theory parameters follow \citet  {kahneman1979prospect}; other defaults are validated on the synthetic pool described below.}}{26}{table.caption.42}\protected@file@percent }
-\newlabel{tab:hyperparams}{{18}{26}{DISCA hyperparameters. Prospect Theory parameters follow \citet {kahneman1979prospect}; other defaults are validated on the synthetic pool described below}{table.caption.42}{}}
-\@writefile{toc}{\contentsline {paragraph}{Implementation.}{26}{section*.43}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A11}Hyperparameters and Sensitivity Sweeps}{36}{appendix.K}\protected@file@percent }
+\newlabel{app:robustness_summary}{{A11}{36}{Hyperparameters and Sensitivity Sweeps}{appendix.K}{}}
+\newlabel{app:hyperparams}{{A11}{36}{Hyperparameters and Sensitivity Sweeps}{appendix.K}{}}
+\newlabel{app:temp_sensitivity}{{A11}{36}{Hyperparameters and Sensitivity Sweeps}{appendix.K}{}}
+\newlabel{app:r2_hparam_sensitivity}{{A11}{36}{Hyperparameters and Sensitivity Sweeps}{appendix.K}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A11.1}Robustness Summary}{36}{subsection.K.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {18}{\ignorespaces Robustness suite. Each test independently probes one assumption behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$. \textbf  {Acronyms:} \textit  {CS-Clamp} = consensus-clamp deterministic shift (apply $\bar  \delta $ directly, no IS); \textit  {ARGS-Unif} = ARGS-style controlled decoding~\citep  {khanov2024args} with uniform reward over personas; \textit  {ARGS-WVS} = same with WVS-weighted reward; \textit  {ARGS-PT} = same with the Prospect-Theory kernel of Eq.~\ref {eq:util_total}.}}{36}{table.caption.48}\protected@file@percent }
+\newlabel{tab:robustness_summary}{{18}{36}{Robustness suite. Each test independently probes one assumption behind DISCA; the bootstrap confidence interval on JSD is $\pm 0.004$. \textbf {Acronyms:} \textit {CS-Clamp} = consensus-clamp deterministic shift (apply $\bar \delta $ directly, no IS); \textit {ARGS-Unif} = ARGS-style controlled decoding~\citep {khanov2024args} with uniform reward over personas; \textit {ARGS-WVS} = same with WVS-weighted reward; \textit {ARGS-PT} = same with the Prospect-Theory kernel of Eq.~\ref {eq:util_total}}{table.caption.48}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A11.2}Default Hyperparameters and Validation}{36}{subsection.K.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces DISCA hyperparameters. Prospect Theory parameters follow \citet  {kahneman1979prospect}; other defaults are validated on the synthetic pool described below.}}{36}{table.caption.49}\protected@file@percent }
+\newlabel{tab:hyperparams}{{19}{36}{DISCA hyperparameters. Prospect Theory parameters follow \citet {kahneman1979prospect}; other defaults are validated on the synthetic pool described below}{table.caption.49}{}}
+\@writefile{toc}{\contentsline {paragraph}{Implementation.}{36}{section*.50}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A10.3}Temperature Sensitivity}{27}{subsection.J.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {19}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{27}{table.caption.44}\protected@file@percent }
-\newlabel{tab:temperature_sensitivity}{{19}{27}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.44}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A10.4}Extended Hyperparameter Sensitivity}{27}{subsection.J.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A11.3}Temperature Sensitivity}{37}{subsection.K.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound.}}{37}{table.caption.51}\protected@file@percent }
+\newlabel{tab:temperature_sensitivity}{{20}{37}{Temperature sensitivity. Defaults ($\dagger $) are strictly worse than the best setting in every sweep, providing a conservative lower bound}{table.caption.51}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A11.4}Extended Hyperparameter Sensitivity}{37}{subsection.K.4}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {20}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{28}{table.caption.45}\protected@file@percent }
-\newlabel{tab:r2_hparam_sensitivity}{{20}{28}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.45}{}}
-\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{28}{section*.46}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Persona count, IS budget, and per-category vs.\ global $T_{\text  {cat}}$.}{28}{section*.47}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}}{28}{table.caption.48}\protected@file@percent }
-\newlabel{tab:r3_persona_count}{{21}{28}{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit}{table.caption.48}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces IS-budget sweep ($K_{\text  {half}}$ samples per pass; total per scenario is $K_\text  {total}{=}2 K_\text  {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar  {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies.}}{28}{table.caption.49}\protected@file@percent }
-\newlabel{tab:r3_k_budget}{{22}{28}{IS-budget sweep ($K_{\text {half}}$ samples per pass; total per scenario is $K_\text {total}{=}2 K_\text {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies}{table.caption.49}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {21}{\ignorespaces Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice.}}{38}{table.caption.52}\protected@file@percent }
+\newlabel{tab:r2_hparam_sensitivity}{{21}{38}{Hyperparameter sensitivity ranges on the three-country panel (Phi-4, $n{=}250$/country). Reported: min/max MIS across the five grid points relative to the default; MIS is stable within a narrow 0.0037--0.0090 span on every axis, so the gains in Table~\ref {tab:main_macro_summary} are not the product of a particular hyperparameter choice}{table.caption.52}{}}
+\@writefile{toc}{\contentsline {paragraph}{Why these four axes.}{38}{section*.53}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Persona count, IS budget, and per-category vs.\ global $T_{\text  {cat}}$.}{38}{section*.54}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {22}{\ignorespaces Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit.}}{38}{table.caption.55}\protected@file@percent }
+\newlabel{tab:r3_persona_count}{{22}{38}{Persona-count sweep on the USA/VNM/DEU panel (Phi-4, $n{=}250$/country). The four-persona default minimises macro MIS; larger panels add latency without alignment benefit}{table.caption.55}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces IS-budget sweep ($K_{\text  {half}}$ samples per pass; total per scenario is $K_\text  {total}{=}2 K_\text  {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar  {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies.}}{38}{table.caption.56}\protected@file@percent }
+\newlabel{tab:r3_k_budget}{{23}{38}{IS-budget sweep ($K_{\text {half}}$ samples per pass; total per scenario is $K_\text {total}{=}2 K_\text {half}$). Macro MIS is flat across an order of magnitude. The mean reliability weight $\bar {r}$ (gate column) grows monotonically with $K$, confirming the gate becomes more confident as the IS proposal cloud densifies}{table.caption.56}{}}
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {23}{\ignorespaces Global vs.\ per-category $T_{\text  {cat}}$ on the USA/VNM/DEU panel. The per-category default (decision $4.0$, social $3.5$, non-social $1.5$) outperforms every global value we tested. The gap is small ($\le 0.004$) but uniformly directional, supporting category-specific decision temperatures over a single shared scalar.}}{29}{table.caption.50}\protected@file@percent }
-\newlabel{tab:r3_global_tcat}{{23}{29}{Global vs.\ per-category $T_{\text {cat}}$ on the USA/VNM/DEU panel. The per-category default (decision $4.0$, social $3.5$, non-social $1.5$) outperforms every global value we tested. The gap is small ($\le 0.004$) but uniformly directional, supporting category-specific decision temperatures over a single shared scalar}{table.caption.50}{}}
-\@writefile{toc}{\contentsline {paragraph}{Per-persona utility floor (minority safeguard).}{29}{section*.51}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {24}{\ignorespaces Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter.}}{29}{table.caption.52}\protected@file@percent }
-\newlabel{tab:r2_persona_floor}{{24}{29}{Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter}{table.caption.52}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {A11}Persona Construction Details}{29}{appendix.K}\protected@file@percent }
-\newlabel{app:personas}{{A11}{29}{Persona Construction Details}{appendix.K}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A11.1}Persona Prompts}{29}{subsection.K.1}\protected@file@percent }
-\newlabel{app:examples}{{A11.1}{29}{Persona Prompts}{subsection.K.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {24}{\ignorespaces Global vs.\ per-category $T_{\text  {cat}}$ on the USA/VNM/DEU panel. The per-category default (decision $4.0$, social $3.5$, non-social $1.5$) outperforms every global value we tested. The gap is small ($\le 0.004$) but uniformly directional, supporting category-specific decision temperatures over a single shared scalar.}}{39}{table.caption.57}\protected@file@percent }
+\newlabel{tab:r3_global_tcat}{{24}{39}{Global vs.\ per-category $T_{\text {cat}}$ on the USA/VNM/DEU panel. The per-category default (decision $4.0$, social $3.5$, non-social $1.5$) outperforms every global value we tested. The gap is small ($\le 0.004$) but uniformly directional, supporting category-specific decision temperatures over a single shared scalar}{table.caption.57}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-persona utility floor (minority safeguard).}{39}{section*.58}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {25}{\ignorespaces Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter.}}{39}{table.caption.59}\protected@file@percent }
+\newlabel{tab:r2_persona_floor}{{25}{39}{Per-persona utility floor sweep (USA / VNM / DEU). Macro MIS is flat across two orders of magnitude of the floor parameter}{table.caption.59}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A12}Persona Construction Details}{39}{appendix.L}\protected@file@percent }
+\newlabel{app:personas}{{A12}{39}{Persona Construction Details}{appendix.L}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A12.1}Persona Prompts}{39}{subsection.L.1}\protected@file@percent }
+\newlabel{app:examples}{{A12.1}{39}{Persona Prompts}{subsection.L.1}{}}
 \def\@LN@column{1}
 \citation{greco2026personas}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Aggregate (fourth) persona.}{31}{section*.55}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Faithfulness disclaimer.}{31}{section*.56}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {A11.2}WVS Data Processing Pipeline}{31}{subsection.K.2}\protected@file@percent }
-\newlabel{app:wvs_pipeline}{{A11.2}{31}{WVS Data Processing Pipeline}{subsection.K.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Aggregate (fourth) persona.}{41}{section*.62}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Faithfulness disclaimer.}{41}{section*.63}\protected@file@percent }
 \citation{greco2026personas}
 \citation{greco2026personas}
 \citation{awad2018moral}
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {25}{\ignorespaces The 10 WVS cultural-value dimensions used for persona generation, following \citet  {greco2026personas}. All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole.}}{32}{table.caption.57}\protected@file@percent }
-\newlabel{tab:wvs_thresholds}{{25}{32}{The 10 WVS cultural-value dimensions used for persona generation, following \citet {greco2026personas}. All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole}{table.caption.57}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A11.3}WVS-to-Trolley Dimension Linkage}{32}{subsection.K.3}\protected@file@percent }
-\newlabel{app:wvs_linkage}{{A11.3}{32}{WVS-to-Trolley Dimension Linkage}{subsection.K.3}{}}
-\@writefile{toc}{\contentsline {paragraph}{Direct thematic overlap.}{32}{section*.58}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Indirect modulation.}{32}{section*.59}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {A12.2}WVS Data Processing Pipeline}{42}{subsection.L.2}\protected@file@percent }
+\newlabel{app:wvs_pipeline}{{A12.2}{42}{WVS Data Processing Pipeline}{subsection.L.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {26}{\ignorespaces The 10 WVS cultural-value dimensions used for persona generation, following \citet  {greco2026personas}. All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole.}}{42}{table.caption.64}\protected@file@percent }
+\newlabel{tab:wvs_thresholds}{{26}{42}{The 10 WVS cultural-value dimensions used for persona generation, following \citet {greco2026personas}. All dimensions use uniform quartile cuts on the $[0,1]$-normalised score: $\geq 0.75$ (descriptor 1, strongest positive pole), $\geq 0.50$ (2), $\geq 0.25$ (3), $< 0.25$ (4, strongest negative pole). The ``direction'' column indicates whether higher raw WVS values align with ($+$) or oppose ($-$) the positive pole}{table.caption.64}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A12.3}WVS-to-Trolley Dimension Linkage}{42}{subsection.L.3}\protected@file@percent }
+\newlabel{app:wvs_linkage}{{A12.3}{42}{WVS-to-Trolley Dimension Linkage}{subsection.L.3}{}}
+\@writefile{toc}{\contentsline {paragraph}{Direct thematic overlap.}{42}{section*.65}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Indirect modulation.}{42}{section*.66}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Empirical validation of the WVS$\to $AMCE pathway.}{33}{section*.60}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {26}{\ignorespaces WVS features as predictors of human AMCE dimensions. OLS with standardised predictors. Coefficients are standardised ($\beta $); bold = $|\beta | > 0.3$. $R^2_{\text  {adj}}$ measures how well the 10 WVS cultural dimensions explain each moral preference dimension across the 20-country panel.}}{33}{table.caption.61}\protected@file@percent }
-\newlabel{tab:wvs_amce_regression}{{26}{33}{WVS features as predictors of human AMCE dimensions. OLS with standardised predictors. Coefficients are standardised ($\beta $); bold = $|\beta | > 0.3$. $R^2_{\text {adj}}$ measures how well the 10 WVS cultural dimensions explain each moral preference dimension across the 20-country panel}{table.caption.61}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {27}{\ignorespaces WVS-dim $\times $ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf  {Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to $ MultiTP links).}}{33}{table.caption.62}\protected@file@percent }
-\newlabel{tab:wvs_impact_matrix}{{27}{33}{WVS-dim $\times $ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf {Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to $ MultiTP links)}{table.caption.62}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A11.4}Macro-level WVS dimension importance}{33}{subsection.K.4}\protected@file@percent }
-\newlabel{sec:wvs_dropout}{{A11.4}{33}{Macro-level WVS dimension importance}{subsection.K.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Empirical validation of the WVS$\to $AMCE pathway.}{43}{section*.67}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {27}{\ignorespaces WVS features as predictors of human AMCE dimensions. OLS with standardised predictors. Coefficients are standardised ($\beta $); bold = $|\beta | > 0.3$. $R^2_{\text  {adj}}$ measures how well the 10 WVS cultural dimensions explain each moral preference dimension across the 20-country panel.}}{43}{table.caption.68}\protected@file@percent }
+\newlabel{tab:wvs_amce_regression}{{27}{43}{WVS features as predictors of human AMCE dimensions. OLS with standardised predictors. Coefficients are standardised ($\beta $); bold = $|\beta | > 0.3$. $R^2_{\text {adj}}$ measures how well the 10 WVS cultural dimensions explain each moral preference dimension across the 20-country panel}{table.caption.68}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {28}{\ignorespaces WVS-dim $\times $ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf  {Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to $ MultiTP links).}}{43}{table.caption.69}\protected@file@percent }
+\newlabel{tab:wvs_impact_matrix}{{28}{43}{WVS-dim $\times $ MultiTP-dim causal impact matrix. Cells are the mean increase in per-dim AMCE error (pp) when the WVS dimension is dropped from every persona, macro-averaged across the country panel. \textbf {Bold} cells mark the top-3 largest positive couplings per row (load-bearing WVS $\to $ MultiTP links)}{table.caption.69}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A12.4}Macro-level WVS dimension importance}{43}{subsection.L.4}\protected@file@percent }
+\newlabel{sec:wvs_dropout}{{A12.4}{43}{Macro-level WVS dimension importance}{subsection.L.4}{}}
 \citation{jin2025multitp}
+\def\@LN@column{1}
+\@writefile{lot}{\contentsline {table}{\numberline {29}{\ignorespaces WVS dimension dropout (3-country average; higher $\Delta $MIS means more load-bearing). Dimension names follow the canonical WVS-7 list of Table~\ref {tab:wvs_thresholds} and Table~\ref {tab:wvs_impact_matrix}.}}{44}{table.caption.70}\protected@file@percent }
+\newlabel{tab:wvs_dropout}{{29}{44}{WVS dimension dropout (3-country average; higher $\Delta $MIS means more load-bearing). Dimension names follow the canonical WVS-7 list of Table~\ref {tab:wvs_thresholds} and Table~\ref {tab:wvs_impact_matrix}}{table.caption.70}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {A12.5}Sensitivity to the Fourth Persona}{44}{subsection.L.5}\protected@file@percent }
+\newlabel{app:r2_persona_variant}{{A12.5}{44}{Sensitivity to the Fourth Persona}{subsection.L.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Setup.}{44}{section*.71}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Result.}{44}{section*.72}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Decision.}{44}{section*.73}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A13}AMCE Estimation Details}{44}{appendix.M}\protected@file@percent }
+\newlabel{app:amce}{{A13}{44}{AMCE Estimation Details}{appendix.M}{}}
+\@writefile{toc}{\contentsline {paragraph}{Uniform treatment of all dimensions.}{44}{section*.74}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{44}{section*.75}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Two reporting scales (resolving an apparent contradiction).}{44}{section*.76}\protected@file@percent }
 \citation{awad2018moral}
 \def\@LN@column{1}
-\@writefile{lot}{\contentsline {table}{\numberline {28}{\ignorespaces WVS dimension dropout (3-country average; higher $\Delta $MIS means more load-bearing). Dimension names follow the canonical WVS-7 list of Table~\ref {tab:wvs_thresholds} and Table~\ref {tab:wvs_impact_matrix}.}}{34}{table.caption.63}\protected@file@percent }
-\newlabel{tab:wvs_dropout}{{28}{34}{WVS dimension dropout (3-country average; higher $\Delta $MIS means more load-bearing). Dimension names follow the canonical WVS-7 list of Table~\ref {tab:wvs_thresholds} and Table~\ref {tab:wvs_impact_matrix}}{table.caption.63}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {A11.5}Sensitivity to the Fourth Persona}{34}{subsection.K.5}\protected@file@percent }
-\newlabel{app:r2_persona_variant}{{A11.5}{34}{Sensitivity to the Fourth Persona}{subsection.K.5}{}}
-\@writefile{toc}{\contentsline {paragraph}{Setup.}{34}{section*.64}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Result.}{34}{section*.65}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Decision.}{34}{section*.66}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A12}AMCE Estimation Details}{34}{appendix.L}\protected@file@percent }
-\newlabel{app:amce}{{A12}{34}{AMCE Estimation Details}{appendix.L}{}}
-\@writefile{toc}{\contentsline {paragraph}{Uniform treatment of all dimensions.}{34}{section*.67}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Human AMCE scale.}{34}{section*.68}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Two reporting scales (resolving an apparent contradiction).}{34}{section*.69}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Consistency.}{45}{section*.77}\protected@file@percent }
+\newlabel{app:token_elicitation}{{A13}{45}{Cross-lingual A/B token elicitation}{section*.78}{}}
+\@writefile{toc}{\contentsline {paragraph}{Cross-lingual A/B token elicitation.}{45}{section*.78}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Token verification.}{45}{section*.79}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A14}Dataset Preprocessing and Sensitivity}{45}{appendix.N}\protected@file@percent }
+\newlabel{app:dataset}{{A14}{45}{Dataset Preprocessing and Sensitivity}{appendix.N}{}}
+\newlabel{app:dataset_sens}{{A14}{45}{Dataset Preprocessing and Sensitivity}{appendix.N}{}}
+\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{45}{section*.80}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{45}{section*.81}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{Consistency.}{35}{section*.70}\protected@file@percent }
-\newlabel{app:token_elicitation}{{A12}{35}{Cross-lingual A/B token elicitation}{section*.71}{}}
-\@writefile{toc}{\contentsline {paragraph}{Cross-lingual A/B token elicitation.}{35}{section*.71}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Token verification.}{35}{section*.72}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A13}Dataset Preprocessing and Sensitivity}{35}{appendix.M}\protected@file@percent }
-\newlabel{app:dataset}{{A13}{35}{Dataset Preprocessing and Sensitivity}{appendix.M}{}}
-\newlabel{app:dataset_sens}{{A13}{35}{Dataset Preprocessing and Sensitivity}{appendix.M}{}}
-\@writefile{toc}{\contentsline {paragraph}{Pipeline.}{35}{section*.73}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Reproducible left/right assignment.}{35}{section*.74}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {29}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{35}{table.caption.75}\protected@file@percent }
-\newlabel{tab:dataset_sens}{{29}{35}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.75}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {30}{\ignorespaces Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default.}}{46}{table.caption.82}\protected@file@percent }
+\newlabel{tab:dataset_sens}{{30}{46}{Per-country dataset sensitivity. JSD range = 0.0034 (aggregate) and $<0.010$ in 9/10 countries; the only exception is RUS at $0.013$, driven by augmentation sensitivity in the rare Species/Utilitarianism categories. D0 is retained as default}{table.caption.82}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A15}Trigger Mechanism and Latency}{46}{appendix.O}\protected@file@percent }
+\newlabel{app:trigger}{{A15}{46}{Trigger Mechanism and Latency}{appendix.O}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {31}{\ignorespaces Inference latency benchmark (Phi-4, H100).}}{46}{table.caption.83}\protected@file@percent }
+\newlabel{tab:r2_latency_compact}{{31}{46}{Inference latency benchmark (Phi-4, H100)}{table.caption.83}{}}
+\@writefile{toc}{\contentsline {paragraph}{Cost-vs-quality frontier across backbones.}{46}{section*.84}\protected@file@percent }
 \citation{kim2025persona}
-\def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A14}Trigger Mechanism and Latency}{36}{appendix.N}\protected@file@percent }
-\newlabel{app:trigger}{{A14}{36}{Trigger Mechanism and Latency}{appendix.N}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {30}{\ignorespaces Inference latency benchmark (Phi-4, H100).}}{36}{table.caption.76}\protected@file@percent }
-\newlabel{tab:r2_latency_compact}{{30}{36}{Inference latency benchmark (Phi-4, H100)}{table.caption.76}{}}
-\@writefile{toc}{\contentsline {paragraph}{Cost-vs-quality frontier across backbones.}{36}{section*.77}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Cost-vs-quality frontier on the headline 7 models.} Per-scenario DISCA latency (log scale) vs.\ mean DISCA MIS. Marker size is proportional to parameter count; color encodes $\Delta \mathrm  {MIS}$ (greener = larger DISCA gain). Phi-4 (14B, $\Delta =+0.108$) lies bottom-left: Pareto-dominant over Llama-3.3-70B in both latency and alignment.}}{36}{figure.caption.78}\protected@file@percent }
-\newlabel{fig:latency_vs_mis}{{5}{36}{\textbf {Cost-vs-quality frontier on the headline 7 models.} Per-scenario DISCA latency (log scale) vs.\ mean DISCA MIS. Marker size is proportional to parameter count; color encodes $\Delta \mathrm {MIS}$ (greener = larger DISCA gain). Phi-4 (14B, $\Delta =+0.108$) lies bottom-left: Pareto-dominant over Llama-3.3-70B in both latency and alignment}{figure.caption.78}{}}
 \citation{kim2025persona}
 \citation{kim2025persona}
 \citation{kim2025persona}
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {section}{\numberline {A15}Relationship to Persona-Dependent LLM Alignment}{37}{appendix.O}\protected@file@percent }
-\newlabel{app:kim_comparison}{{A15}{37}{Relationship to Persona-Dependent LLM Alignment}{appendix.O}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {31}{\ignorespaces Comparison between \citet  {kim2025persona} and DISCA.}}{37}{table.caption.79}\protected@file@percent }
-\newlabel{tab:kim_comparison}{{31}{37}{Comparison between \citet {kim2025persona} and DISCA}{table.caption.79}{}}
-\@writefile{toc}{\contentsline {paragraph}{Persona sensitivity motivates disagreement-driven steering.}{37}{section*.80}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{The partisan sorting phenomenon justifies WVS grounding.}{37}{section*.81}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Moral flips validate the reliability gate.}{37}{section*.82}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{From diagnosis to correction.}{37}{section*.83}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {A16}Extended Limitations}{37}{appendix.P}\protected@file@percent }
-\newlabel{app:limitations}{{A16}{37}{Extended Limitations}{appendix.P}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces \textbf  {Cost-vs-quality frontier on the headline 7 models.} Per-scenario DISCA latency (log scale) vs.\ mean DISCA MIS. Marker size is proportional to parameter count; color encodes $\Delta \mathrm  {MIS}$ (greener = larger DISCA gain). Phi-4 (14B, $\Delta =+0.108$) lies bottom-left: Pareto-dominant over Llama-3.3-70B in both latency and alignment.}}{47}{figure.caption.85}\protected@file@percent }
+\newlabel{fig:latency_vs_mis}{{5}{47}{\textbf {Cost-vs-quality frontier on the headline 7 models.} Per-scenario DISCA latency (log scale) vs.\ mean DISCA MIS. Marker size is proportional to parameter count; color encodes $\Delta \mathrm {MIS}$ (greener = larger DISCA gain). Phi-4 (14B, $\Delta =+0.108$) lies bottom-left: Pareto-dominant over Llama-3.3-70B in both latency and alignment}{figure.caption.85}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {A16}Relationship to Persona-Dependent LLM Alignment}{47}{appendix.P}\protected@file@percent }
+\newlabel{app:kim_comparison}{{A16}{47}{Relationship to Persona-Dependent LLM Alignment}{appendix.P}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {32}{\ignorespaces Comparison between \citet  {kim2025persona} and DISCA.}}{47}{table.caption.86}\protected@file@percent }
+\newlabel{tab:kim_comparison}{{32}{47}{Comparison between \citet {kim2025persona} and DISCA}{table.caption.86}{}}
+\@writefile{toc}{\contentsline {paragraph}{Persona sensitivity motivates disagreement-driven steering.}{47}{section*.87}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{The partisan sorting phenomenon justifies WVS grounding.}{47}{section*.88}\protected@file@percent }
 \def\@LN@column{1}
-\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{38}{section*.84}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{38}{section*.85}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and WVS vintage.}{38}{section*.86}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{38}{section*.87}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Moral flips validate the reliability gate.}{48}{section*.89}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{From diagnosis to correction.}{48}{section*.90}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {A17}Extended Limitations}{48}{appendix.Q}\protected@file@percent }
+\newlabel{app:limitations}{{A17}{48}{Extended Limitations}{appendix.Q}{}}
+\@writefile{toc}{\contentsline {paragraph}{WVS-to-trolley linkage.}{48}{section*.91}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Inter-persona reward assumption.}{48}{section*.92}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Geographic coverage, preprocessing, and WVS vintage.}{48}{section*.93}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Model quantisation.}{48}{section*.94}\protected@file@percent }
 \def\@LN@column{1}
 \def\@LN@column{1}
 \def\@LN@column{1}
@@ -418,4 +458,5 @@
 \citation{jin2025multitp}
 \def\@LN@column{1}
 \def\@LN@column{1}
-\gdef \@abspage@last{47}
+\ttl@finishall
+\gdef \@abspage@last{57}
