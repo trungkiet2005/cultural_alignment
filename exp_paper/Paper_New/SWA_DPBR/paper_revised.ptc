@@ -1,0 +1,104 @@
+\contentsline {section}{\numberline {1}Introduction}{1}{section.1}%
+\contentsline {section}{\numberline {2}Related Work}{2}{section.2}%
+\contentsline {paragraph}{Benchmarks and cultural evaluation.}{2}{section*.2}%
+\contentsline {paragraph}{Inference-time alignment.}{3}{section*.3}%
+\contentsline {paragraph}{Distinction from superficially similar paradigms.}{3}{section*.4}%
+\contentsline {section}{\numberline {3}Disagreement-Informed Steering for Cultural Alignment}{3}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Setup}{4}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}The disagreement principle}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}The DISCA estimator}{4}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Loss-averse importance sampling}{5}{subsubsection.3.3.1}%
+\contentsline {subsubsection}{\numberline {3.3.2}Dual-pass reliability gate}{6}{subsubsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.4}Extension to Open-Ended Ethical Scenarios}{6}{subsection.3.4}%
+\contentsline {section}{\numberline {4}Experimental Results}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Main results}{7}{subsection.4.1}%
+\contentsline {paragraph}{Calibration competes with scale}{8}{section*.7}%
+\contentsline {paragraph}{Generalisation beyond binary dilemmas}{8}{section*.8}%
+\contentsline {subsection}{\numberline {4.2}Ablation and Discussion}{8}{subsection.4.2}%
+\contentsline {section}{\numberline {5}Conclusion}{9}{section.5}%
+\ttl@starttoc {appendix@1}
+\contentsline {section}{\numberline {A1}MultiTP Dimensions and DISCA Inference Pseudocode}{16}{appendix.A}%
+\contentsline {section}{\numberline {A2}Proof of Proposition~\ref {prop:shrinkage}}{16}{appendix.B}%
+\contentsline {section}{\numberline {A3}Additional Theoretical Properties of DISCA}{19}{appendix.C}%
+\contentsline {subsection}{\numberline {A3.1}Bounded-correction safety guarantee}{19}{subsection.C.1}%
+\contentsline {paragraph}{Deterministic bound.}{19}{section*.18}%
+\contentsline {paragraph}{High-probability bound.}{19}{section*.19}%
+\contentsline {paragraph}{Relation to the empirical tail-safety result.}{20}{section*.20}%
+\contentsline {subsection}{\numberline {A3.2}Finite-sample concentration of the within-panel variance estimator}{21}{subsection.C.2}%
+\contentsline {paragraph}{Why this motivates the dual-pass gate.}{22}{section*.21}%
+\contentsline {subsection}{\numberline {A3.3}H\"older stability with respect to backbone perturbations}{23}{subsection.C.3}%
+\contentsline {section}{\numberline {A4}Full Per-Country Results}{25}{appendix.D}%
+\contentsline {subsection}{\numberline {A4.1}Full Open-Ended Per-Country Results}{25}{subsection.D.1}%
+\contentsline {paragraph}{Judge LLM and ``SAFE'' nomenclature.}{25}{section*.23}%
+\contentsline {subsection}{\numberline {A4.2}Logit-Noise Robustness}{27}{subsection.D.2}%
+\contentsline {section}{\numberline {A5}Per-Dimension Error Analysis}{28}{appendix.E}%
+\contentsline {subsection}{\numberline {A5.1}Diagnosing negative Pearson $r$}{29}{subsection.E.1}%
+\contentsline {section}{\numberline {A6}Scaling and Geographic Visualizations}{30}{appendix.F}%
+\contentsline {section}{\numberline {A7}Broader Model Landscape}{31}{appendix.G}%
+\contentsline {section}{\numberline {A8}Factual Cultural QA Evaluation (BLEnD)}{31}{appendix.H}%
+\contentsline {paragraph}{Where DISCA transfers.}{31}{section*.33}%
+\contentsline {paragraph}{The value--fact boundary.}{32}{section*.35}%
+\contentsline {section}{\numberline {A9}Post-Hoc Diagnostics}{32}{appendix.I}%
+\contentsline {subsection}{\numberline {A9.1}Multi-seed stability}{32}{subsection.I.1}%
+\contentsline {subsection}{\numberline {A9.2}Step 3 is a tail-safety mechanism}{32}{subsection.I.2}%
+\contentsline {subsection}{\numberline {A9.3}Scenario-level conditioning of the DISCA correction}{33}{subsection.I.3}%
+\contentsline {section}{\numberline {A10}Baseline Implementation Details}{33}{appendix.J}%
+\contentsline {subsection}{\numberline {A10.1}Other training-free baselines (Table~\ref {tab:main_baseline_sanity})}{34}{subsection.J.1}%
+\contentsline {paragraph}{Vanilla decoding.}{34}{section*.38}%
+\contentsline {paragraph}{WVS Profile Prompt.}{34}{section*.39}%
+\contentsline {paragraph}{PRISM-style prompt.}{34}{section*.40}%
+\contentsline {paragraph}{Fixed logit offset.}{34}{section*.41}%
+\contentsline {subsection}{\numberline {A10.2}Activation Steering}{34}{subsection.J.2}%
+\contentsline {paragraph}{Sensitivity analysis and fairness considerations.}{34}{section*.42}%
+\contentsline {subsection}{\numberline {A10.3}ARGS and controlled decoding (relation to our work)}{34}{subsection.J.3}%
+\contentsline {subsection}{\numberline {A10.4}Additional inference-time baselines (twenty-country Phi-4 grid)}{34}{subsection.J.4}%
+\contentsline {paragraph}{(6) MC-Dropout calibration.}{35}{section*.43}%
+\contentsline {paragraph}{(7) Per-country temperature / margin scaling (oracle).}{35}{section*.44}%
+\contentsline {paragraph}{(8) DiffPO-binary.}{35}{section*.45}%
+\contentsline {paragraph}{Takeaway.}{35}{section*.46}%
+\contentsline {section}{\numberline {A11}Hyperparameters and Sensitivity Sweeps}{36}{appendix.K}%
+\contentsline {subsection}{\numberline {A11.1}Robustness Summary}{36}{subsection.K.1}%
+\contentsline {subsection}{\numberline {A11.2}Default Hyperparameters and Validation}{36}{subsection.K.2}%
+\contentsline {paragraph}{Implementation.}{36}{section*.50}%
+\contentsline {subsection}{\numberline {A11.3}Temperature Sensitivity}{37}{subsection.K.3}%
+\contentsline {subsection}{\numberline {A11.4}Extended Hyperparameter Sensitivity}{37}{subsection.K.4}%
+\contentsline {paragraph}{Why these four axes.}{38}{section*.53}%
+\contentsline {paragraph}{Persona count, IS budget, and per-category vs.\ global $T_{\text {cat}}$.}{38}{section*.54}%
+\contentsline {paragraph}{Per-persona utility floor (minority safeguard).}{39}{section*.58}%
+\contentsline {section}{\numberline {A12}Persona Construction Details}{39}{appendix.L}%
+\contentsline {subsection}{\numberline {A12.1}Persona Prompts}{39}{subsection.L.1}%
+\contentsline {paragraph}{Aggregate (fourth) persona.}{41}{section*.62}%
+\contentsline {paragraph}{Faithfulness disclaimer.}{41}{section*.63}%
+\contentsline {subsection}{\numberline {A12.2}WVS Data Processing Pipeline}{42}{subsection.L.2}%
+\contentsline {subsection}{\numberline {A12.3}WVS-to-Trolley Dimension Linkage}{42}{subsection.L.3}%
+\contentsline {paragraph}{Direct thematic overlap.}{42}{section*.65}%
+\contentsline {paragraph}{Indirect modulation.}{42}{section*.66}%
+\contentsline {paragraph}{Empirical validation of the WVS$\to $AMCE pathway.}{43}{section*.67}%
+\contentsline {subsection}{\numberline {A12.4}Macro-level WVS dimension importance}{43}{subsection.L.4}%
+\contentsline {subsection}{\numberline {A12.5}Sensitivity to the Fourth Persona}{44}{subsection.L.5}%
+\contentsline {paragraph}{Setup.}{44}{section*.71}%
+\contentsline {paragraph}{Result.}{44}{section*.72}%
+\contentsline {paragraph}{Decision.}{44}{section*.73}%
+\contentsline {section}{\numberline {A13}AMCE Estimation Details}{44}{appendix.M}%
+\contentsline {paragraph}{Uniform treatment of all dimensions.}{44}{section*.74}%
+\contentsline {paragraph}{Human AMCE scale.}{44}{section*.75}%
+\contentsline {paragraph}{Two reporting scales (resolving an apparent contradiction).}{44}{section*.76}%
+\contentsline {paragraph}{Consistency.}{45}{section*.77}%
+\contentsline {paragraph}{Cross-lingual A/B token elicitation.}{45}{section*.78}%
+\contentsline {paragraph}{Token verification.}{45}{section*.79}%
+\contentsline {section}{\numberline {A14}Dataset Preprocessing and Sensitivity}{45}{appendix.N}%
+\contentsline {paragraph}{Pipeline.}{45}{section*.80}%
+\contentsline {paragraph}{Reproducible left/right assignment.}{45}{section*.81}%
+\contentsline {section}{\numberline {A15}Trigger Mechanism and Latency}{46}{appendix.O}%
+\contentsline {paragraph}{Cost-vs-quality frontier across backbones.}{46}{section*.84}%
+\contentsline {section}{\numberline {A16}Relationship to Persona-Dependent LLM Alignment}{47}{appendix.P}%
+\contentsline {paragraph}{Persona sensitivity motivates disagreement-driven steering.}{47}{section*.87}%
+\contentsline {paragraph}{The partisan sorting phenomenon justifies WVS grounding.}{47}{section*.88}%
+\contentsline {paragraph}{Moral flips validate the reliability gate.}{48}{section*.89}%
+\contentsline {paragraph}{From diagnosis to correction.}{48}{section*.90}%
+\contentsline {section}{\numberline {A17}Extended Limitations}{48}{appendix.Q}%
+\contentsline {paragraph}{WVS-to-trolley linkage.}{48}{section*.91}%
+\contentsline {paragraph}{Inter-persona reward assumption.}{48}{section*.92}%
+\contentsline {paragraph}{Geographic coverage, preprocessing, and WVS vintage.}{48}{section*.93}%
+\contentsline {paragraph}{Model quantisation.}{48}{section*.94}%
+\contentsfinish 
